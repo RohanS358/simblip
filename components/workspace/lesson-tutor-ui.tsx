@@ -118,9 +118,18 @@ export function TutorReplies() {
 export function SectionStrip() {
   const sections = useLesson((s) => s.sections)
   const pageId = useLesson((s) => s.pageId)
+  const ref = useRef<HTMLElement>(null)
+  // The newest section is the one being taught: keep it in view as the strip grows past the board's width.
+  useEffect(() => { ref.current?.lastElementChild?.scrollIntoView({ inline: 'end', block: 'nearest', behavior: 'smooth' }) }, [sections.length])
   if (sections.length < 2 || !pageId) return null
   return (
-    <nav aria-label="Sections of this lesson" className="flex gap-1.5 overflow-x-auto pb-0.5">
+    <nav
+      ref={ref}
+      aria-label="Sections of this lesson"
+      // Scrolls sideways with no scrollbar; the faded edges say "there is more this way" instead of a hard cut.
+      className="no-scrollbar flex gap-1.5 overflow-x-auto px-1 pb-0.5 pr-6"
+      style={{ maskImage: 'linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 28px), transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 28px), transparent 100%)' }}
+    >
       {sections.map((s, i) => {
         const last = i === sections.length - 1
         return (

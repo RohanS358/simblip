@@ -165,68 +165,81 @@ export function LessonPlayer() {
           </div>
         )}
 
-        <div className="glass-strong flex items-center gap-1.5 rounded-2xl border border-border/60 p-2 shadow-2xl">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-8 max-w-[44%] gap-1.5 px-2.5 text-ui-xs font-semibold" title="Chapters">
-                <List className="h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
-                <span className="truncate">{here?.b.text ?? storyboard.title}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-72 w-72 overflow-y-auto">
-              {chapters.map((c) => (
-                <DropdownMenuItem key={c.i} onClick={() => seekLesson(c.i)} className={cn('py-2 text-ui-xs', c === here && 'font-bold text-[var(--accent-blue)]')}>
-                  <span className="truncate">{c.b.text}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <div className="mx-1 h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-accent/60" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index + 1} aria-label={`Lesson progress, about ${mins} minutes long`}>
-            <div className="h-full rounded-full bg-[var(--accent-blue)] transition-[width] duration-300" style={{ width: `${((index + 1) / total) * 100}%` }} />
-          </div>
-
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Previous" onClick={() => seekLesson(index - 1)}><SkipBack className="h-4 w-4" /></Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={paused ? 'Play' : 'Pause'} onClick={() => (paused ? resumeLesson() : pauseLesson())}>
-            {paused ? <Play className="h-4 w-4 fill-current text-[var(--accent-blue)]" /> : <Pause className="h-4 w-4" />}
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Next" onClick={() => seekLesson(index + 1)}><SkipForward className="h-4 w-4" /></Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-8 gap-1 px-2 text-ui-xs font-semibold" title="Speed"><Gauge className="h-3.5 w-3.5 text-[var(--accent-blue)]" />{speed}x</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-24 min-w-0">
-              {SPEEDS.map((s) => <DropdownMenuItem key={s} onClick={() => setSpeed(s)} className={cn('justify-center py-1.5 text-ui-xs', s === speed && 'font-bold text-[var(--accent-blue)]')}>{s}x</DropdownMenuItem>)}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {neural && (
+        <div className="glass-strong flex flex-col gap-1 rounded-2xl border border-border/60 p-2 shadow-2xl">
+          {/* Row 1: where you are. The chapter picker and a progress bar that gets the room it needs. */}
+          <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Choose the teacher's voice"><Mic className="h-4 w-4 text-[var(--accent-blue)]" /></Button>
+                <Button size="sm" variant="ghost" className="h-8 max-w-[55%] shrink-0 gap-1.5 px-2.5 text-ui-xs font-semibold" title="Chapters">
+                  <List className="h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
+                  <span className="truncate">{here?.b.text ?? storyboard.title}</span>
+                </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60">
-                {WOMEN_VOICES.map((v) => (
-                  <DropdownMenuItem
-                    key={v.id}
-                    onClick={() => { setVoice(v.id); void speakNeural("Hi, I'll be your teacher today.", 1).catch(() => {}) }}
-                    className={cn('py-2 text-ui-xs', v.id === voice && 'font-bold text-[var(--accent-blue)]')}
-                  >
-                    {v.label}
+              <DropdownMenuContent align="start" side="top" sideOffset={8} className="z-[130] max-h-72 w-72 overflow-y-auto">
+                {chapters.map((c) => (
+                  <DropdownMenuItem key={c.i} onClick={() => seekLesson(c.i)} className={cn('py-2 text-ui-xs', c === here && 'font-bold text-[var(--accent-blue)]')}>
+                    <span className="truncate">{c.b.text}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={muted ? 'Unmute narration' : 'Mute narration'} onClick={toggleMute}>
-            {muted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-[var(--accent-blue)]" />}
-          </Button>
-          <Button size="sm" variant={tutorMode === 'selecting' ? 'default' : 'ghost'} className="h-8 gap-1 px-2 text-ui-xs font-semibold" title="Circle something on the board and the teacher explains it" onClick={() => useTutor.getState().set({ mode: tutorMode === 'selecting' ? 'idle' : 'selecting' })}>
-            <HelpCircle className="h-4 w-4 text-[var(--accent-blue)]" />Ask
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Study notes — read, print or save as PDF" onClick={() => set({ notesOpen: true })}><FileText className="h-4 w-4" /></Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Type a question for the teacher" onClick={() => void askQuestion(continueLesson)}><MessageCircleQuestion className="h-4 w-4" /></Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive" title="Close lesson" onClick={stopLesson}><X className="h-4 w-4" /></Button>
+            <div className="h-1.5 min-w-12 flex-1 overflow-hidden rounded-full bg-accent/60" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index + 1} aria-label={`Lesson progress, about ${mins} minutes long`}>
+              <div className="h-full rounded-full bg-[var(--accent-blue)] transition-[width] duration-300" style={{ width: `${((index + 1) / total) * 100}%` }} />
+            </div>
+            <span className="shrink-0 pr-1 text-ui-2xs tabular-nums text-muted-foreground">{index + 1}/{total}</span>
+          </div>
+
+          {/* Row 2: what you can do. Transport · help · sound, each group kept together. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <div className="flex items-center">
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Previous" onClick={() => seekLesson(index - 1)}><SkipBack className="h-4 w-4" /></Button>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={paused ? 'Play' : 'Pause'} onClick={() => (paused ? resumeLesson() : pauseLesson())}>
+                {paused ? <Play className="h-4 w-4 fill-current text-[var(--accent-blue)]" /> : <Pause className="h-4 w-4" />}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Next" onClick={() => seekLesson(index + 1)}><SkipForward className="h-4 w-4" /></Button>
+            </div>
+
+            <div className="flex items-center">
+              <Button size="sm" variant={tutorMode === 'selecting' ? 'default' : 'ghost'} className="h-8 gap-1 px-2 text-ui-xs font-semibold" title="Circle something on the board and the teacher explains it" onClick={() => useTutor.getState().set({ mode: tutorMode === 'selecting' ? 'idle' : 'selecting' })}>
+                <HelpCircle className="h-4 w-4 text-[var(--accent-blue)]" />Ask
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Type a question for the teacher" onClick={() => void askQuestion(continueLesson)}><MessageCircleQuestion className="h-4 w-4" /></Button>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Study notes — read, print or save as PDF" onClick={() => set({ notesOpen: true })}><FileText className="h-4 w-4" /></Button>
+            </div>
+
+            <div className="flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-8 gap-1 px-2 text-ui-xs font-semibold" title="Speed"><Gauge className="h-3.5 w-3.5 text-[var(--accent-blue)]" />{speed}x</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="top" sideOffset={8} className="z-[130] w-24 min-w-0">
+                  {SPEEDS.map((s) => <DropdownMenuItem key={s} onClick={() => setSpeed(s)} className={cn('justify-center py-1.5 text-ui-xs', s === speed && 'font-bold text-[var(--accent-blue)]')}>{s}x</DropdownMenuItem>)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {neural && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Choose the teacher's voice"><Mic className="h-4 w-4 text-[var(--accent-blue)]" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top" sideOffset={8} className="z-[130] w-60">
+                    {WOMEN_VOICES.map((v) => (
+                      <DropdownMenuItem
+                        key={v.id}
+                        onClick={() => { setVoice(v.id); void speakNeural("Hi, I'll be your teacher today.", 1).catch(() => {}) }}
+                        className={cn('py-2 text-ui-xs', v.id === voice && 'font-bold text-[var(--accent-blue)]')}
+                      >
+                        {v.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={muted ? 'Unmute narration' : 'Mute narration'} onClick={toggleMute}>
+                {muted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-[var(--accent-blue)]" />}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive" title="Close lesson" onClick={stopLesson}><X className="h-4 w-4" /></Button>
+            </div>
+          </div>
         </div>
       </Anchor>
     </>

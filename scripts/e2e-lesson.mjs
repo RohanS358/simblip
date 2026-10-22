@@ -64,6 +64,14 @@ if (arg('generate', false)) {
 
 const bar = page.getByRole('progressbar', { name: /Lesson progress/ })
 await bar.waitFor({ timeout: 60_000 }); log('✔ lesson overlay appeared'); await shot('1-started')
+if (arg('menu', false)) {
+  await page.waitForTimeout(4000)
+  await page.getByTitle('Speed', { exact: true }).click(); await page.waitForTimeout(500); await shot('menu-speed')
+  const top = await page.evaluate(() => { const m = document.querySelector('[data-slot="dropdown-menu-content"]'); if (!m) return 'no menu'; const r = m.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return m.contains(el) ? 'menu is on top' : 'COVERED by ' + (el?.className?.toString().slice(0, 60) ?? '?') })
+  log('  speed menu: ' + top)
+  await page.keyboard.press('Escape'); await page.getByTitle('Choose the teacher\'s voice').click().catch(() => {}); await page.waitForTimeout(400); await shot('menu-voice')
+  await ctx.close(); process.exit(0)
+}
 await page.waitForTimeout(9000); await shot('2-narrating')
 // What did the director produce? (the film is cached per user in localStorage)
 const film = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => x.startsWith('simblip-lesson-cache')); if (!k) return null; const f = Object.values(JSON.parse(localStorage.getItem(k)).state.films)[0]?.storyboard; return f ? { title: f.title, beats: f.beats.map((b) => b.t) } : null })
@@ -71,7 +79,7 @@ if (film) log(`  film "${film.title}": ${film.beats.length} beats — ` + Object
 await page.waitForTimeout(3000); await shot('2b-early')
 log('  canvas roots: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('[data-canvas-root]')].map((e) => [e.dataset.canvasRoot, Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]))))
 const pred = page.getByRole('group', { name: 'Prediction' })
-await pred.waitFor({ timeout: 180_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
+await pred.waitFor({ timeout: 60_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
 if (arg('hunt', false)) {
   // Play on at 1.5x, answering every prediction, until a formula is being written — then take frames of it.
   await page.getByRole('button', { name: /0\.75x/ }).click(); await page.getByRole('menuitem', { name: '1.5x' }).click({ force: true })
