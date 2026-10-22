@@ -28,6 +28,7 @@ Lanes are aliases in `models.json`: swap the model behind a lane without touchin
 |---|---|---|
 | `qwen3:8b` base + full SimScript prompt | 0% (43% valid) | good for prose and tool calls, not SimScript |
 | `simblip-lite` Q4_K_M (0.6B fine-tune, 397 MB) | 83% | 1.2 s/prompt |
-| `simblip-lite-q8` Q8_0 (640 MB) | **93%** | same as bf16 |
+| `simblip-lite-q8` Q8_0 (640 MB) | **93%** | same as bf16 — serving this |
+| 1.7B fine-tune, bf16 | 93% | no gain on this set; not promoted (see docs/ai/decisions.md) |
 
 Register the fine-tune: copy `simblip-lite-Q8_0.gguf` beside `Modelfile.simblip-lite`, then `ollama create simblip-lite-q8 -f Modelfile.simblip-lite`. Weights are not in git (build: `scripts/ai/train/`, GGUF via `.cache/llama.cpp`).
