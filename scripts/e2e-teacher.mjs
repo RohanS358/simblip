@@ -52,7 +52,7 @@ await bar.waitFor({ timeout: 60_000 })
 const teacher = page.getByRole('img', { name: 'Your teacher' })
 check(await teacher.isVisible(), 'the teacher is on screen beside the board')
 const tb = await teacher.boundingBox()
-check(!!tb && tb.x < 460 && tb.y + tb.height > 600, `she stands at the bottom-left of the visible board (${Math.round(tb?.x)},${Math.round(tb?.y)} ${Math.round(tb?.width)}x${Math.round(tb?.height)})`)
+check(!!tb && tb.x + tb.width > 1100 && tb.y + tb.height > 600, `she stands at the bottom-right of the visible board, facing left (${Math.round(tb?.x)},${Math.round(tb?.y)} ${Math.round(tb?.width)}x${Math.round(tb?.height)})`)
 await page.waitForTimeout(4000); await shot('1-teacher-talking')
 
 // Play on, answering predictions, until a second section opens.
@@ -70,7 +70,7 @@ for (let i = 0; i < 400 && n < 2; i++) {
 }
 check(n >= 2, `older content stays: the board has ${n} sections, each reachable from the strip`)
 const objsBefore = await page.evaluate(() => document.querySelectorAll('[data-object-id], [data-obj]').length)
-await shot('2-sections')
+await shot("2-sections")
 
 // Circle something on the board.
 await page.getByTitle(/Circle something on the board/).click()

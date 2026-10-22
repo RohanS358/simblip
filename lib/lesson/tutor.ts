@@ -107,7 +107,7 @@ function interrupt() {
   bumpRun() // ends the running performance; the board is left exactly as it is
   narrator.stop()
   L().set({ paused: false, pending: null })
-  T().set({ mood: 'thinking' })
+  T().set({ mood: 'thinking', pose: 'think', aim: null })
 }
 
 /** The student circled `region` (screen px) and/or typed a question. Explain it, then offer
@@ -180,7 +180,7 @@ export function abandonTutor() {
 /** Ask how it is going and adapt. `lines` is what was just taught (to say again, differently, if asked). */
 export async function checkIn(lines: string[], alive: () => boolean, why: 'chapter' | 'misses' = 'chapter'): Promise<void> {
   TU().set({ mode: 'checkin' })
-  T().set({ mood: why === 'misses' ? 'concerned' : 'curious', pose: 'open' })
+  T().set({ mood: why === 'misses' ? 'sympathetic' : 'curious', pose: 'palm' })
   await tutorSay(why === 'misses' ? "That one's a tricky one. How are you finding it so far?" : 'How is that going so far?', { pose: 'open' })
   const pick = (await chooseChip(
     [{ id: 'got-it', label: 'Clear' }, { id: 'tough', label: 'A bit tough' }, { id: 'easy', label: 'Too easy' }, { id: 'again', label: 'Say it again' }],
@@ -190,7 +190,7 @@ export async function checkIn(lines: string[], alive: () => boolean, why: 'chapt
   const r = adapt(TU().pace, pick)
   TU().set({ pace: r.pace, missesInRow: 0 })
   useWalkthroughStore.getState().setSpeed(r.pace.speed)
-  T().set({ mood: pick === 'tough' ? 'concerned' : pick === 'easy' ? 'excited' : 'happy' })
+  T().set(pick === 'tough' ? { mood: 'sympathetic', pose: 'open' } : pick === 'easy' ? { mood: 'proud', pose: 'thumb' } : pick === 'again' ? { mood: 'happy', pose: 'open' } : { mood: 'happy', pose: 'thumb' })
   await tutorSay(r.line, { pose: 'open' })
   if (r.reexplain && alive()) {
     TU().set({ mode: 'thinking' })

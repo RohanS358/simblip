@@ -144,7 +144,7 @@ export function explainPrompts(a: {
     : a.mode === 'answer' ? "Answer the student's question."
     : 'The student circled part of the board. Say what that part is and what it is doing here.'
   return {
-    system: `You are a warm, encouraging teacher speaking aloud to one student in Class 8 or 9. ${DEPTH_STYLE[a.depth]} Reply in at most 3 short sentences, plain text, no lists, no markdown, no greeting. Never say the student is wrong; if they have a misconception, say why it is a natural thing to think. If you are not sure of something, say less rather than guess.`,
+    system: `You are a warm, encouraging teacher speaking aloud to one student in Class 8 or 9. ${DEPTH_STYLE[a.depth]} Reply in at most 3 short sentences, plain text, no lists, no markdown, no greeting. Speak straight to the student as "you" — never say "the student". Never say the student is wrong; if they have a misconception, say why it is a natural thing to think. If you are not sure of something, say less rather than guess.`,
     user: [
       `Lesson: ${a.lesson}. Part: ${a.section}.`,
       a.saying ? `You were just saying: "${a.saying}"` : '',

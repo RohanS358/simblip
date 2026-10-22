@@ -6,7 +6,7 @@ import type { Beat, Storyboard } from './storyboard'
 
 export interface Stage {
   /** Narrate + caption; resolves when the line is finished (or its reading time has passed). */
-  say(text: string): Promise<void>
+  say(text: string, instant?: boolean): Promise<void>
   title(text: string, sub?: string, instant?: boolean): Promise<void>
   /** Put a simulation on the board. `clear` opens a NEW SECTION further down the board (the camera
    *  moves to it; the older sections stay for the student to look back at) and stops any running
@@ -35,11 +35,11 @@ export interface Stage {
 }
 
 /** Beats that must be re-applied to reach beat `index` after a seek. The board keeps EVERY section, so
- *  all the chapter names, scenes and equations before the point are rebuilt (instantly), not just the
+ *  all the chapter names, scenes, equations and study-note lines before the point are rebuilt (instantly), not just the
  *  latest scene: seeking forward must not lose the sections the student would have seen on the way. */
 export function catchUp(sb: Storyboard, index: number): Beat[] {
   return sb.beats.slice(0, Math.max(0, Math.min(index, sb.beats.length))).flatMap((b): Beat[] => {
-    if (b.t === 'title' || b.t === 'scene' || b.t === 'equation') return [b]
+    if (b.t === 'title' || b.t === 'scene' || b.t === 'equation' || b.t === 'say') return [b]
     if (b.t === 'predict' && b.demo) return [{ t: 'scene', script: b.demo, clear: true, caption: 'Watch it happen' }]
     return []
   })
@@ -49,7 +49,8 @@ export async function perform(sb: Storyboard, stage: Stage, from = 0, opts: { re
   for (const b of opts.rebuild === false ? [] : catchUp(sb, from)) {
     if (b.t === 'title') await stage.title(b.text, b.sub, true)
     else if (b.t === 'scene') await stage.scene(b.script, b.clear, b.caption, { instant: true, section: b.caption === 'Watch it happen' ? b.caption : undefined })
-    else if (b.t === 'equation') await stage.equation(b.latex, undefined, true)
+    else if (b.t === 'equation') await stage.equation(b.latex, b.text, true)
+    else if (b.t === 'say') await stage.say(b.text, true)
   }
   if (from > 0 && opts.rebuild !== false) await stage.settle?.()
   for (let i = from; i < sb.beats.length; i++) {

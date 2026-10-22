@@ -1,34 +1,45 @@
 'use client'
 
-// The teacher: a drawn character who stands at the bottom-left of the board while a lesson
-// plays. She is not a video and not a GIF — every frame is painted by code. A FrameLoop
-// (lib/frame/loop) eases a handful of numbers (where each hand is, how open the mouth is, the
-// eyebrows, the lean of the head) towards whatever the lesson is doing, and writes them straight
-// onto the SVG's attributes. React renders the figure once; it never re-renders per frame.
+// The teacher: a drawn character who stands at the bottom-right of the board while a lesson
+// plays, facing the board. She is the reference illustration traced into flat SVG layers
+// (teacher-art.ts), with the parts that must move split out — head, working arm, hand — and the
+// face (eyes, brows, mouth) painted by code so it can emote. Every frame is painted by code: a
+// FrameLoop (lib/frame/loop) eases a handful of numbers towards what the lesson is doing and writes
+// them straight onto the SVG's attributes. React renders the figure once; it never re-renders per frame.
 //
 // Her mouth follows the letters being spoken (the caption writes itself out to the voice, and
-// `spoken` says how far it has got), her arm points at the thing she is explaining, and her face
-// shows how the lesson is going: curious when she asks, concerned after a wrong answer.
+// `spoken` says how far it has got), her arm points at the thing she is explaining, her hands
+// gesture (open palm for a question, thumbs-up for a right answer, a shrug, a wave), and her face
+// shows how the lesson is going — curious, delighted, concerned, thoughtful, proud.
 
 import { useEffect, useRef } from 'react'
 import { FrameLoop, damp } from '@/lib/frame/loop'
 import { useLesson } from '@/lib/lesson/store'
 import { useTeacher } from '@/lib/teacher/store'
-import { arm, BOOK_HAND, MOODS, pointTarget, RIGHT_HAND, SHOULDER_L, SHOULDER_R, visemeOf, type Pt } from '@/lib/teacher/rig'
+import { arm, MOODS, POSES, pointTarget, SHOULDER_R, visemeOf, type HandShape, type Pt } from '@/lib/teacher/rig'
+import { ART, type ArtPath } from './teacher-art'
 
-const SKIN = '#F7B286', SKIN_SHADE = '#E89A6C', HAIR = '#141414', PINK = '#EDADD6', PINK_SHADE = '#D58DBC'
-const NAVY = '#143E87', NAVY_DARK = '#0E2D66', BOOK = '#12293A', BOOK_EDGE = '#1d3b52', FRAME = '#3a3a3a'
-const VIEW = { x: -40, w: 560, h: 770 }
+const SKIN = '#F7B286', SKIN_SHADE = '#E58354', PINK = '#EEADD5', INK = '#141414', LIP = '#2a1212', TONGUE = '#e07a7a'
+const VIEW = { x: -40, w: 560, h: 741 }
+const EYE_L: Pt = { x: 213.6, y: 130.4 }, EYE_R: Pt = { x: 246.2, y: 131.2 }
+const BROW_L: Pt = { x: 213.5, y: 120.6 }, BROW_R: Pt = { x: 247, y: 119.6 }
+const MOUTH: Pt = { x: 225.6, y: 157.6 }
+const NECK: Pt = { x: 218, y: 176 }
+const HANDS: HandShape[] = ['fist', 'open', 'point', 'thumb', 'palm']
 
-const lineD = (a: Pt, b: Pt, c?: Pt) => `M${a.x.toFixed(1)},${a.y.toFixed(1)} L${b.x.toFixed(1)},${b.y.toFixed(1)}${c ? ` L${c.x.toFixed(1)},${c.y.toFixed(1)}` : ''}`
+const f1 = (n: number) => n.toFixed(1)
+const lineD = (a: Pt, b: Pt, c?: Pt) => `M${f1(a.x)},${f1(a.y)} L${f1(b.x)},${f1(b.y)}${c ? ` L${f1(c.x)},${f1(c.y)}` : ''}`
+const layer = (paths: ArtPath[]) => paths.map((p) => <path key={p.id} data-art={p.id} fill={p.fill} fillRule="evenodd" d={p.d} />)
 
 /** Everything the painter eases. One number each; written to the DOM, never to React state. */
 interface P {
-  rx: number; ry: number // right hand
-  brow: number; smile: number; tilt: number; eye: number
+  rx: number; ry: number // working hand
+  rest: number // 1 = the traced arm holding the book is showing, 0 = the gesturing arm is
+  browL: number; browR: number; inner: number; smile: number; tilt: number; eye: number; squint: number; blush: number
   mouth: number; blink: number
   gx: number; gy: number
-  nod: number
+  nod: number; lean: number; shrug: number; sway: number
+  hand: Record<HandShape, number>
 }
 
 export function Teacher({ height, className }: { height: number; className?: string }) {
@@ -39,94 +50,118 @@ export function Teacher({ height, className }: { height: number; className?: str
     if (!root) return
     const q = (name: string) => root.querySelector(`[data-r="${name}"]`) as SVGElement | null
     const el = {
-      figure: q('figure'), head: q('head'),
-      armL: q('armL'), sleeveL: q('sleeveL'), handL: q('handL'),
-      armR: q('armR'), sleeveR: q('sleeveR'), handR: q('handR'),
-      book: q('book'),
-      browL: q('browL'), browR: q('browR'),
-      eyeL: q('eyeL'), eyeR: q('eyeR'), pupL: q('pupL'), pupR: q('pupR'),
-      mouth: q('mouth'), blush: q('blush'),
+      upper: q('upper'), head: q('head'), armRest: q('armRest'), armR: q('armR'),
+      upperArm: q('upperArm'), foreArm: q('foreArm'), sleeve: q('sleeve'), hand: q('hand'),
+      browL: q('browL'), browR: q('browR'), eyeL: q('eyeL'), eyeR: q('eyeR'), happyL: q('happyL'), happyR: q('happyR'),
+      mouth: q('mouth'), tongue: q('tongue'), blushL: q('blushL'), blushR: q('blushR'),
     }
-    const p: P = { rx: RIGHT_HAND.read.x, ry: RIGHT_HAND.read.y, brow: 0, smile: 0.35, tilt: 0, eye: 1, mouth: 0.1, blink: 0, gx: 0, gy: 0, nod: 0 }
-    let nextBlink = 1.5, blinkT = -1
+    const shapes = Object.fromEntries(HANDS.map((h) => [h, q(`hand-${h}`)])) as Record<HandShape, SVGElement | null>
+    const p: P = {
+      rx: 298, ry: 246, rest: 1, browL: 0.3, browR: 0.3, inner: 0, smile: 0.35, tilt: 0, eye: 1, squint: 0, blush: 0,
+      mouth: 0.1, blink: 0, gx: 0, gy: 0, nod: 0, lean: 0, shrug: 0, sway: 0,
+      hand: { fist: 1, open: 0, point: 0, thumb: 0, palm: 0 },
+    }
+    let nextBlink = 1.5, blinkT = -1, nextGlance = 2, glanceX = 0, glanceY = 0
     const loop = new FrameLoop({ fps: 60 })
 
     /** Screen point → the figure's own coordinates. */
     const toFigure = (sx: number, sy: number): Pt => {
       const r = root.getBoundingClientRect()
-      return { x: VIEW.x + ((sx - r.left) / r.width) * VIEW.w, y: ((sy - r.top) / r.height) * VIEW.h }
+      // She is mirrored on screen (she stands at the board's right edge, facing left), so screen-x runs backwards.
+      return { x: VIEW.x + (1 - (sx - r.left) / r.width) * VIEW.w, y: ((sy - r.top) / r.height) * VIEW.h }
     }
 
     const paint = ({ t, dt }: { t: number; dt: number }) => {
       const tc = useTeacher.getState()
       const ls = useLesson.getState()
       const face = MOODS[tc.mood]
+      const spec = POSES[tc.pose]
 
-      // ── Where the right hand wants to be
-      let target: Pt
-      if (tc.pose === 'point' && tc.aim) target = pointTarget(SHOULDER_R, toFigure(tc.aim.x, tc.aim.y))
-      else if (tc.pose === 'point') target = RIGHT_HAND.open
-      else if (tc.pose === 'wave') target = { x: RIGHT_HAND.wave.x + Math.sin(t * 9) * 26, y: RIGHT_HAND.wave.y + Math.sin(t * 4.5) * 6 }
-      else if (tc.pose === 'open') target = { x: RIGHT_HAND.open.x, y: RIGHT_HAND.open.y + Math.sin(t * 2.2) * 9 }
-      else target = RIGHT_HAND[tc.pose]
-      p.rx = damp(p.rx, target.x, 0.09, dt)
-      p.ry = damp(p.ry, target.y, 0.09, dt)
+      // ── Where the working hand wants to be, and which hand it is
+      let target: Pt | null = spec.hand
+      if (tc.pose === 'point') target = pointTarget(SHOULDER_R, tc.aim ? toFigure(tc.aim.x, tc.aim.y) : { x: 520, y: 120 })
+      else if (tc.pose === 'wave') target = { x: spec.hand!.x + Math.sin(t * 9) * 26, y: spec.hand!.y + Math.sin(t * 4.5) * 6 }
+      else if (tc.pose === 'celebrate') target = { x: spec.hand!.x + Math.sin(t * 12) * 18, y: spec.hand!.y + Math.abs(Math.sin(t * 6)) * -16 }
+      else if (tc.pose === 'open' || tc.pose === 'palm') target = { x: spec.hand!.x, y: spec.hand!.y + Math.sin(t * 2.2) * 9 }
+      else if (tc.pose === 'shrug') target = { x: spec.hand!.x, y: spec.hand!.y - Math.max(0, Math.sin(t * 3)) * 6 }
+      const resting = target === null
+      p.rest = damp(p.rest, resting ? 1 : 0, 0.08, dt)
+      if (target) { p.rx = damp(p.rx, target.x, 0.09, dt); p.ry = damp(p.ry, target.y, 0.09, dt) }
+      else { p.rx = damp(p.rx, 296, 0.12, dt); p.ry = damp(p.ry, 248, 0.12, dt) }
+      for (const h of HANDS) p.hand[h] = damp(p.hand[h], spec.shape === h ? 1 : 0, 0.05, dt)
 
       // ── Speech: the mouth follows the letter the voice has reached
       const talking = !!ls.caption && ls.spoken < ls.caption.length && ls.spoken > 0 && !ls.paused
       const letter = ls.caption[Math.max(0, ls.spoken - 1)]
       const wantMouth = talking ? Math.max(visemeOf(letter), 0.12) * (0.75 + 0.25 * Math.sin(t * 22)) : 0
-      p.mouth = damp(p.mouth, wantMouth, 0.035, dt)
-      p.nod = damp(p.nod, talking ? Math.sin(t * 5.2) * 1.6 + Math.sin(t * 2.3) * 1.2 : 0, 0.15, dt)
+      p.mouth = damp(p.mouth, Math.max(wantMouth, face.mouthMin * (0.8 + 0.2 * Math.sin(t * 9))), 0.035, dt)
+      const laugh = tc.mood === 'laughing' ? Math.sin(t * 14) * 1.8 : 0
+      p.nod = damp(p.nod, talking ? Math.sin(t * 5.2) * 1.6 + Math.sin(t * 2.3) * 1.2 : laugh, 0.12, dt)
+      p.lean = damp(p.lean, spec.lean + (talking ? 0.25 : 0), 0.25, dt)
+      p.shrug = damp(p.shrug, spec.shrug, 0.1, dt)
+      p.sway = Math.sin(t * 0.7) * 0.35
 
       // ── Face
-      p.brow = damp(p.brow, face.brow, 0.12, dt)
-      p.smile = damp(p.smile, face.smile, 0.15, dt)
-      p.tilt = damp(p.tilt, face.tilt, 0.2, dt)
-      p.eye = damp(p.eye, face.eye, 0.12, dt)
+      p.browL = damp(p.browL, face.browL, 0.1, dt)
+      p.browR = damp(p.browR, face.browR, 0.1, dt)
+      p.inner = damp(p.inner, face.inner, 0.12, dt)
+      p.smile = damp(p.smile, face.smile, 0.13, dt)
+      p.tilt = damp(p.tilt, face.tilt + spec.tilt, 0.18, dt)
+      p.eye = damp(p.eye, face.eye, 0.1, dt)
+      p.squint = damp(p.squint, face.squint, 0.08, dt)
+      p.blush = damp(p.blush, face.blush, 0.2, dt)
       if (t >= nextBlink && blinkT < 0) { blinkT = t; nextBlink = t + 2.4 + Math.random() * 3 }
       p.blink = blinkT >= 0 ? Math.sin(((t - blinkT) / 0.16) * Math.PI) : 0
       if (blinkT >= 0 && t - blinkT > 0.16) blinkT = -1
-      // Eyes drift towards the board (up and right) while she explains, and to what she points at.
-      const gazeX = tc.pose === 'point' && tc.aim ? Math.max(-1, Math.min(1, (toFigure(tc.aim.x, tc.aim.y).x - 230) / 260)) : talking ? 0.5 : 0.15
-      const gazeY = tc.pose === 'point' ? -0.5 : talking ? -0.3 : 0
-      p.gx = damp(p.gx, gazeX, 0.12, dt)
-      p.gy = damp(p.gy, gazeY, 0.12, dt)
+      if (t >= nextGlance) { nextGlance = t + 1.2 + Math.random() * 2.2; glanceX = (Math.random() - 0.5) * 0.7; glanceY = (Math.random() - 0.5) * 0.5 }
+      // Eyes go to the board while she explains, and to whatever she points at.
+      const aimed = tc.pose === 'point' && tc.aim ? Math.max(-1, Math.min(1, (toFigure(tc.aim.x, tc.aim.y).x - 230) / 260)) : null
+      const gazeX = (aimed ?? (talking ? 0.5 : 0.1)) + glanceX * 0.4
+      const gazeY = (tc.pose === 'point' ? -0.45 : tc.mood === 'thinking' ? -0.7 : talking ? -0.25 : 0) + glanceY * 0.4
+      p.gx = damp(p.gx, gazeX, 0.1, dt)
+      p.gy = damp(p.gy, gazeY, 0.1, dt)
 
-      // ── Paint: arms (two-bone IK), book, head, face — straight onto the SVG
-      const breathe = Math.sin(t * 1.7) * 1.6
-      el.figure?.setAttribute('transform', `translate(0 ${breathe.toFixed(2)})`)
-      const L = arm(SHOULDER_L, BOOK_HAND)
+      // ── Paint: body, arm (two-bone IK), hand, head, face — straight onto the SVG
+      const breathe = Math.sin(t * 1.7) * 1.4
+      el.upper?.setAttribute('transform', `translate(${(p.lean * 4).toFixed(2)} ${(breathe - p.shrug * 5).toFixed(2)}) rotate(${p.sway.toFixed(2)} 215 360)`)
+      el.armRest?.setAttribute('opacity', p.rest.toFixed(3))
       const R = arm(SHOULDER_R, { x: p.rx, y: p.ry })
-      const sleeve = (s: Pt, e: Pt) => ({ x: s.x + (e.x - s.x) * 0.62, y: s.y + (e.y - s.y) * 0.62 })
-      el.armL?.setAttribute('d', lineD(SHOULDER_L, L.elbow, L.hand))
-      el.sleeveL?.setAttribute('d', lineD(SHOULDER_L, sleeve(SHOULDER_L, L.elbow)))
-      el.handL?.setAttribute('transform', `translate(${L.hand.x.toFixed(1)} ${L.hand.y.toFixed(1)})`)
-      el.armR?.setAttribute('d', lineD(SHOULDER_R, R.elbow, R.hand))
-      el.sleeveR?.setAttribute('d', lineD(SHOULDER_R, sleeve(SHOULDER_R, R.elbow)))
-      el.handR?.setAttribute('transform', `translate(${R.hand.x.toFixed(1)} ${R.hand.y.toFixed(1)})`)
-      el.book?.setAttribute('transform', `translate(${(L.hand.x + 42).toFixed(1)} ${(L.hand.y - 8).toFixed(1)}) rotate(${(Math.sin(t * 1.3) * 0.6).toFixed(2)})`)
+      const ang = Math.atan2(R.hand.y - R.elbow.y, R.hand.x - R.elbow.x)
+      el.armR?.setAttribute('opacity', (1 - p.rest).toFixed(3))
+      el.upperArm?.setAttribute('d', lineD(SHOULDER_R, R.elbow))
+      el.foreArm?.setAttribute('d', lineD(R.elbow, R.hand))
+      const sl = { x: SHOULDER_R.x + (R.elbow.x - SHOULDER_R.x) * 0.5, y: SHOULDER_R.y + (R.elbow.y - SHOULDER_R.y) * 0.5 }
+      el.sleeve?.setAttribute('d', lineD(SHOULDER_R, sl))
+      el.hand?.setAttribute('transform', `translate(${f1(R.hand.x)} ${f1(R.hand.y)}) rotate(${((ang * 180) / Math.PI).toFixed(1)})`)
+      for (const h of HANDS) shapes[h]?.setAttribute('opacity', p.hand[h].toFixed(3))
 
-      el.head?.setAttribute('transform', `rotate(${(p.tilt + p.nod).toFixed(2)} 218 196) translate(0 ${(p.nod * 0.6).toFixed(2)})`)
-      const bw = p.brow
-      const brow = (cx: number, side: number) => {
-        const y = 108 - bw * 5, tilt = bw < 0 ? -bw * 5 * side : 0 // worried brows slope up in the middle
-        return `M${cx - 13},${(y + tilt).toFixed(1)} Q${cx},${(y - 4 - bw * 2).toFixed(1)} ${cx + 13},${(y - tilt).toFixed(1)}`
+      el.head?.setAttribute('transform', `rotate(${(p.tilt + p.nod).toFixed(2)} ${NECK.x} ${NECK.y}) translate(${(p.lean * 1.5).toFixed(2)} ${(p.nod * 0.5).toFixed(2)})`)
+      // brows: raised or lowered, inner ends pulled up when worried
+      const brow = (c: Pt, raise: number, side: number) => {
+        const y = c.y - raise * 6, lift = p.inner * 4 * side
+        return `M${f1(c.x - 7)},${f1(y - lift * -0.5 + 0.8 + lift)} Q${f1(c.x)},${f1(y - 4 - raise * 1.5)} ${f1(c.x + 7)},${f1(y + 0.8 - lift)}`
       }
-      el.browL?.setAttribute('d', brow(206, 1))
-      el.browR?.setAttribute('d', brow(248, -1))
-      const open = Math.max(0.02, p.eye * (1 - p.blink * 0.95))
-      el.eyeL?.setAttribute('transform', `translate(207 132) scale(1 ${open.toFixed(3)})`)
-      el.eyeR?.setAttribute('transform', `translate(248 132) scale(1 ${open.toFixed(3)})`)
-      el.pupL?.setAttribute('transform', `translate(${(p.gx * 2.6).toFixed(2)} ${(p.gy * 2).toFixed(2)})`)
-      el.pupR?.setAttribute('transform', `translate(${(p.gx * 2.6).toFixed(2)} ${(p.gy * 2).toFixed(2)})`)
-      // Mouth: a smile curve whose lips part by `mouth`
-      const mx = 228, my = 160, w = 12, s = p.smile, o = p.mouth
-      const corner = my - s * 2.2
-      const up = my + s * 4 - o * 1.5, low = my + s * 4 + 1.5 + o * 20
-      el.mouth?.setAttribute('d', `M${mx - w},${corner.toFixed(1)} Q${mx},${up.toFixed(1)} ${mx + w},${corner.toFixed(1)} Q${mx},${low.toFixed(1)} ${mx - w},${corner.toFixed(1)} Z`)
-      el.mouth?.setAttribute('fill', o > 0.07 ? '#8b2c2c' : 'none')
-      el.blush?.setAttribute('opacity', String(Math.max(0, Math.min(0.5, p.smile * 0.45))))
+      el.browL?.setAttribute('d', brow(BROW_L, p.browL, 1))
+      el.browR?.setAttribute('d', brow(BROW_R, p.browR, -1))
+      // eyes: round ovals that blink, widen and look about — or happy crescents when she is delighted
+      const open = Math.max(0.04, p.eye * (1 - p.blink * 0.95))
+      const gx = p.gx * 2.4, gy = p.gy * 1.8
+      const oval = (c: Pt) => `translate(${f1(c.x + gx)} ${f1(c.y + gy)}) scale(1 ${open.toFixed(3)})`
+      el.eyeL?.setAttribute('transform', oval(EYE_L))
+      el.eyeR?.setAttribute('transform', oval(EYE_R))
+      el.eyeL?.setAttribute('opacity', (1 - p.squint).toFixed(3))
+      el.eyeR?.setAttribute('opacity', (1 - p.squint).toFixed(3))
+      el.happyL?.setAttribute('opacity', p.squint.toFixed(3))
+      el.happyR?.setAttribute('opacity', p.squint.toFixed(3))
+      // mouth: a smile whose lips part by `mouth`; a frown when the smile is negative
+      const s = p.smile, o = p.mouth, w = 7 + Math.max(0, s) * 1.6 + o * 1.5
+      const corner = MOUTH.y - s * 1.8, up = MOUTH.y + s * 4.6 - o * 1.2, low = MOUTH.y + s * 4.6 + 1.2 + o * 12
+      el.mouth?.setAttribute('d', `M${f1(MOUTH.x - w)},${f1(corner)} Q${f1(MOUTH.x)},${f1(up)} ${f1(MOUTH.x + w)},${f1(corner)} Q${f1(MOUTH.x)},${f1(low)} ${f1(MOUTH.x - w)},${f1(corner)} Z`)
+      el.mouth?.setAttribute('fill', o > 0.07 ? LIP : 'none')
+      el.tongue?.setAttribute('opacity', Math.max(0, Math.min(1, (o - 0.35) * 2.2)).toFixed(3))
+      el.tongue?.setAttribute('transform', `translate(${f1(MOUTH.x)} ${f1(low - 3.2)})`)
+      el.blushL?.setAttribute('opacity', (p.blush * 0.6).toFixed(3))
+      el.blushR?.setAttribute('opacity', (p.blush * 0.5).toFixed(3))
     }
 
     const off = loop.add(paint)
@@ -143,70 +178,45 @@ export function Teacher({ height, className }: { height: number; className?: str
       className={className}
       role="img"
       aria-label="Your teacher"
-      style={{ overflow: 'visible' }}
+      style={{ overflow: 'visible', transform: 'scaleX(-1)' }}
     >
-      <ellipse cx="205" cy="752" rx="120" ry="12" fill="#000" opacity="0.12" />
-      <g data-r="figure">
-        {/* legs */}
-        <path d="M141,548 L196,552 L190,742 L146,742 Z" fill={SKIN} />
-        <path d="M204,552 L262,546 L258,742 L206,742 Z" fill={SKIN} />
-        <path d="M146,725 L190,725 L190,742 L146,742 Z" fill={SKIN_SHADE} opacity="0.35" />
-        {/* skirt */}
-        <path d="M150,352 L268,352 Q286,450 274,548 Q200,572 126,552 Q128,450 150,352 Z" fill={NAVY} />
-        <path d="M150,352 L268,352 L266,372 L146,372 Z" fill={NAVY_DARK} />
-        {/* torso */}
-        <path d="M104,222 Q128,204 168,198 L256,198 Q292,206 302,244 L296,356 L148,360 Q134,330 116,292 Q100,262 104,222 Z" fill={PINK} />
-        <path d="M296,356 L302,244 Q300,300 280,356 Z" fill={PINK_SHADE} opacity="0.5" />
-        {/* neck + collar */}
-        <path d="M196,176 L240,176 L240,206 Q218,222 196,206 Z" fill={SKIN} />
-        <path d="M176,196 L222,246 L196,200 Z M268,196 L222,246 L252,200 Z" fill="#fff" />
-        <path d="M172,196 L222,250 L270,196 L252,196 L222,232 L190,196 Z" fill="#fff" />
+      <ellipse cx="205" cy="735" rx="118" ry="11" fill="#000" opacity="0.1" />
+      {layer(ART.legs)}
+      {layer(ART.skirt)}
+      <g data-r="upper">
+        {layer(ART.torso)}
+        {layer(ART.book)}
+        {layer(ART.armL)}
+        <g data-r="armRest">{layer(ART.armRest)}</g>
 
-        {/* head */}
+        {/* the working arm: shown while she gestures; the traced arm holding the book takes over at rest */}
+        <g data-r="armR" opacity="0">
+          <path data-r="upperArm" d="M282,234 L300,310" fill="none" stroke={SKIN} strokeWidth="25" strokeLinecap="round" />
+          <path data-r="foreArm" d="M300,310 L296,246" fill="none" stroke={SKIN} strokeWidth="21" strokeLinecap="round" />
+          <path data-r="sleeve" d="M282,234 L291,272" fill="none" stroke={PINK} strokeWidth="31" strokeLinecap="round" />
+          <g data-r="hand" transform="translate(296 246)">
+            <g data-r="hand-fist" fill={SKIN}><circle r="13" /><ellipse cx="3" cy="-11" rx="5" ry="8" /></g>
+            <g data-r="hand-open" fill={SKIN} opacity="0"><circle r="12" /><rect x="6" y="-17" width="21" height="7" rx="3.5" transform="rotate(-24 6 -13)" /><rect x="8" y="-8" width="25" height="7" rx="3.5" transform="rotate(-8 8 -4)" /><rect x="8" y="1" width="25" height="7" rx="3.5" transform="rotate(8 8 4)" /><rect x="6" y="9" width="21" height="7" rx="3.5" transform="rotate(24 6 13)" /><ellipse cx="-3" cy="-13" rx="9" ry="5" transform="rotate(-40 -3 -13)" /></g>
+            <g data-r="hand-point" fill={SKIN} opacity="0"><circle r="11" /><rect x="6" y="-4" width="30" height="8" rx="4" /><circle cx="5" cy="9" r="5" /><circle cx="-1" cy="11" r="5" /></g>
+            <g data-r="hand-thumb" fill={SKIN} opacity="0"><circle r="13" /><rect x="-4" y="-34" width="9" height="26" rx="4.5" transform="rotate(-90 0 0) rotate(90 0 0)" /></g>
+            <g data-r="hand-palm" fill={SKIN} opacity="0"><rect x="-2" y="-14" width="26" height="28" rx="9" /><rect x="22" y="-14" width="14" height="7" rx="3.5" /><rect x="22" y="-6" width="16" height="7" rx="3.5" /><rect x="22" y="2" width="15" height="7" rx="3.5" /><rect x="20" y="10" width="12" height="6" rx="3" /></g>
+          </g>
+        </g>
+
         <g data-r="head">
-          {/* hair behind */}
-          <circle cx="172" cy="68" r="40" fill={HAIR} />
-          <path d="M148,100 Q146,60 190,46 Q250,34 284,80 L278,118 L158,128 Z" fill={HAIR} />
-          {/* ear + face */}
-          <ellipse cx="172" cy="132" rx="9" ry="13" fill={SKIN_SHADE} />
-          <ellipse cx="226" cy="136" rx="46" ry="52" fill={SKIN} />
-          {/* fringe: a straight-cut fringe over the forehead */}
-          <path d="M170,96 Q176,66 214,56 Q262,52 282,84 L282,96 Q250,108 226,100 Q200,112 172,106 Z" fill={HAIR} />
-          <path d="M270,92 Q288,110 280,140 L270,128 Z" fill={HAIR} />
-          {/* brows */}
-          <path data-r="browL" d="M193,108 Q206,104 219,108" fill="none" stroke={HAIR} strokeWidth="3" strokeLinecap="round" />
-          <path data-r="browR" d="M235,108 Q248,104 261,108" fill="none" stroke={HAIR} strokeWidth="3" strokeLinecap="round" />
-          {/* eyes */}
-          <g data-r="eyeL" transform="translate(207 132)"><ellipse rx="6.5" ry="7.5" fill="#fff" /><g data-r="pupL"><circle r="4" fill="#2a1a12" /><circle cx="1.4" cy="-1.6" r="1.2" fill="#fff" /></g></g>
-          <g data-r="eyeR" transform="translate(248 132)"><ellipse rx="6.5" ry="7.5" fill="#fff" /><g data-r="pupR"><circle r="4" fill="#2a1a12" /><circle cx="1.4" cy="-1.6" r="1.2" fill="#fff" /></g></g>
-          {/* glasses */}
-          <circle cx="207" cy="132" r="17" fill="#fff" fillOpacity="0.12" stroke={FRAME} strokeWidth="3.2" />
-          <circle cx="248" cy="132" r="17" fill="#fff" fillOpacity="0.12" stroke={FRAME} strokeWidth="3.2" />
-          <path d="M224,130 Q227.5,126 231,130" fill="none" stroke={FRAME} strokeWidth="3" />
-          <path d="M190,128 L176,124 M265,128 L279,124" stroke={FRAME} strokeWidth="3" strokeLinecap="round" />
-          {/* nose, cheeks, mouth */}
-          <path d="M228,142 Q231,150 226,152" fill="none" stroke={SKIN_SHADE} strokeWidth="2" strokeLinecap="round" />
-          <ellipse data-r="blush" cx="196" cy="156" rx="9" ry="5" fill="#ff8a8a" opacity="0.2" />
-          <ellipse cx="258" cy="156" rx="9" ry="5" fill="#ff8a8a" opacity="0.15" />
-          <path data-r="mouth" d="M216,160 Q228,166 240,160 Q228,162 216,160 Z" fill="none" stroke="#6a1f1f" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+          {layer(ART.head)}
+          {/* her face, painted by code: cheeks, eyes (ovals, or crescents when delighted), brows, mouth */}
+          <ellipse data-r="blushL" cx="203" cy="147" rx="8" ry="5" fill="#ff7a7a" opacity="0" />
+          <ellipse data-r="blushR" cx="248" cy="148" rx="8" ry="5" fill="#ff7a7a" opacity="0" />
+          <g data-r="eyeL" transform="translate(213.6 130.4)"><ellipse rx="4.2" ry="5.8" fill={INK} /></g>
+          <g data-r="eyeR" transform="translate(246.2 131.2)"><ellipse rx="4.2" ry="5.8" fill={INK} /></g>
+          <path data-r="happyL" d="M207,133 Q213.6,124 220,133" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" opacity="0" />
+          <path data-r="happyR" d="M239.6,134 Q246.2,125 252.8,134" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" opacity="0" />
+          <path data-r="browL" d="M206.5,121 Q213.5,116 220.5,121" fill="none" stroke={INK} strokeWidth="2.6" strokeLinecap="round" />
+          <path data-r="browR" d="M240,120 Q247,115 254,120" fill="none" stroke={INK} strokeWidth="2.6" strokeLinecap="round" />
+          <path data-r="mouth" d="M218.6,157.6 Q225.6,161 232.6,157.6 Q225.6,159 218.6,157.6 Z" fill="none" stroke={INK} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+          <ellipse data-r="tongue" rx="4.5" ry="2.6" fill={TONGUE} opacity="0" />
         </g>
-
-        {/* the book she teaches from */}
-        <g data-r="book" transform="translate(250 294)">
-          <rect x="-58" y="-62" width="116" height="124" rx="5" fill={BOOK} />
-          <rect x="-58" y="-62" width="16" height="124" rx="5" fill={BOOK_EDGE} />
-          <rect x="52" y="-58" width="9" height="116" rx="2" fill="#cfd3d6" />
-          <rect x="-40" y="-40" width="62" height="5" rx="2.5" fill="#2c4d66" />
-          <rect x="-40" y="-26" width="46" height="5" rx="2.5" fill="#2c4d66" />
-        </g>
-
-        {/* arms, in front of the book */}
-        <path data-r="armL" d="M122,236 L110,320 L208,302" fill="none" stroke={SKIN} strokeWidth="23" strokeLinecap="round" strokeLinejoin="round" />
-        <path data-r="sleeveL" d="M122,236 L114,290" fill="none" stroke={PINK} strokeWidth="27" strokeLinecap="round" />
-        <g data-r="handL" transform="translate(208 302)"><circle r="14" fill={SKIN} /></g>
-        <path data-r="armR" d="M282,236 L292,320 L300,240" fill="none" stroke={SKIN} strokeWidth="23" strokeLinecap="round" strokeLinejoin="round" />
-        <path data-r="sleeveR" d="M282,236 L288,290" fill="none" stroke={PINK} strokeWidth="27" strokeLinecap="round" />
-        <g data-r="handR" transform="translate(300 240)"><circle r="14" fill={SKIN} /></g>
       </g>
     </svg>
   )

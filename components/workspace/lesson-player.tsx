@@ -24,6 +24,10 @@ import { CircleToAsk, ExplainRing, SectionStrip, TutorReplies } from './lesson-t
 const SPEEDS = [0.75, 1, 1.25, 1.5]
 /** The floating tool dock sits along the bottom of the canvas; the lesson controls ride above it. */
 const DOCK_CLEARANCE = 76
+/** She stands at the board's bottom-right, facing left towards the board; lifted clear of the zoom control. */
+const TEACHER_LIFT = 40
+const teacherHeight = (r: { height: number }) => Math.max(150, Math.min(280, r.height * 0.38))
+const teacherWidth = (r: { height: number }) => (teacherHeight(r) * 560) / 770 * 0.62
 
 interface Rect { left: number; top: number; width: number; height: number }
 
@@ -46,8 +50,10 @@ function useCanvasRect(): Rect | null {
 
 /** Bottom-centre of the canvas (or of the window when there is no canvas, e.g. a doc page). */
 function Anchor({ rect, children, className }: { rect: Rect | null; children: ReactNode; className?: string }) {
+  // The caption and controls sit in the space left of the teacher, centred there.
+  const room = rect ? rect.width - (rect.width > 760 ? teacherWidth(rect) + 24 : 0) : 0
   const style: CSSProperties = rect
-    ? { left: rect.left + rect.width / 2, bottom: window.innerHeight - (rect.top + rect.height) + DOCK_CLEARANCE, width: Math.min(640, rect.width - 32) }
+    ? { left: rect.left + room / 2, bottom: window.innerHeight - (rect.top + rect.height) + DOCK_CLEARANCE, width: Math.min(640, room - 32) }
     : { left: '50%', bottom: 24, width: 'min(640px, calc(100vw - 32px))' }
   return <div style={style} className={cn('pointer-events-auto fixed z-[105] flex -translate-x-1/2 flex-col gap-2.5', className)}>{children}</div>
 }
@@ -118,8 +124,8 @@ export function LessonPlayer() {
       <CircleToAsk rect={rect} />
       <ExplainRing />
       {rect && (
-        <div className="pointer-events-none fixed z-[103]" style={{ left: rect.left + 6, bottom: window.innerHeight - (rect.top + rect.height) + 6 }}>
-          <Teacher height={Math.max(150, Math.min(280, rect.height * 0.38))} />
+        <div className="pointer-events-none fixed z-[103]" style={{ right: window.innerWidth - (rect.left + rect.width) + 8, bottom: window.innerHeight - (rect.top + rect.height) + TEACHER_LIFT }}>
+          <Teacher height={teacherHeight(rect)} />
         </div>
       )}
 

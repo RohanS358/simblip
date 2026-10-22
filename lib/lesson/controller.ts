@@ -27,7 +27,11 @@ async function playFrom(sb: Storyboard, pageId: string, from: number, rebuild = 
   }
   s.set({ active: true, storyboard: sb, pageId, index: from, paused: false, pending: null, chosen: null, card: null })
   const result = await perform(sb, makeStage(sb, pageId, myRun, from), from, { rebuild })
-  if (result === 'done' && useLesson.getState().storyboard === sb) useLesson.getState().set({ caption: 'That is the lesson. Replay it, or try the questions yourself.', pending: null })
+  if (result === 'done' && useLesson.getState().storyboard === sb) {
+    useLesson.getState().set({ caption: 'That is the lesson. Everything we covered is on the board, section by section — scroll back through it to revise.', pending: null })
+    useTeacher.getState().set({ mood: 'laughing', pose: 'celebrate' })
+    setTimeout(() => useTeacher.getState().set({ mood: 'proud', pose: 'read' }), 3200)
+  }
 }
 
 export const startLesson = (sb: Storyboard, pageId: string) => {

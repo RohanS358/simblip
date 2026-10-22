@@ -10,6 +10,9 @@ export interface Section {
   ids: string[]
   /** Storyboard beat that opened it. */
   beat: number
+  /** The "Key points" block beside it, and what it says so far. */
+  notes?: string
+  bullets?: string[]
 }
 
 export interface Box { x: number; y: number; w: number; h: number }
@@ -42,4 +45,27 @@ export function sectionAt(sections: Section[], beat: number): Section | null {
 export function sectionTitle(beats: { t: string; text?: string }[], beat: number, n: number): string {
   for (let i = Math.min(beat, beats.length - 1); i >= 0; i--) if (beats[i].t === 'title' && beats[i].text) return beats[i].text as string
   return `Part ${n}`
+}
+
+// ── study notes ─────────────────────────────────────────────────────────────
+// Each section carries a "Key points" block on the board, written as the teacher speaks: one bullet
+// per thing she says, so when the lesson ends the board reads like a set of slides a student can
+// revise from. Pure text — the stage writes it into a text object.
+
+/** The study-note form of a spoken line: its first sentence, kept short. null = not worth a bullet. */
+export function bulletFor(spoken: string): string | null {
+  const first = spoken.replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/)[0] ?? ''
+  if (first.length < 24) return null
+  if (/^(let'?s|now|so|okay|ok|watch|look|press|try|here)\b/i.test(first) && first.length < 48) return null
+  return first.length > 150 ? first.slice(0, first.lastIndexOf(' ', 147)) + '…' : first
+}
+
+/** The block's markdown: a heading and the bullets. */
+export const notesMarkdown = (bullets: string[]): string => `**Key points**\n\n${bullets.map((b) => `- ${b}`).join('\n')}`
+
+/** Height of the notes block for `width` px of text (about 52 characters a line at that width). */
+export function notesHeight(bullets: string[], width = 400): number {
+  const perLine = Math.max(24, Math.floor(width / 7.6))
+  const lines = bullets.reduce((n, b) => n + Math.ceil((b.length + 2) / perLine), 0)
+  return Math.round(64 + lines * 25 + bullets.length * 9)
 }
