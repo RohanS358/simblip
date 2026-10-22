@@ -57,11 +57,11 @@ import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/
 import { matchCustomSketch } from '@/lib/sketch/custom'
 import { peekInkChars, peekSketchNet } from '@/lib/sketch/sketchnet'
 import type { Box } from '@/lib/sketch/neural-pick'
-import { connectedInk, readSketch, unionBox, type ReadFailure, type ReadResult } from '@/lib/sketch/read-sketch'
+import { connectedInk, unionBox, type ReadFailure, type ReadResult } from '@/lib/sketch/read-sketch'
+import { readSketchAsync } from '@/lib/sketch/read-client'
 import { checkSimulates, failureFromBuild, failureFromCompile, type StepFailure } from '@/lib/sketch/pipeline'
 import { DoneChip, ReadFailureCard } from './sketch-assist'
 import { MechGhostOverlay, MechGhostPanel } from './mech-ghost'
-import { extractMechanics } from '@/lib/sketch/mech'
 import { compileMechGhost, editMechLink, editMechPart, mechInkToReplace, mechOrigin, type MechEdit, type MechGhost } from '@/lib/sketch/mech-ghost'
 import { verifyScene } from '@/lib/scene/verify-scene'
 import { traceRays } from '@/lib/optics/engine'
@@ -446,12 +446,15 @@ const THREE_FINGER_PX = 60
 const propsOpenedForRef = { current: null as string | null }
 const HOLD_STILL_PX = 6
 /** Console trace of the drawing → recognition path; on with localStorage 'simblip-debug-sketch'. */
-function sketchLog(...a: unknown[]): void {
+function sketchTracing(): boolean {
   try {
-    if (localStorage.getItem('simblip-debug-sketch')) console.info('[sketch]', ...a)
+    return !!localStorage.getItem('simblip-debug-sketch')
   } catch {
-    /* storage unavailable: no trace */
+    return false
   }
+}
+function sketchLog(...a: unknown[]): void {
+  if (sketchTracing()) console.info('[sketch]', ...a)
 }
 /** Minimum time the "Reading your sketch…" state stays up, so it is seen as a step. */
 const READ_MIN_MS = 350
@@ -1344,6 +1347,8 @@ export function InfiniteCanvas({
   // holding the pen still) reads that sketch.
   const [pending, setPending] = useState<{ pageId: string; seedId: string; box: Box; pointerType: string } | null>(null)
   const [reading, setReading] = useState(false)
+  // which read is the latest, so a slow older one cannot overwrite a newer one's result
+  const readToken = useRef(0)
   const [readFailure, setReadFailure] = useState<{ failure: ReadFailure; box: Box; pageId: string; seedId: string; pointerType: string } | null>(null)
   // Recognised symbol awaiting the user's confirm / correction (neural setting on).
   const [ghost, setGhost] = useState<Ghost | null>(null)
@@ -1353,6 +1358,8 @@ export function InfiniteCanvas({
   const [circuitHover, setCircuitHover] = useState<string | null>(null)
   // Mechanics preview (ground, ramps, blocks, balls, springs, ropes, arrows)
   const [mechGhost, setMechGhost] = useState<MechGhost | null>(null)
+  // True while a sketch preview, failure card or Done chip owns Escape (it closes itself; the page must not also switch tools)
+  const sketchOverlayOpen = useRef(false)
   const [mechError, setMechError] = useState<StepFailure | null>(null)
   const [mechHover, setMechHover] = useState<string | null>(null)
   useEffect(() => {
@@ -1391,7 +1398,6 @@ export function InfiniteCanvas({
   const sketchOps = useRef<{
     noteStroke: (pid: string, id: string, pointerType: string) => void
     startRead: (pid: string, id: string, pointerType: string) => void
-    runRead: (pid: string, id: string) => ReadResult
     show: (res: ReadResult, pid: string, id: string, pointerType: string) => void
   } | null>(null)
   useEffect(() => {
@@ -1405,22 +1411,6 @@ export function InfiniteCanvas({
     const boxAround = (pid: string, id: string): Box => {
       const cluster = connectedInk(plainOf(pid), id)
       return cluster.length ? unionBox(cluster) : { x0: 0, y0: 0, x1: 0, y1: 0 }
-    }
-    const runRead = (pid: string, id: string): ReadResult => {
-      try {
-        const res = readSketch(pid, plainOf(pid), id, peekSketchNet(), peekInkChars() ?? undefined)
-        if (res.kind !== 'mechanics') {
-          // what the mechanics reader made of the same ink, so a "not recognised" can be told from "not mechanics"
-          const mc = connectedInk(plainOf(pid), id, 200)
-          const mr = extractMechanics(mc)
-          sketchLog(`mechanics view of ${mc.length} strokes (page has ${plainOf(pid).length}):`, mr.parts.map((p) => `${p.cls}@${p.conf.toFixed(2)}`).join(' ') || 'nothing', `links ${mr.edges.length}`, `ignored ${mr.ignoredIds.length}`, 'gaps', mr.gaps.length, JSON.stringify(mr.stats))
-        }
-        sketchLog('read:', res.kind, res.kind === 'fail' ? res.failure.reason : res.kind === 'symbol' ? `${res.pick.cls} ${res.pick.p.toFixed(2)}` : res.kind === 'mechanics' ? `${res.ghost.domain}: ${res.ghost.ir.nodes.length} parts, ${res.ghost.ir.edges.length} links` : `${res.ghost.result.parts.length} parts`)
-        return res
-      } catch (e) {
-        sketchLog('read threw', e)
-        return { kind: 'fail', failure: { reason: 'error', message: `The recogniser hit an error: ${e instanceof Error ? e.message : String(e)}` } }
-      }
     }
     const show = (res: ReadResult, pid: string, id: string, pointerType: string) => {
       if (res.kind === 'mechanics') {
@@ -1455,25 +1445,27 @@ export function InfiniteCanvas({
       }
     }
     sketchOps.current = {
-      runRead,
       show,
       noteStroke: (pid, id, pointerType) => {
         setReadFailure(null)
         setPending({ pageId: pid, seedId: id, box: boxAround(pid, id), pointerType })
       },
       startRead: (pid, id, pointerType) => {
+        const mine = ++readToken.current
         setReading(true)
         setReadFailure(null)
         const t0 = performance.now()
-        // Let the "Reading…" state paint before the (synchronous) read starts. A timeout, not
-        // requestAnimationFrame: rAF never fires while the page is not being painted.
-        window.setTimeout(() => {
-          const res = runRead(pid, id)
+        // The read runs in a worker, so the page (and the spinner) keep going while it works.
+        const strokes = plainOf(pid)
+        void readSketchAsync(pid, strokes, id).then((res) => {
+          sketchLog(`read in ${Math.round(performance.now() - t0)} ms:`, res.kind, res.kind === 'fail' ? res.failure.reason : res.kind === 'symbol' ? `${res.pick.cls} ${res.pick.p.toFixed(2)}` : res.kind === 'mechanics' ? `${res.ghost.domain}: ${res.ghost.ir.nodes.length} parts` : `${res.ghost.result.parts.length} parts`)
+          // keep "Reading…" up long enough to be seen as a step
           window.setTimeout(() => {
+            if (mine !== readToken.current) return // a newer read took over
             show(res, pid, id, pointerType)
             setReading(false)
           }, Math.max(0, READ_MIN_MS - (performance.now() - t0)))
-        }, 40)
+        })
       },
     }
     // Debug hook (only with the trace flag on): window.__sketch.read(i) reads the sketch around the
@@ -1500,6 +1492,7 @@ export function InfiniteCanvas({
   }, [])
   // True when there is not `need` px of screen below the sketch (the dock sits at the bottom).
   const belowRoom = (box: Box, need: number) => box.y1 * viewport.zoom + viewport.y + need > (typeof window === 'undefined' ? 800 : window.innerHeight) - 90
+  sketchOverlayOpen.current = !!(ghost || circuitGhost || mechGhost || readFailure || (pending && tool === 'pen' && pen.neuralSketch !== false))
   const pendingAlive = useDocStore((s) => (pending ? !!s.pages[pending.pageId]?.objects[pending.seedId] : false))
   useEffect(() => {
     setPending(null)
@@ -2280,6 +2273,7 @@ export function InfiniteCanvas({
         return
       }
       if (e.key === 'Escape') {
+        if (sketchOverlayOpen.current) return
         store.setSelection([])
         store.setTool('select')
         return
@@ -3412,30 +3406,12 @@ export function InfiniteCanvas({
             recentInkRef.current = [...recentInkRef.current.slice(-19), { id: obj.id, t: performance.now() }]
           }
           // Neural setting on. A plain stroke is NOT read as it is drawn: a "Done drawing" chip
-          // appears beside it. Holding the pen still is the shortcut for the same thing; if the
-          // hold finds nothing, it still does what it always did — a taught symbol, then a clean
-          // shape — and only otherwise says why it found nothing.
+          // appears beside it, and the read starts only when the person presses it.
           if (neuralOn && obj.geometry.kind === 'stroke' && obj.behaviors.length === 0 && sketchOps.current) {
             const ops = sketchOps.current
-            if (!held) {
-              ops.noteStroke(pageId, obj.id, e.pointerType)
-            } else {
-              const res = ops.runRead(pageId, obj.id)
-              if (res.kind !== 'fail') {
-                ops.show(res, pageId, obj.id, e.pointerType)
-              } else {
-                const taught = taughtPart()
-                const replacement = taught ?? (rec.kind !== 'stroke' ? fromRecognition(rec) : null)
-                if (replacement) {
-                  replacement.z = obj.z
-                  store.removeObjects(pageId, [obj.id])
-                  store.addObject(pageId, replacement)
-                  obj = replacement
-                } else {
-                  ops.show(res, pageId, obj.id, e.pointerType)
-                }
-              }
-            }
+            // Reading starts only from "Done drawing" (chip, Enter or its button): never while the pen is
+            // still being used, and never as a side effect of pausing.
+            ops.noteStroke(pageId, obj.id, e.pointerType)
           }
           if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) touchNoteAnchor(attachInkToNote(pageId, obj.id))
           // Plain ink stays unselected (it's writing); only strokes that

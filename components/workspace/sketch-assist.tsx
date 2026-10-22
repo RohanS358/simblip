@@ -47,7 +47,9 @@ export function DoneChip({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return
-      if (e.key === 'Enter' && !reading) { e.preventDefault(); onDone() }
+      // Enter on a focused button or link presses THAT control, not Done
+      const onControl = (e.target as HTMLElement | null)?.closest?.('button, a, [role="button"]')
+      if (e.key === 'Enter' && !reading && !onControl) { e.preventDefault(); onDone() }
       if (e.key === 'Escape') { e.preventDefault(); onHide() }
     }
     window.addEventListener('keydown', onKey)
@@ -115,7 +117,7 @@ export function ReadFailureCard({
   }, [onKeepDrawing])
 
   const canChoose = failure.reason === 'unrecognised'
-  const title = failure.reason === 'not-loaded' ? 'Recogniser still loading' : failure.reason === 'no-ink' ? 'Nothing to read' : failure.reason === 'error' ? 'Reading failed' : failure.reason === 'not-connected' ? "Couldn't connect these parts" : failure.reason === 'unsupported' ? "Can't build this yet" : "Couldn't recognise this sketch"
+  const title = failure.reason === 'not-loaded' ? (/download/i.test(failure.message) ? 'Recogniser unavailable' : 'Recogniser still loading') : failure.reason === 'no-ink' ? 'Nothing to read' : failure.reason === 'error' ? 'Reading failed' : failure.reason === 'not-connected' ? "Couldn't connect these parts" : failure.reason === 'unsupported' ? "Can't build this yet" : "Couldn't recognise this sketch"
 
   return (
     <div

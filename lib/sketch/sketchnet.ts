@@ -209,7 +209,19 @@ export function createSketchNet(manifest: SketchNetManifest, weights: ArrayBuffe
     return { cls: linear(t, T['cls.w'], T['cls.b'], nCls), pose: linear(z, T['pose.w'], T['pose.b'], nPose) }
   }
 
+  // Reading a drawing asks about the same stroke groups again and again (once per scale tried), so
+  // the answer for a set of strokes is kept. Keyed by the points themselves; bounded.
+  const memo = new Map<string, SketchPrediction>()
   const predict: SketchNet['predict'] = (strokes) => {
+    const key = strokes.map((st) => st.map((p) => `${p[0]},${p[1]},${p[2] ?? ''}`).join(';')).join('|')
+    const hit = memo.get(key)
+    if (hit) return hit
+    const res = predictFresh(strokes)
+    if (memo.size >= 1024) memo.delete(memo.keys().next().value as string)
+    memo.set(key, res)
+    return res
+  }
+  const predictFresh: SketchNet['predict'] = (strokes) => {
     const { img, seq } = preprocess(strokes)
     const out = forward(img, seq)
     const p = softmax(out.cls)
@@ -234,11 +246,15 @@ const CHAR_MODEL = 'inkchars-v1'
 interface Slot {
   loading: Promise<SketchNet | null> | null
   ready: SketchNet | null
+  /** When the last attempt failed (ms), so a later call retries instead of caching the failure forever. */
+  failedAt: number
 }
+/** After a failed download, wait this long before trying again (callers like peek run on every pointer-up). */
+export const MODEL_RETRY_MS = 3000
 const slots = new Map<string, Slot>()
 const slotFor = (name: string): Slot => {
   let s = slots.get(name)
-  if (!s) slots.set(name, (s = { loading: null, ready: null }))
+  if (!s) slots.set(name, (s = { loading: null, ready: null, failedAt: 0 }))
   return s
 }
 
@@ -247,19 +263,36 @@ const slotFor = (name: string): Slot => {
  * the files are missing or incompatible, so callers simply fall back to doing
  * without it (the older recogniser; or typing a value by hand).
  */
-export function loadModel(name: string, base = '/models'): Promise<SketchNet | null> {
+export function loadModel(name: string, base = '/models', now: () => number = Date.now): Promise<SketchNet | null> {
   const slot = slotFor(name)
+  // a failed attempt is forgotten once the cooldown passes, so "try again" can actually succeed
+  if (slot.loading && !slot.ready && slot.failedAt && now() - slot.failedAt >= MODEL_RETRY_MS) {
+    slot.loading = null
+    slot.failedAt = 0
+  }
   slot.loading ??= (async () => {
     try {
       const [m, w] = await Promise.all([fetch(`${base}/${name}.json`), fetch(`${base}/${name}.bin`)])
-      if (!m.ok || !w.ok) return null
+      if (!m.ok || !w.ok) throw new Error(`HTTP ${m.status}/${w.status}`)
       slot.ready = createSketchNet((await m.json()) as SketchNetManifest, await w.arrayBuffer())
       return slot.ready
     } catch {
+      slot.failedAt = now()
       return null
     }
   })()
   return slot.loading
+}
+
+/** True when the last attempt to load this model failed (and it is not loaded). For honest messages. */
+export const modelFailed = (name: string): boolean => {
+  const s = slots.get(name)
+  return !!s && !s.ready && s.failedAt > 0
+}
+
+/** Forget a model's state (tests). */
+export const resetModel = (name: string): void => {
+  slots.delete(name)
 }
 
 /** The network if it has finished loading, else null — and starts loading it.
@@ -272,7 +305,10 @@ const peek = (name: string): SketchNet | null => {
 
 /** The symbol network (see peek). */
 export const peekSketchNet = (): SketchNet | null => peek(MODEL)
+/** Did the symbol network fail to download? (so "still loading" is not said when it never will load) */
+export const sketchNetFailed = (): boolean => modelFailed(MODEL)
 /** The handwritten-character network that reads values like "10k"; null until loaded or if absent. */
 export const peekInkChars = (): SketchNet | null => peek(CHAR_MODEL)
 
 export const loadSketchNet = (base = '/models'): Promise<SketchNet | null> => loadModel(MODEL, base)
+export const loadInkChars = (base = '/models'): Promise<SketchNet | null> => loadModel(CHAR_MODEL, base)

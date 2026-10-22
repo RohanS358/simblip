@@ -252,9 +252,9 @@ export function PenSettings() {
 
       <PrefRow
         label="Neural symbol recogniser (experimental)"
-        detail="Hold the pen after drawing a circuit symbol and a small neural network names it. Trained on generated strokes only; not yet checked against real handwriting, so it falls back to the older matcher when unsure."
-        checked={!!pen.neuralSketch}
-        onChange={() => setPen({ neuralSketch: !pen.neuralSketch })}
+        detail="Draw a circuit, a mechanics or an optics sketch, then press Done drawing (or Enter): a small neural network reads it and shows a preview you can correct before it becomes live. Trained on generated strokes only; not yet checked against real handwriting. Off: holding the pen after a stroke converts it instantly with the older matcher."
+        checked={pen.neuralSketch !== false}
+        onChange={() => setPen({ neuralSketch: pen.neuralSketch === false })}
       />
 
       {pen.neuralSketch !== false && <SavedCorrections />}
