@@ -21,7 +21,7 @@ import { checkIn } from './tutor'
 import { useTutor } from './tutor-store'
 import { shouldCheckIn } from './tutor-core'
 import { FRAME_BOTTOM, frameObjects } from './camera'
-import { boxOf, COLUMN_GAP, CONTENT_W, contentOrigin, diagramOrigin, layoutOf, buildSummary, glossaryMarkdown, summaryMarkdown, bulletFor, definitionFrom, nextOrigin, notesHeight, notesMarkdown, sectionTitle, type Section } from './sections'
+import { boxOf, COLUMN_GAP, CONTENT_W, contentOrigin, SLIDE_W, TITLE_H, diagramOrigin, layoutOf, buildSummary, glossaryMarkdown, summaryMarkdown, bulletFor, definitionFrom, nextOrigin, notesHeight, notesMarkdown, sectionTitle, type Section } from './sections'
 import type { Stage } from './player'
 import type { Storyboard } from './storyboard'
 
@@ -33,7 +33,6 @@ export const bumpRun = () => ++run
 export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 0): Stage {
   const L = () => useLesson.getState()
   const pageObjects = () => Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
-  let eqCount = 0
   const alive = () => run === myRun && L().active
   /** Caption + voice together: the caption writes itself out as the line is spoken. */
   const T = () => useTeacher.getState()
@@ -86,6 +85,39 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   const moveBy = (ids: string[], dx: number, dy: number) => {
     for (const o of objectsOf(ids)) useDocStore.getState().updateObject(pageId, o.id, { position: { x: o.position.x + dx, y: o.position.y + dy } }, { history: false })
   }
+  /** Open a section that has no picture of its own yet (a formula arriving before any scene): just its heading. */
+  const openSection = async (o: { layout: 'split' | 'full' }) => {
+    const n = sections().length + 1
+    const title = lastTitle || sectionTitle(sb.beats, L().index, n)
+    const at = nextOrigin(pageObjects(), { x: safeBounds(pageId).left + 40, y: safeBounds(pageId).top + 40 })
+    const before = new Set(pageObjects().map((x) => x.id))
+    await sceneAdd.run({ component: 'text', text: `## ${n} · ${title.length > 56 ? title.slice(0, 55) + '…' : title}`, x: at.x, y: at.y }, { pageId })
+    const ids = pageObjects().filter((x) => !before.has(x.id)).map((x) => x.id)
+    L().set({ sections: [...sections(), { id: `s${n}`, title, ids, beat: L().index, layout: o.layout }] })
+  }
+  /** Lay out the content column of the newest section: the key points on top, the formula card
+   *  beneath them. In a full-width section there is no column, so the formulas sit under the diagram. */
+  const layoutContent = () => {
+    const cur = current()
+    if (!cur) return
+    const heading = objectsOf(cur.ids.slice(0, 1))[0]
+    const notes = cur.notes ? objectsOf([cur.notes])[0] : undefined
+    const card = cur.formulaBox ? objectsOf([cur.formulaBox])[0] : undefined
+    if (!heading || !card) return
+    const lines = Math.max(1, (cur.formulas ?? []).length)
+    const h = 36 + lines * 64
+    let x: number, y: number
+    if (cur.layout === 'full') {
+      const pic = boxOf(objectsOf(cur.ids.slice(1).filter((id) => id !== cur.notes && id !== cur.formulaBox)))
+      x = (pic ? pic.x + pic.w / 2 : heading.position.x + SLIDE_W / 2) - CONTENT_W / 2
+      y = (pic ? pic.y + pic.h : heading.position.y + TITLE_H) + 28
+    } else {
+      const at = contentOrigin(heading.position)
+      x = at.x
+      y = notes ? notes.position.y + notes.size.h + 28 : at.y
+    }
+    useDocStore.getState().updateObject(pageId, card.id, { position: { x, y }, size: { w: CONTENT_W, h } }, { history: false })
+  }
   /** Record study notes for the current section — a key point, a word defined, a formula, a question and
    *  its answer — and keep its "Key points" block on the board (created beside the picture the first
    *  time) in step, so the board reads like slides when the lesson is over. */
@@ -95,7 +127,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     const bullet = n.bullet ?? (n.say ? bulletFor(n.say) : null)
     const def = n.say ? n.say.split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/).map(definitionFrom).find(Boolean) ?? null : null
     const bullets = [...(cur.bullets ?? [])]
-    if (bullet && !bullets.includes(bullet) && bullets.length < 8) bullets.push(bullet)
+    if (bullet && !bullets.includes(bullet) && bullets.length < 6) bullets.push(bullet)
     const definitions = [...(cur.definitions ?? [])]
     if (def && !definitions.some((d) => d.term === def.term) && definitions.length < 5) definitions.push(def)
     const formulas = n.formula && !(cur.formulas ?? []).some((f) => f.latex === n.formula!.latex) ? [...(cur.formulas ?? []), n.formula] : cur.formulas
@@ -115,6 +147,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       useDocStore.getState().updateObject(pageId, notes, { size: { w: 400, h: notesHeight(bullets, 400, definitions) } }, { history: false })
     }
     L().set({ sections: sections().map((s) => (s.id === cur.id ? { ...s, bullets, definitions, formulas, checks, notes, ids: notes && !s.ids.includes(notes) ? [...s.ids, notes] : s.ids } : s)) })
+    layoutContent() // the formulas sit under the points, wherever those have grown to
   }
   /** One note at a time: two concurrent notes would each find no block yet and each create one. */
   let noteQueue: Promise<void> = Promise.resolve()
@@ -196,7 +229,6 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
         }
         const made = pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id)
         L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, beat: L().index, layout }] })
-        eqCount = 0
       } else {
         place(pageId, script, { reserveBottom: FRAME_BOTTOM })
         addToSection(pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id))
@@ -208,27 +240,39 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       await drawIn(pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id))
     },
     async equation(latex, text, instant) {
-      const box = boxOf(objectsOf(bodyIds()))
-      const before = new Set(pageObjects().map((o) => o.id))
-      await sceneAdd.run({ component: 'formula', text: latex, x: box ? box.x + box.w / 2 - 160 : (safeBounds(pageId).left + safeBounds(pageId).right) / 2 - 160, y: belowScene() + eqCount * 8 }, { pageId })
-      eqCount++
-      const made = pageObjects().find((o) => !before.has(o.id))
-      if (made) addToSection([made.id])
-      void note({ formula: { latex, text }, say: text })
+      // Formulas never float free: the section's ONE formula card, on the content side, takes each as a new line.
+      if (!current()) await openSection({ layout: 'split' })
+      await note({ formula: { latex, text }, say: text })
+      const cur = current()!
+      const lines = (cur.formulas ?? []).map((f) => f.latex)
+      const index = Math.max(0, lines.indexOf(latex))
+      let cardId = cur.formulaBox
+      if (!cardId) {
+        const heading = objectsOf(cur.ids.slice(0, 1))[0]
+        const at = heading ? contentOrigin(heading.position) : { x: safeBounds(pageId).left + 40, y: safeBounds(pageId).top + 100 }
+        const before = new Set(pageObjects().map((o) => o.id))
+        await sceneAdd.run({ component: 'formula', text: lines.join('\n'), x: at.x, y: at.y }, { pageId })
+        cardId = pageObjects().find((o) => !before.has(o.id))?.id
+        if (!cardId) return
+        L().set({ sections: sections().map((s) => (s.id === cur.id ? { ...s, formulaBox: cardId, ids: [...s.ids, cardId!] } : s)) })
+      } else {
+        useDocStore.getState().setStringParam(pageId, cardId, 'latex', lines.join('\n'))
+      }
+      layoutContent()
       if (instant) return
       void frame()
-      // Written out left to right while it is explained: the formula takes about as long to
-      // write as the explanation takes to say, so the two arrive together.
+      // Written out while it is explained: the new line takes about as long to write as the
+      // explanation takes to say, so the two arrive together.
       const spokenMs = text ? ((text.split(' ').length / 150) * 60 * 1000) / Math.max(0.5, useWalkthroughStore.getState().speed) : 0
-      const writeMs = Math.round(Math.min(4500, Math.max(1400, spokenMs * 0.8, latex.length * 70)) / Math.max(0.5, useWalkthroughStore.getState().speed))
-      if (made) useDocStore.getState().updateObject(pageId, made.id, { parameters: { ...made.parameters, writeMs: num(writeMs) } }, { history: false })
-      if (text) await Promise.all([pointAndSay(made?.id ?? null, text), sleep(writeMs)])
+      const writeMs = Math.round(Math.min(3600, Math.max(1100, spokenMs * 0.7, latex.length * 60)) / Math.max(0.5, useWalkthroughStore.getState().speed))
+      const card = () => useDocStore.getState().pages[pageId]?.objects[cardId!]
+      if (card()) useDocStore.getState().updateObject(pageId, cardId, { parameters: { ...card()!.parameters, writeMs: num(writeMs), writeLine: num(index) } }, { history: false })
+      if (text) await Promise.all([pointAndSay(cardId, text), sleep(writeMs)])
       else await sleep(writeMs + 400)
-      if (made && useDocStore.getState().pages[pageId]?.objects[made.id]) {
-        const cur = useDocStore.getState().pages[pageId].objects[made.id]
-        const { writeMs: _done, ...rest } = cur.parameters // leave a clean formula behind
-        void _done
-        useDocStore.getState().updateObject(pageId, made.id, { parameters: rest }, { history: false })
+      if (card()) {
+        const { writeMs: _a, writeLine: _b, ...rest } = card()!.parameters // leave a clean card behind
+        void _a; void _b
+        useDocStore.getState().updateObject(pageId, cardId, { parameters: rest }, { history: false })
       }
     },
     async run(seconds) {
@@ -330,9 +374,14 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
         push(await mk('text', glossaryMarkdown(sum), at.x, y, gh))
         y += gh
       }
-      // the formulas, in a column beside the points
-      let fy = at.y + 64
-      for (const f of sum.formulas.slice(0, 6)) { push(await mk('formula', f.latex, at.x + CONTENT_W + COLUMN_GAP, fy)); fy += 112 }
+      // every formula, in one card at the foot of the content column
+      if (sum.formulas.length) {
+        const shown = sum.formulas.slice(0, 8)
+        const before = new Set(pageObjects().map((o) => o.id))
+        await sceneAdd.run({ component: 'formula', text: shown.map((f) => f.latex).join('\n'), x: at.x, y: y + 12 }, { pageId })
+        const id = pageObjects().find((o) => !before.has(o.id))?.id
+        if (id) { useDocStore.getState().updateObject(pageId, id, { size: { w: CONTENT_W, h: 36 + shown.length * 64 } }, { history: false }); ids.push(id) }
+      }
       L().set({ sections: [...sections(), { id: `s${n}`, title: 'Summary', ids, beat: sb.beats.length, summary: true, layout: 'split' }] })
       void frame()
       T().set({ mood: 'proud', pose: 'open' })

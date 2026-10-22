@@ -21,6 +21,8 @@ export interface Section {
   checks?: { q: string; a: string }[]
   /** The closing summary section (never itself summarised). */
   summary?: boolean
+  /** The one formula card holding every formula taught here, one per line. */
+  formulaBox?: string
   /** How the section is laid out: title, then content beside a diagram ('split'), or title and a full-width diagram ('full'). */
   layout?: 'split' | 'full'
 }
@@ -159,7 +161,7 @@ export function studyMarkdown(title: string, sections: Section[]): string {
 //           DIAGRAM on the right
 //   full    the TITLE across the top; below it the DIAGRAM, centred, across the whole width
 //
-// A section with something to read gets `split`; one that is only a picture gets `full`.
+// A section with something to read — or a formula to write — gets `split`; one that is only a picture gets `full`.
 
 export type Layout = 'split' | 'full'
 /** Width of the slide the layouts are drawn on. */
@@ -170,13 +172,15 @@ export const COLUMN_GAP = 40
 /** Space the title takes before the body starts. */
 export const TITLE_H = 64
 
-/** Which layout a section gets: split when the beats that follow its scene (until the next section
- *  opens) have anything to read — narration, a pointed-at part, a formula explained, an animated sweep. */
+/** Which layout a section gets: split when the beats that follow its scene (until the next scene
+ *  opens a section) have anything to read — narration, a pointed-at part, a formula explained, an animated sweep. */
 export function layoutOf(beats: { t: string; text?: string; clear?: boolean }[], sceneBeat: number): Layout {
   for (let i = sceneBeat + 1; i < beats.length; i++) {
     const b = beats[i]
-    if (b.t === 'title' || (b.t === 'scene' && b.clear !== false)) break
-    if (b.t === 'say' || (b.t !== 'run' && b.t !== 'scene' && !!b.text)) return 'split'
+    // A chapter card does not end the section: a chapter that only talks (and writes formulas) over the
+    // picture already on the board belongs to that picture's section. Only a new scene starts another.
+    if (b.t === 'scene' && b.clear !== false) break
+    if (b.t === 'say' || b.t === 'equation' || (b.t !== 'run' && b.t !== 'scene' && b.t !== 'title' && !!b.text)) return 'split'
   }
   return 'full'
 }

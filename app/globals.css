@@ -1827,16 +1827,12 @@ html[data-keyboard='open'] .hide-with-keyboard {
 }
 
 
-/* Lesson player: a formula is written out left to right in step with the voice. The pen is the
-   bright edge that leads the wipe. Duration comes from the object's `writeMs` parameter. */
+/* Lesson player: a formula is written onto the board — it fades up and is revealed left to right
+   while it is explained. Duration comes from the object's `writeMs` parameter. */
 @keyframes formula-write {
-  from { clip-path: inset(-4px 100% -4px -4px); }
-  to { clip-path: inset(-4px -4px -4px -4px); }
-}
-@keyframes formula-pen {
-  from { left: 0; opacity: 1; }
-  92% { opacity: 1; }
-  to { left: 100%; opacity: 0; }
+  from { clip-path: inset(-6px 100% -6px -6px); opacity: 0; transform: translateY(6px); }
+  35% { opacity: 1; }
+  to { clip-path: inset(-6px -6px -6px -6px); opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .formula-writing, .formula-writing::after { animation: none !important; }

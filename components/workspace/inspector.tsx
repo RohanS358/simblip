@@ -1231,7 +1231,7 @@ function FormulaOptions({ pageId, object }: { pageId: string; object: SceneObjec
   const latex = getStr(object, 'latex')
   const solution = getStr(object, 'solution')
 
-  const parsed = useMemo(() => parseFormula(latex), [latex])
+  const parsed = useMemo(() => parseFormula(latex.split('\n')[0] ?? ''), [latex])
   const boundedVars = parsed ? parsed.vars.filter((v) => parsed.bounds[v]) : []
 
   const solve = (kind: 'd' | 'i' | 'ii' | 'L' | 'F', v?: string) => {

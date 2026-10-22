@@ -7,7 +7,12 @@ A lesson is taught by a drawn teacher, on a board that never loses what has been
 Every section is written in one of two arrangements (`layoutOf`, `diagramOrigin` in `sections.ts`):
 **split** — title across the top, content (key points, words) on the left, diagram on the right; or
 **full** — title across the top, the diagram centred across the whole width. A section with anything to read
-(narration, a pointed-at part, a formula explained) is split; a bare picture is full. Formulas go under the diagram.
+(narration, a pointed-at part, a formula to write) is split; a bare picture is full. A chapter that only talks over the
+picture already on the board belongs to that picture's section.
+
+**Formulas** live on the content side, in ONE formula card per section under the key points — each new formula is
+added as another line and is written in (fade + left-to-right reveal) while she explains it. A formula card holds any
+number of formulas, one per line (double-click to edit; Enter starts a new line, Ctrl/Cmd+Enter finishes).
 
 ## Sections, not scenes (`lib/lesson/sections.ts`, `camera.ts`, `stage.ts`)
 
