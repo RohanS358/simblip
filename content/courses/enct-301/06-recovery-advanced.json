@@ -1,14 +1,14 @@
 {
   "title": "Recovery, distributed databases and NoSQL",
   "kicker": "ENCT 301 · Database Management System · Chapters 8–9",
-  "subtitle": "What to do when the power fails mid-transaction — and what changes when data lives on many machines.",
+  "subtitle": "What to do when the power fails mid-transaction, and what changes when data lives on many machines.",
   "sections": [
     {
       "id": "fail",
       "locator": "8.1",
       "title": "Failures",
       "eyebrow": "What can break",
-      "body": "<p>Transaction failure (a logical error, or deadlock-abort), system crash (memory lost, disk intact) and disk failure (data lost). Recovery must restore atomicity and durability: undo the partial work of uncommitted transactions and redo committed work that had not reached disk.</p>",
+      "body": "<p>Things break, and a database has to survive them, as you should expect. There are three kinds of failure to plan for. A transaction failure (a logical error, or deadlock-abort). A system crash (memory lost, disk intact). And a disk failure (data lost).</p><p>After any of them, recovery must restore atomicity and durability: undo the partial work of uncommitted transactions and redo committed work that had not reached disk. After a crash, committed changes that were only in memory must be redone.</p>",
       "questions": [
         {
           "id": "crash",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Failures are transaction failure (a logical error or deadlock-abort), system crash (memory lost, disk intact) and disk failure (data lost).",
+        "Recovery must restore atomicity and durability.",
+        "Undo the partial work of uncommitted transactions and redo committed work that had not reached disk."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "8.2",
       "title": "Log-based recovery",
       "eyebrow": "Write-ahead logging",
-      "body": "<p>The <em class=\"term\">log</em> records every change as <code>&lt;T, item, old value, new value&gt;</code> plus <code>&lt;T start&gt;</code>, <code>&lt;T commit&gt;</code>. The <em class=\"term\">write-ahead rule</em>: the log record reaches stable storage <em>before</em> the changed data page. After a crash: <b>redo</b> every transaction with a commit record; <b>undo</b> every transaction that started but did not commit, using old values. A <em class=\"term\">checkpoint</em> limits how far back the log must be scanned.</p>",
+      "body": "<p>The trick of recovery is a diary that you keep before anything else happens. The <em class=\"term\">log</em> records every change as <code>&lt;T, item, old value, new value&gt;</code> plus <code>&lt;T start&gt;</code> and <code>&lt;T commit&gt;</code>. And the <em class=\"term\">write-ahead rule</em> says the log record reaches stable storage <em>before</em> the changed data page. The log goes first; the page can wait, as the figure says.</p><p>After a crash: <b>redo</b> every transaction with a commit record and <b>undo</b> every transaction that started but did not commit, using old values. A <em class=\"term\">checkpoint</em> limits how far back the log must be scanned. Try one: the log shows &lt;T1 start&gt;, &lt;T1, A, 50, 70&gt;, &lt;T1 commit&gt;, &lt;T2 start&gt;, &lt;T2, B, 10, 99&gt;, with no T2 commit. T1 committed, so redo: A = 70. T2 did not commit, so undo: B = 10. Write-ahead logging means the log is written to stable storage before the data page.</p>",
       "worked": [
         {
           "toc": "Log",
@@ -106,6 +111,12 @@
           "prompt": "<p>Why must the log record be written before the data page?</p>",
           "answer": "If the page reached disk first and the system crashed, the database would contain a change with no record of its old value, making it impossible to undo for an uncommitted transaction."
         }
+      ],
+      "keynotes": [
+        "The log records every change as <T, item, old value, new value> plus start and commit records.",
+        "The write-ahead rule: the log record reaches stable storage before the changed data page.",
+        "After a crash redo every committed transaction and undo every uncommitted one using old values; a checkpoint limits how far back the log is scanned.",
+        "In the example A = 70 is redone for the committed T1 and B = 10 is undone for T2."
       ]
     },
     {
@@ -113,7 +124,7 @@
       "locator": "8.3",
       "title": "Shadow paging and remote backup",
       "eyebrow": "Alternatives",
-      "body": "<p><em class=\"term\">Shadow paging</em> keeps two page tables: the current one (modified) and the shadow (untouched). Commit atomically switches the pointer to the current table; a crash simply keeps the old one, so no log is needed — but copying pages fragments storage. For disasters, <em class=\"term\">remote backup</em> ships the log to a standby site for high availability.</p>",
+      "body": "<p>Is there a way for you to recover without a log? Yes, with a clever copy-on-write idea. <em class=\"term\">Shadow paging</em> keeps two page tables: the current one (modified) and the shadow (untouched). Commit atomically switches the pointer to the current table; a crash simply keeps the old one, so no log is needed. The price is that copying pages fragments storage.</p><p>For disasters, <em class=\"term\">remote backup</em> ships the log to a standby site for high availability. What makes shadow paging atomic? The single pointer switch at commit.</p>",
       "questions": [
         {
           "id": "shadow",
@@ -145,6 +156,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Shadow paging keeps two page tables, the current (modified) and the shadow (untouched).",
+        "Commit atomically switches the pointer to the current table; a crash keeps the old one, so no log is needed, but copying pages fragments storage.",
+        "Remote backup ships the log to a standby site for high availability."
       ]
     },
     {
@@ -152,7 +168,7 @@
       "locator": "9.1",
       "title": "Object-oriented and distributed databases",
       "eyebrow": "Beyond tables",
-      "body": "<p>Object databases store objects with identity, inheritance and methods directly. A <em class=\"term\">distributed database</em> spreads data over sites: <em class=\"term\">fragmentation</em> splits a table by rows or columns, <em class=\"term\">replication</em> keeps copies for speed and availability. Transactions across sites use <em class=\"term\">two-phase commit</em>: the coordinator asks all participants to prepare (vote), and only if every one says yes does it tell them to commit.</p>",
+      "body": "<p>What if your data is too big or too important for one machine? Spread it across sites. Object databases store objects with identity, inheritance and methods directly. A <em class=\"term\">distributed database</em> spreads data over sites: <em class=\"term\">fragmentation</em> splits a table by rows or columns, and <em class=\"term\">replication</em> keeps copies for speed and availability.</p><p>The hard part is agreeing. Transactions across sites use <em class=\"term\">two-phase commit</em>: the coordinator asks all participants to prepare (vote), and only if every one says yes does it tell them to commit. Phase 1 is the vote; phase 2 is the decision. The coordinator decides to commit only when all participants vote yes.</p>",
       "questions": [
         {
           "id": "2pc",
@@ -192,6 +208,11 @@
           "note": "Phase 1: vote. Phase 2: decide.",
           "script": "diagram(\"mode: sequence\\n[Coordinator] as c\\n[Site 1] as a\\n[Site 2] as b\\nc -> a : PREPARE\\nc -> b : PREPARE\\na --> c : VOTE YES\\nb --> c : VOTE YES\\nc -> a : COMMIT\\nc -> b : COMMIT\\na --> c : ACK\\nb --> c : ACK\");"
         }
+      ],
+      "keynotes": [
+        "A distributed database spreads data over sites: fragmentation splits a table by rows or columns, and replication keeps copies for speed and availability.",
+        "Two-phase commit: the coordinator asks all participants to prepare (vote) and only if every one says yes does it tell them to commit.",
+        "Object databases store objects with identity, inheritance and methods directly."
       ]
     },
     {
@@ -199,7 +220,7 @@
       "locator": "9.2",
       "title": "Data warehousing and OLAP",
       "eyebrow": "Analysis",
-      "body": "<p>OLTP systems handle many small transactions; a <em class=\"term\">data warehouse</em> collects historical data from many sources (via ETL: extract, transform, load) for analysis. <em class=\"term\">OLAP</em> views data as a cube of dimensions (time, product, region) and measures (sales), with operations like roll-up, drill-down, slice and dice.</p>",
+      "body": "<p>A shop’s till system must record thousands of tiny sales quickly. But the manager wants to ask, “how did we do across all stores in the last five years?” Those are different jobs. OLTP systems handle many small transactions; a <em class=\"term\">data warehouse</em> collects historical data from many sources (via ETL: extract, transform, load) for analysis.</p><p><em class=\"term\">OLAP</em> views data as a cube of dimensions (time, product, region) and measures (sales), with operations like roll-up, drill-down, slice and dice. Roll-up in OLAP means aggregating to a coarser level, for example from days to months.</p>",
       "questions": [
         {
           "id": "olap",
@@ -231,6 +252,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "OLTP systems handle many small transactions; a data warehouse collects historical data from many sources via ETL (extract, transform, load) for analysis.",
+        "OLAP views data as a cube of dimensions (time, product, region) and measures (sales).",
+        "Operations include roll-up, drill-down, slice and dice."
       ]
     },
     {
@@ -238,7 +264,7 @@
       "locator": "9.3",
       "title": "NoSQL and big data",
       "eyebrow": "Scale",
-      "body": "<p>NoSQL systems trade some relational guarantees for scale and flexibility: key–value stores (Redis), document stores (MongoDB), column-family stores (Cassandra), graph databases (Neo4j). They favour horizontal scaling and flexible schemas. The CAP theorem says a distributed store cannot have Consistency, Availability and Partition tolerance all at once; many choose eventual consistency. Big data: volume, velocity, variety.</p>",
+      "body": "<p>When the internet exploded, you could see some data outgrow the neat world of tables. NoSQL systems trade some relational guarantees for scale and flexibility: key–value stores (Redis), document stores (MongoDB), column-family stores (Cassandra) and graph databases (Neo4j). They favour horizontal scaling and flexible schemas.</p><p>There is a famous law of the land, the CAP theorem: a distributed store cannot have Consistency, Availability and Partition tolerance all at once, so many choose eventual consistency. During a network partition, a system must choose between consistency and availability. And big data is described by volume, velocity and variety.</p>",
       "questions": [
         {
           "id": "cap",
@@ -277,6 +303,11 @@
           "prompt": "<p>When would you choose a document store over a relational database?</p>",
           "answer": "When records are naturally nested and their shape varies (product catalogues, user profiles), schemas change often, and horizontal scaling matters more than multi-table joins and strict transactions."
         }
+      ],
+      "keynotes": [
+        "NoSQL types: key–value stores (Redis), document stores (MongoDB), column-family stores (Cassandra) and graph databases (Neo4j).",
+        "The CAP theorem says a distributed store cannot have Consistency, Availability and Partition tolerance all at once; many choose eventual consistency.",
+        "Big data means volume, velocity and variety."
       ]
     }
   ]

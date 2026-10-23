@@ -1,0 +1,42 @@
+{
+  "title": "Transactions, serializability and locking",
+  "subtitle": "Many users, one database: how to interleave their work so the result is as if they had taken turns.",
+  "sections": {
+    "acid": {
+      "title": "Transactions and ACID",
+      "body": "<p>A <em class=\"term\">transaction</em> is a sequence of operations that must be treated as one: transfer Rs 500 from A to B = read A, subtract, write A, read B, add, write B. The ACID properties: <em class=\"term\">Atomicity</em> (all or nothing), <em class=\"term\">Consistency</em> (integrity rules hold before and after), <em class=\"term\">Isolation</em> (concurrent transactions do not see each other’s partial work), <em class=\"term\">Durability</em> (committed changes survive a crash).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "anom": {
+      "title": "Problems with interleaving",
+      "body": "<p>Without control, interleaved transactions cause: the <em class=\"term\">lost update</em> (two writes, one overwritten), the <em class=\"term\">dirty read</em> (reading another’s uncommitted value that is later rolled back), the <em class=\"term\">unrepeatable read</em> (two reads of one item differ) and the <em class=\"term\">phantom</em> (a repeated query finds new rows).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ser": {
+      "title": "Conflict serializability",
+      "body": "<p>A <em class=\"term\">serial</em> schedule runs transactions one after another. An interleaved schedule is <em class=\"term\">serializable</em> if it is equivalent to a serial one. Two operations <em class=\"term\">conflict</em> if they are from different transactions, touch the same item and at least one is a write. Draw a precedence graph (edge Ti → Tj if a conflicting operation of Ti comes before Tj’s): the schedule is conflict-serializable exactly when the graph has no cycle, and a topological order gives the equivalent serial order.</p><p>r1(x) w2(x) w1(x): serializable <b>no</b> (edges T1->T2 T2->T1); r1(x) w1(x) r2(x) w2(x): <b>yes</b> — equivalent serial order T1 T2.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "lock": {
+      "title": "Locking and two-phase locking",
+      "body": "<p>Transactions take <em class=\"term\">shared</em> (S, for reading) and <em class=\"term\">exclusive</em> (X, for writing) locks; S is compatible with S, X with nothing. <em class=\"term\">Two-phase locking</em> (2PL) guarantees serializability: a growing phase (only acquire locks) then a shrinking phase (only release). Strict 2PL holds exclusive locks to commit, which also prevents dirty reads and cascading aborts. Multiple granularity locks (database, table, page, row) with intention locks let a transaction lock coarsely or finely.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "dead": {
+      "title": "Deadlock",
+      "body": "<p>T1 holds x and wants y; T2 holds y and wants x: deadlock. Detect it with a <em class=\"term\">wait-for graph</em> (a cycle means deadlock) and abort a victim. Prevention: impose a lock order, or use timestamps — <em>wait–die</em> (older waits, younger dies) and <em>wound–wait</em> (older wounds younger).</p>",
+      "after": "",
+      "steps": "T1 (timestamp 5) requests a lock held by T2 (timestamp 9). Wait–die: older may wait for younger. Reverse: T2 (9) requests a lock held by T1 (5): the younger requester dies (aborts) and restarts with its old timestamp."
+    },
+    "iso": {
+      "title": "Isolation levels",
+      "body": "<p>SQL defines four levels: READ UNCOMMITTED (dirty reads possible), READ COMMITTED (no dirty reads), REPEATABLE READ (no unrepeatable reads), SERIALIZABLE (no phantoms either). Stronger isolation means more waiting.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

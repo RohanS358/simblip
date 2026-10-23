@@ -1,0 +1,53 @@
+{
+  "subtitle": "Bad table design makes data contradict itself. Functional dependencies say exactly which designs are bad.",
+  "sections": {
+    "anom": {
+      "body": "<p>Imagine a single messy table of (student, course, instructor, instructor office). Looks harmless. But the instructor’s office is copied onto every enrolment row. Now watch the trouble. Change an instructor’s office and you must update many rows; forget one and the data disagrees with itself (<em class='term'>update anomaly</em>).</p><p>It gets worse. A new instructor with no students cannot be recorded at all (<em class='term'>insertion anomaly</em>), and deleting the last enrolment loses the instructor’s details (<em class='term'>deletion anomaly</em>). Normalisation removes all three by splitting tables, so each fact lives in exactly one place. Repeating the office on every row is precisely what risks the update anomaly.</p>",
+      "keynotes": [
+        "Repeating an instructor’s office on every enrolment row causes an update anomaly: forget one row and the data disagrees.",
+        "An insertion anomaly means a new instructor with no students cannot be recorded; a deletion anomaly means deleting the last enrolment loses the instructor’s details.",
+        "Normalisation removes the anomalies by splitting tables."
+      ]
+    },
+    "fd": {
+      "body": "<p>Is there a precise way for you to say “this value determines that one”? Yes: X → Y, a <em class='term'>functional dependency</em>, means any two rows that agree on X agree on Y. For example studentID → name: know the ID and the name is fixed.</p><p>How far does X reach? The <em class='term'>closure</em> X⁺ is everything X determines: start with X and keep adding the right side of any dependency whose left side is already present. For R(A,B,C,D,E) with A→B, B→C, CD→E: A⁺ = <b>ABC</b>, and it stops there because E needs D as well. Now try AD: AD → B (A→B) → C (B→C) → E (CD→E). Every attribute is reached, so (AD)⁺ = ABCDE. Neither A nor D alone reaches everything, so AD is a candidate key (minimal). The closure X⁺ is the set of all attributes determined by X.</p>",
+      "keynotes": [
+        "X → Y (a functional dependency) means any two rows that agree on X agree on Y, such as studentID → name.",
+        "The closure X⁺ starts with X and keeps adding the right side of any dependency whose left side is already present.",
+        "For R(A,B,C,D,E) with A→B, B→C, CD→E: A⁺ = ABC and (AD)⁺ = ABCDE, so AD is a candidate key."
+      ]
+    },
+    "keys": {
+      "body": "<p>Finding the keys of a table is a little detective game, and there is a handy clue. Attributes that appear on no right-hand side must be in every key, because nothing else can produce them. Compute their closure; if it covers everything you are done, otherwise add more attributes. For the example the key is <b>AD</b>. Prime attributes are those in some candidate key. So an attribute that never appears on the right of any dependency must be part of every key.</p>",
+      "keynotes": [
+        "Attributes that appear on no right-hand side must be in every key.",
+        "Compute their closure; if it covers everything you are done, otherwise add more attributes.",
+        "Prime attributes are those in some candidate key; in the example the key is AD."
+      ]
+    },
+    "nf": {
+      "body": "<p>Normal forms are a ladder you can climb, and each rung removes a kind of redundancy. <em class='term'>1NF</em>: every cell holds one atomic value. <em class='term'>2NF</em>: 1NF and no <em>partial dependency</em>, meaning no non-prime attribute depends on part of a candidate key. <em class='term'>3NF</em>: 2NF and no <em>transitive</em> dependency, meaning for every X→A, X is a superkey or A is prime. <em class='term'>BCNF</em>: for every X→A, X is a superkey, which is stricter.</p><p>Test yourself on three examples from the checker. R(A,B,C) with A→B, B→C is <b>2NF</b> (B→C is transitive). R(A,B,C,D) with AB→C, B→D is <b>1NF</b> (D depends on part of the key AB). R(A,B,C) with AB→C, C→B is <b>3NF</b> (C→B is allowed in 3NF since B is prime, but C is not a superkey). The figures list each violation. BCNF is the one strictly stronger than 3NF.</p>",
+      "keynotes": [
+        "1NF: every cell holds one atomic value; 2NF: 1NF and no partial dependency on part of a candidate key.",
+        "3NF: 2NF and no transitive dependency, so for every X→A, X is a superkey or A is prime; BCNF: for every X→A, X is a superkey.",
+        "A→B, B→C is 2NF (transitive); AB→C, B→D is 1NF (partial dependency); AB→C, C→B is 3NF but not BCNF."
+      ]
+    },
+    "decomp": {
+      "body": "<p>When a design breaks a rule, you fix it by cutting the table along the offending dependency. For A→B→C, split R(A,B,C) into R1(A,B) and R2(B,C). Look at the common attribute B: it is a key of R2, so joining the parts gives back exactly the original (R = R1 ⋈ R2).</p><p>A good decomposition is <em class='term'>lossless</em> (joining the parts gives back exactly the original; the common attributes must be a key of one part) and ideally <em class='term'>dependency-preserving</em>. Be aware that denormalising (re-joining) is sometimes chosen deliberately for read speed. A decomposition into R1 and R2 is lossless when the common attributes form a key of at least one of the parts.</p>",
+      "keynotes": [
+        "To remove a violation, split the table along the offending dependency: for A→B→C, split R(A,B,C) into R1(A,B) and R2(B,C).",
+        "A lossless decomposition gives back exactly the original when joined; the common attributes must be a key of one part.",
+        "A good decomposition is ideally dependency-preserving, and denormalising is sometimes chosen deliberately for read speed."
+      ]
+    },
+    "constraints": {
+      "body": "<p>A well-designed table still needs guards at the gate. Domain constraints restrict values (age &gt; 0). There are key and NOT NULL constraints, referential integrity (foreign keys), CHECK conditions and general assertions, and triggers for richer rules. The DBMS refuses updates that violate them, so bad data never gets in. Referential integrity requires a foreign-key value to match an existing key or be null, and you should never have to chase a “ghost” row.</p>",
+      "keynotes": [
+        "Domain constraints restrict values (age > 0), alongside key and NOT NULL constraints.",
+        "Referential integrity (foreign keys), CHECK conditions, assertions and triggers enforce richer rules.",
+        "The DBMS refuses updates that violate them."
+      ]
+    }
+  }
+}

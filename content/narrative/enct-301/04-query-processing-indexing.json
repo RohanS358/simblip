@@ -1,0 +1,54 @@
+{
+  "subtitle": "The same query can be answered a thousand ways; the optimiser picks one. Indexes are why it can be fast.",
+  "sections": {
+    "steps": {
+      "body": "<p>You type one line of SQL and an answer appears. What happened in between? Think of a travel agent: you say where you want to go, and the agent works out the cheapest route without you asking. A query is parsed, checked and translated into relational algebra; the optimiser rewrites it into cheaper equivalents and picks an execution plan using statistics; the evaluator runs the plan.</p><p>The key rewrites are simple but powerful: push selections down before joins (fewer rows to join), push projections down, and choose the join order and the join algorithm. See the difference in numbers. R has 10 000 rows and S has 10 000 rows; a selection keeps 1% of R; join on a key. Selecting first joins 100 rows of R with S. Joining first compares 10⁴×10⁴ pairs before filtering, that is 10⁸ pairs. Why push selections below joins? Because filtering first leaves far fewer rows to combine. The optimiser sits between the algebra and the plan.</p>",
+      "keynotes": [
+        "A query is parsed, checked and translated into relational algebra; the optimiser rewrites it into cheaper equivalents and picks a plan using statistics; the evaluator runs it.",
+        "Key rewrites: push selections and projections down, and choose the join order and algorithm.",
+        "With 10 000 rows in each of R and S and a selection keeping 1% of R, selecting first handles 100 rows against 10⁸ pairs when joining first."
+      ]
+    },
+    "ind": {
+      "body": "<p>Finding a word in a book without an index means reading every page. With an index at the back, you jump straight there. Databases do exactly that. Without an index a lookup scans every block; an <em class='term'>index</em> is a separate structure mapping a key to record locations.</p><p>Indexes come in kinds. <em class='term'>Dense</em> indexes have an entry per record; <em class='term'>sparse</em> ones have one per block. A <em class='term'>clustered</em> (primary) index orders the file itself; a <em class='term'>secondary</em> index is on a non-ordering attribute. Count the savings. A file has 1 000 000 records, 100 per block: 10 000 blocks. A sequential scan reads 10 000 blocks, on average 5 000. A sparse index with one entry per block has 10 000 entries; binary search over them needs about log₂10 000 ≈ 14 reads, plus 1 data block, which is 15. The price of an index? Indexes speed reads and slow writes (each insert updates them) and cost space.</p>",
+      "keynotes": [
+        "An index is a separate structure mapping a key to record locations; dense indexes have an entry per record, sparse ones one per block.",
+        "A clustered (primary) index orders the file itself; a secondary index is on a non-ordering attribute.",
+        "For 1 000 000 records at 100 per block, a scan reads 10 000 blocks (5 000 on average) but a sparse index needs about 15 reads.",
+        "Indexes speed reads, slow writes and cost space."
+      ]
+    },
+    "bplus": {
+      "body": "<p>You will meet the star of database indexing here: the <em class='term'>B+ tree</em>: a wide, shallow balanced tree whose internal nodes hold only separator keys and whose leaves hold all the keys, linked in order for fast range queries. Why wide? Because each node is a whole disk block holding hundreds of keys, so a few hops reach the answer.</p><p>Watch an insertion of 1…7 into an order-3 tree. A B-tree ends with root key <b>4</b> and height <b>3</b>, but the B+ tree keeps every key in its leaves (<b>1 2 3 4 5 6 7</b>). In the figure the green arrows chain the leaves for range scans, while the B-tree stores keys in internal nodes too. With hundreds of keys per node, three or four levels index billions of rows. The leaves are linked so that a range query can walk along the leaf level without climbing back up.</p>",
+      "keynotes": [
+        "A B+ tree is a wide, shallow balanced tree: internal nodes hold only separator keys and the leaves hold all keys, linked in order for range queries.",
+        "Inserting 1…7 into an order-3 tree gives a B-tree with root key 4 and height 3, while the B+ tree keeps every key (1 2 3 4 5 6 7) in its leaves.",
+        "With hundreds of keys per node, three or four levels index billions of rows."
+      ]
+    },
+    "hash": {
+      "body": "<p>What if you only ever ask “find this exact key”? Then there is an even faster trick: <em class='term'>static hashing</em> maps a key through h(k) to a bucket (a block or chain). Equality lookups cost about one block access. The catch: range queries are impossible, and a fixed number of buckets degrades as the file grows.</p><p><em class='term'>Dynamic (extendible) hashing</em> fixes that by adding buckets on demand, using more bits of the hash. And collisions chain: keys 5, 10, 3, 8 into 5 buckets give <b>5|10 - - 3|8 -</b>. See how colliding keys share a bucket in the figure. A hash index is better than a B+ tree when you only need equality lookups.</p>",
+      "keynotes": [
+        "Static hashing maps a key through h(k) to a bucket; equality lookups cost about one block access but range queries are impossible.",
+        "Dynamic (extendible) hashing adds buckets on demand by using more bits of the hash.",
+        "Keys 5, 10, 3, 8 into 5 buckets give 5|10 - - 3|8 -, with colliding keys sharing a bucket."
+      ]
+    },
+    "store": {
+      "body": "<p>Why do databases care about blocks at all? You might wonder. Because the disk is slow. Data is stored in fixed-size blocks on disk, and reading a block costs milliseconds while CPU work is nanoseconds, so a DBMS counts its cost in block accesses.</p><p>Records are organised as a heap (unordered), sequential (sorted), or hashed. Variable-length records use slotted pages, and buffer management keeps hot blocks in memory. So the cost models count mainly the number of disk block accesses.</p>",
+      "keynotes": [
+        "Data is stored in fixed-size blocks on disk; a block read costs milliseconds against nanoseconds for CPU work.",
+        "DBMS cost is counted in block accesses.",
+        "Records are organised as a heap, sequential or hashed; variable-length records use slotted pages and buffer management keeps hot blocks in memory."
+      ]
+    },
+    "mat": {
+      "body": "<p>Sometimes a query is so heavy that you would rather do the work once and keep the answer. A <em class='term'>materialised view</em> stores a query’s result so repeated queries are instant, at the cost of keeping it fresh. An ordinary view is only a stored query; a materialised view stores the result as well.</p><p>Tuning is the art of making slow things fast: add the right indexes, denormalise hot joins, rewrite slow queries, and use EXPLAIN to see the plan. When something is slow, always look at the plan before you guess.</p>",
+      "keynotes": [
+        "A materialised view stores a query’s result so repeated queries are instant, at the cost of keeping it fresh.",
+        "Tuning: add the right indexes, denormalise hot joins and rewrite slow queries.",
+        "Use EXPLAIN to see the plan."
+      ]
+    }
+  }
+}

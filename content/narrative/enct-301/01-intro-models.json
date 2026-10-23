@@ -1,0 +1,53 @@
+{
+  "subtitle": "Why files were not enough, how a database hides storage details, and how to draw the world before building tables.",
+  "sections": {
+    "why": {
+      "body": "<p>Picture a university where the exams office, the library and the hostel each keep their own file of students. A student changes her phone number at the library, and the exams office never hears about it. Which number is right? Nobody knows, and that small mess is why databases exist.</p><p>Storing data in separate files per application leads to <em class='term'>redundancy</em> (the same fact stored many times), <em class='term'>inconsistency</em> (two copies disagree), no sharing or concurrent safety, and code tied to file formats. A <em class='term'>DBMS</em> keeps data in one place and provides a query language, integrity rules, concurrent access, security and recovery after failure. You already depend on them: banking, airline reservation, universities, web sites. What does a DBMS mainly solve? Redundancy and inconsistency, in one stroke.</p>",
+      "keynotes": [
+        "File-based storage leads to redundancy, inconsistency (two copies disagree), no sharing or concurrent safety, and code tied to file formats.",
+        "A DBMS keeps data in one place and provides a query language, integrity rules, concurrent access, security and recovery after failure.",
+        "Applications include banking, airline reservation, universities and web sites."
+      ]
+    },
+    "abs": {
+      "body": "<p>When you drive a car, you do not think about pistons. A good database works the same way: it hides the engine behind three levels of abstraction. The <em class='term'>physical</em> level describes how records are stored (files, indexes). The <em class='term'>logical</em> level describes what data exists and the relationships between them (tables). The <em class='term'>view</em> level shows each user only the part they need.</p><p>Why is this wonderful? Because of two kinds of independence. <em class='term'>Physical data independence</em>: you can change the storage layout without changing the logical schema. <em class='term'>Logical data independence</em>: you can change the schema without rewriting every view or application. A <em class='term'>schema</em> is the design; an <em class='term'>instance</em> is the data at this moment. So adding an index without changing any query is an example of physical data independence. Each level hides the one below, as the figure shows.</p>",
+      "keynotes": [
+        "The physical level describes how records are stored, the logical level what data exists and its relationships, and the view level shows each user only what they need.",
+        "Physical data independence changes storage without changing the logical schema; logical data independence changes the schema without rewriting views or applications.",
+        "A schema is the design; an instance is the data at this moment."
+      ]
+    },
+    "er": {
+      "body": "<p>Before building tables, an architect draws a plan, and so should you. The entity–relationship model is that plan for data. An <em class='term'>entity</em> is a distinguishable thing (Student, Course); an entity set is a collection of them. <em class='term'>Attributes</em> describe entities, and a <em class='term'>key</em> attribute uniquely identifies one (studentID). Composite, multivalued and derived attributes also exist.</p><p>Things relate to each other. A <em class='term'>relationship</em> associates entities (Student <em>enrols in</em> Course) with a <em class='term'>cardinality</em>: one-to-one, one-to-many or many-to-many. Students enrol in many courses and each course has many students, so that relationship is many-to-many. And a <em class='term'>weak entity</em> has no key of its own and depends on an owner (Dependent of Employee). Notice in the figure how a many-to-many relationship becomes a third box with two one-to-many links.</p>",
+      "keynotes": [
+        "An entity is a distinguishable thing (Student, Course); attributes describe it and a key attribute uniquely identifies one.",
+        "A relationship associates entities with a cardinality: one-to-one, one-to-many or many-to-many.",
+        "A weak entity has no key of its own and depends on an owner, like Dependent of Employee."
+      ]
+    },
+    "gen": {
+      "body": "<p>Real worlds have hierarchies: a Student is a Person, a Teacher is an Employee. The extended ER model captures that. <em class='term'>Specialisation</em> splits an entity set into subclasses (Employee → Teacher, Clerk) which inherit attributes; <em class='term'>generalisation</em> is the same idea seen bottom-up. <em class='term'>Aggregation</em> treats a relationship as an entity so it can take part in another relationship.</p><p>You choose the rules with two questions: are the subclasses disjoint or overlapping, and is participation total or partial? If a Student “is a” Person, the Student inherits all of the Person’s attributes, as the figure shows.</p>",
+      "keynotes": [
+        "Specialisation splits an entity set into subclasses that inherit attributes; generalisation is the same idea bottom-up.",
+        "Aggregation treats a relationship as an entity so it can take part in another relationship.",
+        "Constraints: disjoint versus overlapping, total versus partial participation."
+      ]
+    },
+    "map": {
+      "body": "<p>Time to turn the drawing into real tables. The rules are few, and you will use them all your life. Each strong entity becomes a table (key = primary key). A one-to-many relationship puts the “one” side’s key into the “many” table as a <em class='term'>foreign key</em>. A many-to-many relationship becomes its own table whose primary key is the pair of foreign keys, plus the relationship’s attributes. A weak entity’s table includes the owner’s key in its key.</p><p>Apply them. Student(id, name) and Course(code, title) with a many-to-many “enrols with grade” become three tables: Student(id, name), Course(code, title), and Enrolment(id → Student, code → Course, grade), with primary key (id, code). In a one-to-many relationship, the foreign key goes in the table on the “many” side.</p>",
+      "keynotes": [
+        "Each strong entity becomes a table whose key is the primary key.",
+        "A one-to-many relationship puts the “one” side’s key into the “many” table as a foreign key.",
+        "A many-to-many relationship becomes its own table whose primary key is the pair of foreign keys: Enrolment(id, code, grade)."
+      ]
+    },
+    "keys": {
+      "body": "<p>How does a database tell two rows apart? You need keys, and there is a small family of them. A <em class='term'>superkey</em> is any set of attributes that identifies a row. A <em class='term'>candidate key</em> is a minimal superkey, one with nothing to spare. The <em class='term'>primary key</em> is the candidate chosen, and a <em class='term'>foreign key</em> references another table’s key.</p><p>Two golden rules guard the keys. Entity integrity: a primary key is never null. Referential integrity: a foreign key matches an existing key or is null. A candidate key is a superkey from which no attribute can be removed.</p>",
+      "keynotes": [
+        "A superkey is any set of attributes that identifies a row; a candidate key is a minimal superkey; the primary key is the candidate chosen.",
+        "A foreign key references another table’s key.",
+        "Entity integrity: a primary key is never null; referential integrity: a foreign key matches an existing key or is null."
+      ]
+    }
+  }
+}

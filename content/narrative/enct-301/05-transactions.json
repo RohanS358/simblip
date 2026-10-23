@@ -1,0 +1,53 @@
+{
+  "subtitle": "Many users, one database: how to interleave their work so the result is as if they had taken turns.",
+  "sections": {
+    "acid": {
+      "body": "<p>You transfer Rs 500 from your account to a friend’s, and the power fails between the debit and the credit. Where did your money go? A database must never let that happen, and the idea that saves it is the transaction: a sequence of operations treated as one. The transfer is read A, subtract, write A, read B, add, write B.</p><p>Four promises, the ACID properties, make it safe. <em class='term'>Atomicity</em>: all or nothing. <em class='term'>Consistency</em>: integrity rules hold before and after. <em class='term'>Isolation</em>: concurrent transactions do not see each other’s partial work. <em class='term'>Durability</em>: committed changes survive a crash. So when money is debited but the system crashes before crediting B, atomicity ensures the debit is undone. Every transaction ends as committed or aborted, as the figure shows.</p>",
+      "keynotes": [
+        "A transaction is a sequence of operations treated as one, such as a transfer of Rs 500: read A, subtract, write A, read B, add, write B.",
+        "ACID: Atomicity (all or nothing), Consistency (integrity rules hold), Isolation (partial work is hidden), Durability (committed changes survive a crash).",
+        "Every transaction ends as committed or aborted."
+      ]
+    },
+    "anom": {
+      "body": "<p>Put two people in a kitchen at once and, unless they coordinate, you get chaos. Interleaved transactions are no different, and without control four things go wrong. The <em class='term'>lost update</em>: two writes happen and one is overwritten. The <em class='term'>dirty read</em>: you read another transaction’s uncommitted value that is later rolled back. The <em class='term'>unrepeatable read</em>: two reads of one item differ. And the <em class='term'>phantom</em>: a repeated query finds new rows.</p><p>In the figure, the second write has overwritten the first, a lost update. A dirty read is a read of data that was written by a transaction that has not yet committed.</p>",
+      "keynotes": [
+        "The lost update: two writes happen and one is overwritten.",
+        "The dirty read reads another transaction’s uncommitted value that is later rolled back.",
+        "The unrepeatable read gives two different reads of one item; the phantom finds new rows in a repeated query."
+      ]
+    },
+    "ser": {
+      "body": "<p>How do we judge whether an interleaving is acceptable? By asking whether it is equivalent to taking turns. A <em class='term'>serial</em> schedule runs transactions one after another. An interleaved schedule is <em class='term'>serializable</em> if it is equivalent to a serial one.</p><p>Here is the test. Two operations <em class='term'>conflict</em> if they are from different transactions, touch the same item and at least one is a write. Draw a precedence graph (edge Ti → Tj if a conflicting operation of Ti comes before Tj’s). The schedule is conflict-serializable exactly when the graph has no cycle, and a topological order gives the equivalent serial order.</p><p>Try two. r1(x) w2(x) w1(x): serializable <b>no</b> (edges T1->T2 T2->T1). r1(x) w1(x) r2(x) w2(x): <b>yes</b>, with equivalent serial order T1 T2. A cycle in the precedence graph means the schedule is not conflict-serializable. See the cycle in the first figure and the acyclic graph in the second.</p>",
+      "keynotes": [
+        "A serial schedule runs transactions one after another; an interleaved schedule is serializable if it is equivalent to a serial one.",
+        "Two operations conflict if they come from different transactions, touch the same item and at least one is a write.",
+        "A schedule is conflict-serializable exactly when the precedence graph has no cycle; r1(x) w2(x) w1(x) is not, and r1(x) w1(x) r2(x) w2(x) is, equivalent to T1 T2."
+      ]
+    },
+    "lock": {
+      "body": "<p>To enforce this, databases use locks, like a “please do not disturb” sign on a hotel door. Transactions take <em class='term'>shared</em> (S, for reading) and <em class='term'>exclusive</em> (X, for writing) locks; S is compatible with S, X with nothing. In the figure the exclusive lock blocks a reader, and T2 waits until T1 releases x.</p><p>The rule that guarantees correctness is <em class='term'>two-phase locking</em> (2PL): a growing phase (only acquire locks) then a shrinking phase (only release). Never acquire after you start releasing. Strict 2PL holds exclusive locks to commit, which also prevents dirty reads and cascading aborts. And multiple granularity locks (database, table, page, row) with intention locks let a transaction lock coarsely or finely.</p>",
+      "keynotes": [
+        "Shared (S) locks are for reading and exclusive (X) locks for writing; S is compatible with S, X with nothing.",
+        "Two-phase locking has a growing phase (only acquire locks) then a shrinking phase (only release) and guarantees serializability.",
+        "Strict 2PL holds exclusive locks to commit, preventing dirty reads and cascading aborts."
+      ]
+    },
+    "dead": {
+      "body": "<p>Two people meet in a narrow corridor, each waiting for the other to step aside. Nobody moves, ever. That is deadlock: T1 holds x and wants y, while T2 holds y and wants x.</p><p>You can detect it with a <em class='term'>wait-for graph</em> (a cycle means deadlock) and abort a victim. Or you can prevent it: impose a lock order, or use timestamps. <em>Wait–die</em>: the older waits, the younger dies. <em>Wound–wait</em>: the older wounds the younger. Try it: T1 (timestamp 5) requests a lock held by T2 (timestamp 9). Under wait–die the older may wait for the younger, since 5 &lt; 9. Reverse it: T2 (9) requests a lock held by T1 (5), and the younger requester dies (aborts) and restarts with its old timestamp. A cycle in the wait-for graph indicates a deadlock.</p>",
+      "keynotes": [
+        "Deadlock: T1 holds x and wants y while T2 holds y and wants x.",
+        "A wait-for graph with a cycle means deadlock, and a victim is aborted; prevention imposes a lock order or uses timestamps.",
+        "Wait–die: the older waits and the younger dies; wound–wait: the older wounds the younger."
+      ]
+    },
+    "iso": {
+      "body": "<p>Perfect isolation is safe but slow, because everyone waits. SQL lets you choose how careful to be, with four levels. READ UNCOMMITTED: dirty reads possible. READ COMMITTED: no dirty reads. REPEATABLE READ: no unrepeatable reads. SERIALIZABLE: no phantoms either.</p><p>Stronger isolation means more waiting, so the trade is speed against safety. The level that prevents dirty reads but allows unrepeatable reads is READ COMMITTED. Pick the weakest level your application can safely live with.</p>",
+      "keynotes": [
+        "SQL defines four levels: READ UNCOMMITTED (dirty reads possible), READ COMMITTED (no dirty reads), REPEATABLE READ (no unrepeatable reads) and SERIALIZABLE (no phantoms either).",
+        "Stronger isolation means more waiting.",
+        "READ COMMITTED prevents dirty reads but allows unrepeatable reads."
+      ]
+    }
+  }
+}

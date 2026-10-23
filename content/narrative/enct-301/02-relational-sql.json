@@ -1,0 +1,53 @@
+{
+  "subtitle": "Tables as sets, operators that build new sets, and SQL as the language that writes them down.",
+  "sections": {
+    "rel": {
+      "body": "<p>Think of a spreadsheet, but with strict manners. A <em class='term'>relation</em> is a table: columns are attributes, rows are tuples, and as a mathematical set it has no duplicate rows and no order. A set cannot hold the same member twice, which is why a relation cannot contain two identical rows.</p><p>We will use a small running example all through the chapter. R(name, dept, salary) has four employees, and S(dept, building) has three departments. Keep both tables in mind, because every operator below takes relations and returns a relation, so the results can feed each other like Lego bricks.</p>",
+      "keynotes": [
+        "A relation is a table: columns are attributes, rows are tuples, and as a set it has no duplicate rows and no order.",
+        "The running example has R(name, dept, salary) with four employees and S(dept, building) with three departments.",
+        "Every operator takes relations and returns a relation."
+      ]
+    },
+    "sel": {
+      "body": "<p>Two of the simplest questions you can ask a table: which rows do I want, and which columns? <em class='term'>Selection</em> σ keeps rows satisfying a condition: σ<sub>salary&gt;45</sub>(R). <em class='term'>Projection</em> π keeps chosen columns and drops duplicate rows: π<sub>dept</sub>(R). In SQL: <code>SELECT * FROM R WHERE salary &gt; 45</code> and <code>SELECT DISTINCT dept FROM R</code>.</p><p>Count the results. Selection gives <b>2</b> rows here; projecting dept gives <b>3</b>. Why not 4? CS appears twice but only once in the set, since duplicates vanish. Watch both figures: rows that fail the condition are dropped, and duplicates disappear.</p>",
+      "keynotes": [
+        "Selection σ keeps rows satisfying a condition; projection π keeps chosen columns and drops duplicate rows.",
+        "SQL equivalents: SELECT * FROM R WHERE salary > 45 and SELECT DISTINCT dept FROM R.",
+        "Selection gives 2 rows here; projecting dept gives 3 because CS appears twice but only once in the set."
+      ]
+    },
+    "join": {
+      "body": "<p>Information rarely lives in one table, so we glue tables together with joins. Start with the wildest one: the <em class='term'>Cartesian product</em> R × S pairs every row with every row (12 rows here). Most of those pairs are nonsense. A <em class='term'>natural join</em> R ⋈ S keeps only pairs that agree on the common attribute (dept) and merges the columns, giving <b>3</b> rows.</p><p>What happens to Di, whose department ME has no match in S? She disappears from a natural join. If you do not want to lose her, use a <em class='term'>left outer join</em>, which keeps unmatched left rows, padding with NULL: <b>4</b> rows. In SQL: <code>SELECT * FROM R JOIN S ON R.dept = S.dept</code>. See the figure: NULL fills the missing building.</p>",
+      "keynotes": [
+        "The Cartesian product R × S pairs every row with every row (12 rows here).",
+        "A natural join R ⋈ S keeps only pairs that agree on the common attribute and gives 3 rows, because Di’s department ME has no match.",
+        "A left outer join keeps unmatched left rows, padding with NULL, and gives 4 rows."
+      ]
+    },
+    "set": {
+      "body": "<p>Tables can be combined like sets of people. Union, intersection and difference need union-compatible tables (same columns). And often you want a summary, not the rows: <em class='term'>Aggregation</em> collapses groups. <code>SELECT dept, SUM(salary) FROM R GROUP BY dept</code> gives <b>CS:110 EE:40 ME:45</b>, one row per group, as the figure shows.</p><p>Here is a distinction students mix up for weeks, so let’s settle it now: <code>HAVING</code> filters groups after aggregation, <code>WHERE</code> filters rows before it. The usual functions are COUNT, SUM, AVG, MIN and MAX.</p>",
+      "keynotes": [
+        "Union, intersection and difference need union-compatible tables (same columns).",
+        "Aggregation collapses groups: SELECT dept, SUM(salary) FROM R GROUP BY dept gives CS:110 EE:40 ME:45.",
+        "HAVING filters groups after aggregation and WHERE filters rows before it; functions are COUNT, SUM, AVG, MIN and MAX."
+      ]
+    },
+    "sql": {
+      "body": "<p>SQL is one language wearing several hats, and you will wear them all. <em class='term'>DDL</em> defines structure (CREATE, ALTER, DROP). <em class='term'>DML</em> manipulates data (SELECT, INSERT, UPDATE, DELETE). <em class='term'>DCL</em> controls access (GRANT, REVOKE). So CREATE TABLE belongs to DDL.</p><p>More tools: a <em class='term'>view</em> is a stored query that behaves like a table; a <em class='term'>trigger</em> runs automatically on an event; a stored procedure packages logic on the server. And queries can nest: <code>SELECT name FROM R WHERE salary &gt; (SELECT AVG(salary) FROM R)</code>. Work it out: the average salary in R is (50 + 40 + 60 + 45) / 4 = 195/4 = 48.75, so the employees above it are Ann (50) and Cy (60).</p>",
+      "keynotes": [
+        "DDL defines structure (CREATE, ALTER, DROP), DML manipulates data (SELECT, INSERT, UPDATE, DELETE) and DCL controls access (GRANT, REVOKE).",
+        "A view is a stored query that behaves like a table; a trigger runs automatically on an event; a stored procedure packages logic on the server.",
+        "The average salary in R is 195/4 = 48.75, so Ann (50) and Cy (60) are above it."
+      ]
+    },
+    "summary": {
+      "body": "<p>Three lines, and then practise.</p><ul><li>σ rows, π columns, × all pairs, ⋈ matching pairs.</li><li>Outer joins keep unmatched rows with NULL.</li><li>GROUP BY aggregates; HAVING filters the groups.</li></ul>",
+      "keynotes": [
+        "σ chooses rows, π chooses columns, × pairs everything and ⋈ pairs only matches.",
+        "Outer joins keep unmatched rows with NULL.",
+        "GROUP BY aggregates and HAVING filters the groups."
+      ]
+    }
+  }
+}

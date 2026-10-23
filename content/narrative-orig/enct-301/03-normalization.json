@@ -1,0 +1,42 @@
+{
+  "title": "Functional dependencies and normal forms",
+  "subtitle": "Bad table design makes data contradict itself. Functional dependencies say exactly which designs are bad.",
+  "sections": {
+    "anom": {
+      "title": "Why design matters: update anomalies",
+      "body": "<p>Suppose one table holds (student, course, instructor, instructor office). The office is repeated on every enrolment. Change an instructor’s office and you must update many rows — forget one and the data disagrees (<em class=\"term\">update anomaly</em>). A new instructor with no students cannot be recorded (<em class=\"term\">insertion anomaly</em>); deleting the last enrolment loses the instructor’s details (<em class=\"term\">deletion anomaly</em>). Normalisation removes them by splitting tables.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "fd": {
+      "title": "Functional dependencies and closure",
+      "body": "<p>X → Y (a <em class=\"term\">functional dependency</em>) means any two rows that agree on X agree on Y — e.g. studentID → name. The <em class=\"term\">closure</em> X⁺ is everything X determines: start with X and keep adding the right side of any dependency whose left side is already present. For R(A,B,C,D,E) with A→B, B→C, CD→E: A⁺ = <b>ABC</b>... it stops at ABC because E needs D as well.</p>",
+      "after": "",
+      "steps": "Is AD a key of R(A,B,C,D,E)? Compute (AD)⁺. AD → B (A→B) → C (B→C) → E (CD→E). Every attribute is reached. Neither A nor D alone reaches everything, so AD is a candidate key (minimal)."
+    },
+    "keys": {
+      "title": "Finding candidate keys",
+      "body": "<p>Attributes that appear on no right-hand side must be in every key. Compute their closure; if it covers everything, you are done, otherwise add more attributes. For the example the key is <b>AD</b>. Prime attributes are those in some candidate key.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "nf": {
+      "title": "1NF, 2NF, 3NF, BCNF",
+      "body": "<p><em class=\"term\">1NF</em>: every cell holds one atomic value. <em class=\"term\">2NF</em>: 1NF and no <em>partial dependency</em> — no non-prime attribute depends on part of a candidate key. <em class=\"term\">3NF</em>: 2NF and no <em>transitive</em> dependency — for every X→A, X is a superkey or A is prime. <em class=\"term\">BCNF</em>: for every X→A, X is a superkey (stricter). Examples from the checker: R(A,B,C) with A→B, B→C is <b>2NF</b> (B→C is transitive); R(A,B,C,D) with AB→C, B→D is <b>1NF</b> (D depends on part of the key AB); R(A,B,C) with AB→C, C→B is <b>3NF</b> (C→B is allowed in 3NF since B is prime, but C is not a superkey).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "decomp": {
+      "title": "Decomposition",
+      "body": "<p>To remove a violation, split the table along the offending dependency: for A→B→C, split R(A,B,C) into R1(A,B) and R2(B,C). A good decomposition is <em class=\"term\">lossless</em> (joining the parts gives back exactly the original — the common attributes must be a key of one part) and ideally <em class=\"term\">dependency-preserving</em>. Denormalising (re-joining) is sometimes chosen deliberately for read speed.</p>",
+      "after": "",
+      "steps": "Decompose R(A,B,C) with A→B, B→C to 3NF. R1(A,B) and R2(B,C). Common attribute B is a key of R2, so the join is lossless."
+    },
+    "constraints": {
+      "title": "Integrity constraints and assertions",
+      "body": "<p>Domain constraints restrict values (age &gt; 0); key and NOT NULL constraints; referential integrity (foreign keys); CHECK conditions and general assertions; triggers for richer rules. The DBMS refuses updates that violate them.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

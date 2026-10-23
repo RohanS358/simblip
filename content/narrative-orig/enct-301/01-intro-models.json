@@ -1,0 +1,42 @@
+{
+  "title": "Databases, abstraction and the ER model",
+  "subtitle": "Why files were not enough, how a database hides storage details, and how to draw the world before building tables.",
+  "sections": {
+    "why": {
+      "title": "Why a DBMS",
+      "body": "<p>Storing data in separate files per application leads to <em class=\"term\">redundancy</em>, <em class=\"term\">inconsistency</em> (two copies disagree), no sharing or concurrent safety, and code tied to file formats. A <em class=\"term\">DBMS</em> keeps data in one place and provides a query language, integrity rules, concurrent access, security and recovery after failure. Applications: banking, airline reservation, universities, web sites.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "abs": {
+      "title": "Three levels of abstraction",
+      "body": "<p>The <em class=\"term\">physical</em> level describes how records are stored (files, indexes); the <em class=\"term\">logical</em> level describes what data exists and their relationships (tables); the <em class=\"term\">view</em> level shows each user only the part they need. <em class=\"term\">Physical data independence</em>: change the storage layout without changing the logical schema. <em class=\"term\">Logical data independence</em>: change the schema without rewriting every view or application. A <em class=\"term\">schema</em> is the design; an <em class=\"term\">instance</em> is the data at this moment.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "er": {
+      "title": "The entity–relationship model",
+      "body": "<p>An <em class=\"term\">entity</em> is a distinguishable thing (Student, Course); an entity set is a collection of them. <em class=\"term\">Attributes</em> describe entities; a <em class=\"term\">key</em> attribute uniquely identifies one (studentID); composite, multivalued and derived attributes exist. A <em class=\"term\">relationship</em> associates entities (Student <em>enrols in</em> Course) with a <em class=\"term\">cardinality</em>: one-to-one, one-to-many or many-to-many. A <em class=\"term\">weak entity</em> has no key of its own and depends on an owner (Dependent of Employee).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "gen": {
+      "title": "Specialisation, generalisation, aggregation",
+      "body": "<p><em class=\"term\">Specialisation</em> splits an entity set into subclasses (Employee → Teacher, Clerk) which inherit attributes; <em class=\"term\">generalisation</em> is the same idea seen bottom-up. <em class=\"term\">Aggregation</em> treats a relationship as an entity so it can take part in another relationship. Constraints: disjoint vs overlapping, total vs partial participation.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "map": {
+      "title": "From ER to tables",
+      "body": "<p>Each strong entity becomes a table (key = primary key). A one-to-many relationship puts the “one” side’s key into the “many” table as a <em class=\"term\">foreign key</em>. A many-to-many relationship becomes its own table whose primary key is the pair of foreign keys, plus the relationship’s attributes. A weak entity’s table includes the owner’s key in its key.</p>",
+      "after": "",
+      "steps": "Student(id, name), Course(code, title) with a many-to-many “enrols with grade”. Tables: Student(id, name), Course(code, title), Enrolment(id → Student, code → Course, grade), primary key (id, code)."
+    },
+    "keys": {
+      "title": "Keys",
+      "body": "<p>A <em class=\"term\">superkey</em> is any set of attributes that identifies a row; a <em class=\"term\">candidate key</em> is a minimal superkey; the <em class=\"term\">primary key</em> is the candidate chosen; a <em class=\"term\">foreign key</em> references another table’s key. Entity integrity: a primary key is never null. Referential integrity: a foreign key matches an existing key or is null.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

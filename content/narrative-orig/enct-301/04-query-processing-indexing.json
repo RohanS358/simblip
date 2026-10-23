@@ -1,0 +1,42 @@
+{
+  "title": "Query processing, indexes and hashing",
+  "subtitle": "The same query can be answered a thousand ways; the optimiser picks one. Indexes are why it can be fast.",
+  "sections": {
+    "steps": {
+      "title": "From SQL to an answer",
+      "body": "<p>A query is parsed, checked and translated into relational algebra; the optimiser rewrites it into cheaper equivalents and picks an execution plan using statistics; the evaluator runs the plan. Key rewrites: push selections down before joins (fewer rows to join), push projections down, choose the join order and the join algorithm.</p>",
+      "after": "",
+      "steps": "R has 10 000 rows, S has 10 000 rows; a selection keeps 1% of R. Join on a key. Selecting first: 100 rows of R joined with S. Joining first: 10⁴×10⁴ pairs compared before filtering."
+    },
+    "ind": {
+      "title": "Indexes",
+      "body": "<p>Without an index a lookup scans every block. An <em class=\"term\">index</em> is a separate structure mapping a key to record locations. <em class=\"term\">Dense</em> indexes have an entry per record; <em class=\"term\">sparse</em> ones one per block. A <em class=\"term\">clustered</em> (primary) index orders the file itself; a <em class=\"term\">secondary</em> index is on a non-ordering attribute. Indexes speed reads and slow writes (each insert updates them) and cost space.</p>",
+      "after": "",
+      "steps": "A file has 1 000 000 records, 100 per block: 10 000 blocks. Sequential scan reads 10 000 blocks on average 5 000. A sparse index with one entry per block has 10 000 entries; binary search over them needs about log₂10 000 ≈ 14 reads, plus 1 data block."
+    },
+    "bplus": {
+      "title": "B+ trees",
+      "body": "<p>Databases index with a <em class=\"term\">B+ tree</em>: a wide, shallow balanced tree whose internal nodes hold only separator keys and whose leaves hold all the keys, linked in order for fast range queries. Inserting 1…7 into an order-3 tree: a B-tree ends with root key <b>4</b> and height <b>3</b>, but the B+ tree keeps every key in its leaves (<b>1 2 3 4 5 6 7</b>). With hundreds of keys per node, three or four levels index billions of rows.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "hash": {
+      "title": "Hashing",
+      "body": "<p><em class=\"term\">Static hashing</em> maps a key through h(k) to a bucket (a block or chain); equality lookups cost about one block access, but range queries are impossible, and a fixed number of buckets degrades as the file grows. <em class=\"term\">Dynamic (extendible) hashing</em> adds buckets on demand by using more bits of the hash. Hash tables chain colliding keys (keys 5, 10, 3, 8 into 5 buckets: <b>5|10 - - 3|8 -</b>).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "store": {
+      "title": "Disks and record organisation",
+      "body": "<p>Data is stored in fixed-size blocks on disk; reading a block costs milliseconds while CPU work is nanoseconds, so DBMS cost is counted in block accesses. Records are organised as a heap (unordered), sequential (sorted), or hashed. Variable-length records use slotted pages. Buffer management keeps hot blocks in memory.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mat": {
+      "title": "Materialised views and tuning",
+      "body": "<p>A <em class=\"term\">materialised view</em> stores a query’s result so repeated queries are instant, at the cost of keeping it fresh. Tuning: add the right indexes, denormalise hot joins, rewrite slow queries, use EXPLAIN to see the plan.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
