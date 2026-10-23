@@ -1,0 +1,90 @@
+{
+  "title": "Ohm's Law and Resistance",
+  "subtitle": "The relationship between voltage, current and resistance — three quantities, one equation, and a great deal of engineering that follows from it. Every circuit in these notes runs.",
+  "sections": {
+    "intro": {
+      "title": "Introduction",
+      "body": "<p>Three quantities describe what happens in a simple circuit. <em class=\"term\">Voltage</em> (<i>V</i>, in volts) is the electrical pressure a source applies. <em class=\"term\">Current</em> (<i>I</i>, in amperes) is the rate of charge flow that results. <em class=\"term\">Resistance</em> (<i>R</i>, in ohms) is how strongly a component opposes that flow.</p><p>These notes build a real circuit, measure it, test a prediction against it, and then state the law that connects the three. The measurement comes first deliberately — an equation whose behaviour you have already watched is a very different object from one handed to you cold.</p><div class=\"callout\"><span class=\"ct\">How to read these notes</span>Every circuit here is live. Each one carries its own <b>Simulate</b> button: press it and the solver runs that circuit, the meters start reading, and the sliders under it change the circuit while it runs. Nothing is a picture of a result — it is the result. Press <b>Reset</b> to put a circuit back as drawn.</div><div class=\"aside\"><b>Before you start.</b> Nothing here is timed and nothing is scored. Answering a question wrong routes you to the reason that answer is tempting, and then shows you the circuit that settles it. Select any sentence you find unclear and choose <b>Ask about this</b> to put that exact wording in front of the assistant.</div>",
+      "after": "",
+      "steps": ""
+    },
+    "circuit": {
+      "title": "A source and a resistor",
+      "body": "<p>The simplest complete circuit is a voltage source and a single resistor joined in a loop. The source maintains a fixed potential difference across its terminals; the resistor is the only thing limiting how much current flows.</p><p>Here a 9 V battery drives a 330 Ω resistor. The <em class=\"term\">ammeter</em> is wired <b>in series</b> — the loop passes through it, so it reads the current flowing round. The <em class=\"term\">voltmeter</em> is wired <b>in parallel</b> with the resistor — across it, not through it — so it reads the potential difference between the resistor's two ends. Those two placements are not interchangeable, and getting them the wrong way round is the first mistake most people make with a real meter.</p>",
+      "after": "<p>Two numbers, read off two instruments: 27.3 mA and 9.00 V. Everything that follows is an attempt to predict numbers like these before measuring them.</p>",
+      "steps": ""
+    },
+    "predict": {
+      "title": "Check your intuition",
+      "body": "<p>Before any equation, two predictions. Each one changes exactly one thing about Figure 2.1 and asks what the ammeter will do. Commit to an answer before reading on — being wrong here is the most useful thing that can happen in this lesson, because it is the fastest way to find out what you actually believe as opposed to what you can recite. Each answer is followed by the circuit that settles it, which you can run yourself.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "measure": {
+      "title": "Sweeping the resistance",
+      "body": "<p>Two points suggest a pattern; a sweep confirms one. The table below lists the current a 9 V source drives through five common resistor values, with the power each dissipates alongside, and the chart plots the same data.</p><div class=\"callout\"><span class=\"ct\">Read the table carefully</span>Look at 100 Ω and 1000 Ω — a factor of ten in resistance. The current falls from 90 mA to 9 mA, also a factor of ten. Every row obeys the same ratio.</div>",
+      "after": "",
+      "steps": ""
+    },
+    "law": {
+      "title": "Ohm's law",
+      "body": "<p>What you measured has a name. In 1827 Georg Ohm published the result that, for a conductor at constant temperature, the current through it is directly proportional to the voltage across it and inversely proportional to its resistance. Both halves of that sentence are things you have now watched happen.</p>",
+      "after": "<div class=\"aside\"><b>A law with conditions.</b> Ohm's law is not universal — it describes <em class=\"term\">ohmic</em> materials, those whose resistance stays constant as voltage changes. A filament lamp heats up and its resistance rises; a diode conducts in one direction only. Both are non-ohmic, and both appear in §11.</div>",
+      "steps": "Current rises with voltage and falls with resistance. Everything else in this lesson is this one sentence written in different arrangements. Multiply through by R. This form is the one used constantly in analysis: it gives the potential difference a known current produces across a known resistance, which is how voltages are tracked around a loop. Divide instead. This is the measurement form — apply a voltage, read the current, and the ratio is the resistance. It is what a multimeter does internally. Power is the rate of energy delivery, P = VI. Substituting Ohm's law gives two more forms — and the V² form explains why doubling the supply voltage quadruples the heat a resistor must dissipate, which is a common way to destroy one."
+    },
+    "worked-basic": {
+      "title": "Worked example — current and power",
+      "body": "<p>A 9.0 V supply is connected across a 330 Ω resistor. Find the current through it and the power it dissipates.</p><p class=\"sub\">Each step is revealed one at a time. Attempt it yourself before opening the next.</p>",
+      "after": "",
+      "steps": "<b>Choose the right form.</b> Voltage and resistance are known and current is wanted, so use I = V/R directly — no rearrangement needed. <b>Substitute.</b> V = 9.0 V and R = 330 Ω. Volts divided by ohms gives amperes, so the units confirm the arrangement is right. <b>Express it sensibly.</b> Currents at this scale are conventionally quoted in milliamperes, and three significant figures matches the precision of the data. <b>Now the power.</b> With V and I both known, P = VI is the shortest route. Using I²R or V²/R gives the same answer — a useful check if you are unsure of an earlier step. <b>Check it against the instruments.</b> Figure 2.1's ammeter reads 27.3 mA and §5's wattmeter reads 245.5 mW — the same numbers. A quarter of a watt also tells you something practical: a common 0.25 W resistor would be running at its absolute limit here, so a 0.5 W part is the sensible choice."
+    },
+    "series": {
+      "title": "Resistors in series",
+      "body": "<p>Put two resistors end to end and the same current must pass through both — there is nowhere else for it to go. Their resistances therefore add, and the pair behaves as one resistor of the combined value.</p><p>With 220 Ω and 330 Ω in series across 9 V, the total is 550 Ω, so the current is 16.4 mA. Each resistor then takes a share of the supply voltage in proportion to its own resistance: 3.60 V across the 220 Ω and 5.40 V across the 330 Ω. The two shares sum to 9.00 V, which is Kirchhoff's voltage law arriving a lesson early.</p>",
+      "after": "<p class=\"sub\">This arrangement is a <em class=\"term\">potential divider</em>, and it is one of the most used circuits in electronics: two resistors turn a supply voltage into any smaller voltage you choose.</p>",
+      "steps": ""
+    },
+    "worked-series": {
+      "title": "Worked example — a potential divider",
+      "body": "<p>A 9.0 V supply is connected across 220 Ω and 330 Ω in series. Find the current and the voltage across each resistor.</p>",
+      "after": "",
+      "steps": "<b>Combine the resistances first.</b> In series the same current flows through both, so their resistances add. Reducing the pair to a single value makes the loop a one-resistor circuit again. <b>Find the loop current.</b> Ohm's law on the combined resistance. This current is the same everywhere in the loop — through the battery and through both resistors. <b>Voltage across the first resistor.</b> Apply V = IR to the 220 Ω using the loop current just found. <b>And the second.</b> Same current, larger resistance, larger share. <b>Check the total.</b> 3.60 + 5.40 = 9.00 V, exactly the supply. The shares around a loop must sum to the source voltage — if yours do not, an arithmetic slip is the first thing to look for. Figure 7.1's two voltmeters read 3.60 V and 5.40 V, confirming it."
+    },
+    "parallel": {
+      "title": "Resistors in parallel",
+      "body": "<p>Connect two resistors across the same pair of nodes and they are in <em class=\"term\">parallel</em>. Now the shared quantity is voltage, not current: both resistors have the full supply across them, and each draws whatever current Ohm's law gives it independently of the other. The currents then add.</p><p>This makes the combination easier to drive than either resistor alone, which surprises people the first time: adding a second path can only add current, so the total resistance of a parallel pair is always <b>less than the smaller</b> of the two.</p>",
+      "after": "<p>The equivalent resistance of Figure 9.1 is R<sub>p</sub> = (220 × 330)/(220 + 330) = 132 Ω, and 9 / 132 = 68.2 mA — the number on the supply ammeter. Working from either end gives the same answer, which is the usual sign that the model is consistent rather than a coincidence.</p>",
+      "steps": "Both resistors see the same voltage V, so each branch current follows directly from Ohm's law applied to that branch alone. Charge is not created at the junction: whatever flows into it flows out again, so the current the source delivers is the sum of the branch currents. Comparing that with I = V/R for a single resistor identifies the combination's equivalent value. Reciprocals add, which is why the result is always smaller than either part — and for two resistors the product-over-sum form is the one worth memorising."
+    },
+    "power": {
+      "title": "Power, heat and choosing a real component",
+      "body": "<p>Every resistor turns the energy it takes out of the circuit into heat. How much is P = VI, and substituting Ohm's law gives the two forms that are usually more convenient: P = I²R when the current is known, P = V²/R when the voltage is.</p><p>The V² is the part worth internalising. Power does not rise in proportion to voltage — it rises with the <b>square</b> of it. Double a supply and the heat in a fixed resistor goes up four times; a component that was comfortable at 9 V is at four times its dissipation at 18 V, which is how most resistors actually die.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "nonohmic": {
+      "title": "Components that are not ohmic",
+      "body": "<p>Ohm's law describes components with a <b>constant</b> R. Plenty of useful components do not have one, and treating them as though they did produces answers that are wrong in a way the arithmetic cannot reveal.</p><p>A <em class=\"term\">light-emitting diode</em> is the clearest case. It conducts in one direction only, and once it conducts it holds a roughly fixed voltage across itself — about 2 V for a red LED — almost regardless of the current. It has no meaningful resistance: ask for V/I and you get a different answer at every current.</p><p>This is why an LED is always driven through a series resistor. The resistor is the ohmic part, and it is what sets the current; the LED simply takes its 2 V and lights.</p>",
+      "after": "<div class=\"aside\"><b>The lamp is idealised here.</b> This model gives the filament a fixed 20 Ω. A real filament is several times more resistive when hot than when cold, so switching one on draws a large inrush current for a few milliseconds — which is why filament lamps almost always fail at the moment they are switched on rather than during use.</div>",
+      "steps": ""
+    },
+    "misuse": {
+      "title": "Three common mistakes",
+      "body": "<p>Ohm's law is simple enough that errors come from misapplying it rather than from the algebra. These three account for most of them.</p>",
+      "after": "",
+      "steps": "The equation works in volts, amperes and ohms. Feeding it milliamperes or kilohms without converting is the single most common source of answers that are wrong by a factor of a thousand. Convert first, every time. V in I = V/R is the voltage across <em>that resistor</em>, not the supply voltage. In Figure 7.1 the current through the 330 Ω is set by the 5.40 V across it, not by the 9 V supply — using the supply there gives an answer nearly twice too large. Ohm's law describes components whose resistance is constant. A lamp filament, a diode and a thermistor all change resistance with conditions, so a single R does not describe them. Applying the law to them gives a number that is only valid at one operating point, as §11 showed."
+    },
+    "problems": {
+      "title": "Problem set",
+      "body": "<p>Seven problems over everything above. Work each one on paper before opening its answer — the answer is worth very little if you have not first been wrong about something. Where a problem can be settled by measurement, its answer carries the circuit that settles it: press <b>Simulate</b> and read the instrument.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<p>You predicted, measured, derived and calculated — in that order, and every number you were given came off an instrument you can run yourself. The lesson reduces to six statements.</p><ol><li><b>Ohm's law is</b> <i>I</i> = <i>V</i>/<i>R</i>, rearranged as <i>V</i> = <i>IR</i> or <i>R</i> = <i>V</i>/<i>I</i> as the problem requires.</li><li><b>Current is proportional to voltage and inversely proportional to resistance</b> — halving the supply and doubling the resistance produce the identical 13.6 mA.</li><li><b>Power is</b> <i>P</i> = <i>VI</i> = <i>I</i>²<i>R</i> = <i>V</i>²/<i>R</i>, it rises with the square of voltage, and it decides which physical component you can actually use.</li><li><b>Series resistances add</b>, the current is common, and each resistor takes a share of the supply in proportion to its own value.</li><li><b>Parallel resistances combine reciprocally</b>, the voltage is common, and the branch currents add — so a parallel pair is always easier to drive than either part alone.</li><li><b>The law describes ohmic components only.</b> An LED holds its forward voltage and a filament changes with temperature; for these, the resistor beside them is what the law is applied to.</li></ol><div class=\"callout\"><span class=\"ct\">Next in this course</span>Lesson 2 — <b>Kirchhoff's laws</b>: what happens once a circuit has more than one loop and current has somewhere else to go. The two rules you have already used informally here — shares around a loop sum to the supply, branch currents sum at a junction — are exactly the two laws, stated properly.</div>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
