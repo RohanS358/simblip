@@ -22,6 +22,15 @@ let parts: () => DirectorParts = () => ({ llm: makeLlm(), runner: makeRunner() }
 export const setDirectorParts = (fn: () => DirectorParts) => { parts = fn }
 
 let abort: AbortController | null = null
+/** Show the "building…" card for work started elsewhere (a page tour) and hand back its Cancel. */
+export function startPreparing(topic: string, message: string): AbortController {
+  cancelPreparing()
+  const ac = (abort = new AbortController())
+  useLesson.getState().set({ preparing: { topic, message } })
+  return ac
+}
+export const progressPreparing = (topic: string, message: string) => useLesson.getState().set({ preparing: { topic, message } })
+
 export function cancelPreparing() {
   abort?.abort()
   abort = null

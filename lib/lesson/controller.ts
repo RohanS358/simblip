@@ -9,7 +9,8 @@ import { useDocStore } from '@/lib/store/document'
 import { prefetch } from '@/lib/tts/neural'
 import { upcomingLines } from './lines'
 import { perform } from './player'
-import { bumpRun, makeStage } from './stage'
+import { bumpRun, currentRun, makeStage } from './stage'
+import { makeTourStage } from './tour-stage'
 import { useLesson } from './store'
 import { useTutor, cancelChoice } from './tutor-store'
 import { START_PACE } from './tutor-core'
@@ -22,13 +23,16 @@ async function playFrom(sb: Storyboard, pageId: string, from: number, rebuild = 
   const s = useLesson.getState()
   // Rebuilding from a beat: take down the lesson's own sections (the student's drawings stay) and
   // let catch-up lay them out again, so seeking never duplicates a section.
-  if (rebuild) {
+  if (rebuild && !s.tour) {
     const old = s.sections.flatMap((x) => x.ids)
     if (old.length && useDocStore.getState().pages[pageId]) useDocStore.getState().removeObjects(pageId, old)
     s.set({ sections: [] })
   }
   s.set({ active: true, storyboard: sb, pageId, index: from, paused: false, pending: null, chosen: null, card: null })
-  const result = await perform(sb, makeStage(sb, pageId, myRun, from), from, { rebuild })
+  // A page tour walks the student's own page: nothing is rebuilt, and nothing is drawn.
+  const tour = useLesson.getState().tour
+  const stage = tour ? makeTourStage(sb, pageId, () => currentRun() === myRun) : makeStage(sb, pageId, myRun, from)
+  const result = await perform(sb, stage, from, { rebuild: tour ? false : rebuild })
   if (result === 'done' && useLesson.getState().storyboard === sb) {
     useLesson.getState().set({ pending: null })
     useTeacher.getState().set({ mood: 'laughing', pose: 'celebrate' })
@@ -36,7 +40,16 @@ async function playFrom(sb: Storyboard, pageId: string, from: number, rebuild = 
   }
 }
 
+/** Walk the student's own page (lib/lesson/page-lesson.ts builds the storyboard). */
+export const startTour = (sb: Storyboard, pageId: string) => {
+  useTutor.getState().set({ pace: START_PACE, missesInRow: 0, lastCheck: 0, resumeAt: null, ring: null, mode: 'idle' })
+  useTeacher.getState().set({ mood: 'happy', pose: 'read', aim: null })
+  useLesson.getState().set({ tour: true, sections: [] })
+  return playFrom(sb, pageId, 0, false)
+}
+
 export const startLesson = (sb: Storyboard, pageId: string) => {
+  useLesson.getState().set({ tour: false })
   useTutor.getState().set({ pace: START_PACE, missesInRow: 0, lastCheck: 0, resumeAt: null, ring: null, mode: 'idle' })
   useTeacher.getState().set({ mood: 'happy', pose: 'read', aim: null })
   return playFrom(sb, pageId, 0)
@@ -64,7 +77,7 @@ export function stopLesson() {
   useTutor.getState().set({ ring: null, spot: [], mode: 'idle', resumeAt: null })
   narrator.stop()
   stopPhysics()
-  useLesson.getState().set({ active: false, pending: null, card: null, caption: '', paused: false, sections: [] })
+  useLesson.getState().set({ active: false, pending: null, card: null, caption: '', paused: false, sections: [], tour: false })
 }
 
 /** A fresh page for the film, next to the student's own — their work is never touched.

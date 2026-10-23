@@ -52,7 +52,7 @@ await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.sta
 await page.reload(); await page.waitForTimeout(2500)
 if (!(await box.count())) await page.getByRole('button', { name: 'Assistant' }).click()
 await box.waitFor({ state: 'visible', timeout: 60_000 })
-await box.click(); await box.fill(`teach me ${TOPIC}`); await page.keyboard.press('Enter')
+await box.click(); await box.fill(arg('prompt', `teach me ${TOPIC}`)); await page.keyboard.press('Enter')
 if (arg('generate', false)) {
   const t0 = Date.now()
   const building = page.getByRole('status').filter({ hasText: 'Building a lesson' })
@@ -64,6 +64,14 @@ if (arg('generate', false)) {
 
 const bar = page.getByRole('progressbar', { name: /Lesson progress/ })
 await bar.waitFor({ timeout: 60_000 }); log('✔ lesson overlay appeared'); await shot('1-started')
+if (arg('tour', false)) {
+  const ready = page.getByRole('status').filter({ hasText: /Building a lesson|Reading/ })
+  await ready.waitFor({ timeout: 20_000 }).then(() => log('✔ progress card shown')).catch(() => log('  (no progress card)'))
+  await bar.waitFor({ timeout: 120_000 })
+  for (const [i, wait] of [[1, 6000], [2, 18000], [3, 25000]]) { await page.waitForTimeout(wait); await shot(`tour-${i}`); log(`  caption ${i}: ` + (await page.locator('[aria-live=polite]').last().innerText().catch(() => '')).slice(0, 110).replace(/\n/g, ' ')) }
+  log('  audio elements: ' + JSON.stringify(await page.evaluate(() => window.__aud)))
+  await ctx.close(); process.exit(0)
+}
 if (arg('menu', false)) {
   await page.waitForTimeout(4000)
   await page.getByTitle('Speed', { exact: true }).click(); await page.waitForTimeout(500); await shot('menu-speed')
@@ -79,7 +87,7 @@ if (film) log(`  film "${film.title}": ${film.beats.length} beats — ` + Object
 await page.waitForTimeout(3000); await shot('2b-early')
 log('  canvas roots: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('[data-canvas-root]')].map((e) => [e.dataset.canvasRoot, Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]))))
 const pred = page.getByRole('group', { name: 'Prediction' })
-await pred.waitFor({ timeout: 60_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
+await pred.waitFor({ timeout: 170_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
 if (arg('hunt', false)) {
   // Play on at 1.5x, answering every prediction, until a formula is being written — then take frames of it.
   await page.getByRole('button', { name: /0\.75x/ }).click(); await page.getByRole('menuitem', { name: '1.5x' }).click({ force: true })

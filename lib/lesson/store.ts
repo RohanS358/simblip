@@ -24,6 +24,8 @@ interface LessonState {
   chosen: number | null
   /** The board's sections, in the order they were opened. Kept for the whole film. */
   sections: Section[]
+  /** A page tour: the lesson walks the student's OWN page instead of building one. */
+  tour: boolean
   /** The study-notes (print) view is open. */
   notesOpen: boolean
   /** A film being generated: what the director is doing now. */
@@ -43,6 +45,7 @@ export const useLesson = create<LessonState>((set) => ({
   pending: null,
   chosen: null,
   sections: [],
+  tour: false,
   notesOpen: false,
   preparing: null,
   set: (p) => set(p),

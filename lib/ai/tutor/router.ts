@@ -46,8 +46,12 @@ const LESSON_RE = /\b(?:find (?:the )?(?:lesson|notes?|chapter)|(?:lesson|notes?
 /** "teach me Ohm's law", "give me a video lesson on diodes" → a film of the course lesson. */
 const TEACH_RE = /^(?:please\s+)?(?:(?:can you\s+)?teach\s+(?:me|us)(?:\s+about)?|(?:give|make|show)\s+(?:me|us)\s+(?:a\s+)?(?:(?:video|animated|interactive)\s+)?(?:lesson|video|animation)\s+(?:on|about|of)|animate|walk\s+(?:me|us)\s+through)\s+(?:the\s+|a\s+|an\s+)?(.{3,80}?)\s*[.!?]*$/i
 
+/** "teach me whatever is in this page", "explain this page", "walk me through this slide deck" → tour the OPEN page. */
+const TOUR_RE = /\b(?:teach|explain|walk|take|go|run)\b[^.?!]*\b(?:this|the current|my current|the open|current)\s+(?:page|doc(?:ument)?|slides?(?: deck)?|deck|board|sheet|notebook)\b|\bwhatever\b[^.?!]*\b(?:in|on)\b[^.?!]*\b(?:page|doc(?:ument)?|deck|board|slides?)\b|\bread\b[^.?!]*\b(?:this|the)\s+(?:page|doc(?:ument)?|deck|board|slides?)\b[^.?!]*\b(?:teach|explain)/i
+
 export function routeAct(prompt: string, hasPage: boolean): ActPlan | null {
   const p = prompt.trim()
+  if (TOUR_RE.test(p)) return { kind: 'direct', tool: 'teach.page', args: {} }
   const teach = TEACH_RE.exec(p)
   if (teach) return { kind: 'direct', tool: 'teach.lesson', args: { topic: teach[1].replace(/\s+(?:with|using|in)\s+(?:a\s+)?(?:video|animation|visuals?).*$/i, '').trim() } }
   for (const [re, tool] of QUICK) if (re.test(p)) return { kind: 'quick', tool }
