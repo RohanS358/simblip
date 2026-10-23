@@ -8,7 +8,7 @@
       "locator": "2.1",
       "title": "A program that is running",
       "eyebrow": "The idea",
-      "body": "<p>A program on disk is inert text: a file of instructions and initial data that does nothing by itself. A <em class=\"term\">process</em> is that program <b>in execution</b> — the file brought to life with its own memory, its own place in the code and its own set of resources. Ten people can run the same editor at once and the machine has ten processes from one program, because each one carries different state: different open files, different text in memory, a different program counter.</p><p>In memory a process is laid out in four regions. The <b>text</b> segment holds the machine code (read-only, so it can be shared). The <b>data</b> segment holds global and static variables. The <b>heap</b> grows upward as the program calls <code>malloc</code>/<code>new</code>. The <b>stack</b> grows downward as functions are called, holding return addresses, parameters and local variables. The processor adds the live state: the <b>program counter</b> (the next instruction), the stack pointer and the general registers. Together these are what the OS must preserve whenever it takes the CPU away from one process and gives it to another.</p><p>A process is always in one of a handful of <em class=\"term\">states</em>. It is <b>new</b> while being created, <b>ready</b> when it could run but the CPU is busy, <b>running</b> while it holds the CPU, <b>waiting</b> (blocked) when it needs something — a disk block, a key press, a child process — before it can continue, and <b>terminated</b> when finished. The operating system keeps the ready processes in a queue and the <em class=\"term\">scheduler</em> picks the next one. The figure animates one process through its life; note that a waiting process never goes straight back to running — it re-enters the ready queue and waits its turn like everyone else.</p>",
+      "body": "<p>A program on disk is just a file of text, inert like a recipe in a book, and the difference between that and a running process is the first thing you must understand about this chapter. A program on disk is inert text: a file of instructions and initial data that does nothing by itself. A <em class=\"term\">process</em> is that program <b>in execution</b> — the file brought to life with its own memory, its own place in the code and its own set of resources. Ten people can run the same editor at once and the machine has ten processes from one program, because each one carries different state: different open files, different text in memory, a different program counter.</p><p>In memory a process is laid out in four regions. The <b>text</b> segment holds the machine code (read-only, so it can be shared). The <b>data</b> segment holds global and static variables. The <b>heap</b> grows upward as the program calls <code>malloc</code>/<code>new</code>. The <b>stack</b> grows downward as functions are called, holding return addresses, parameters and local variables. The processor adds the live state: the <b>program counter</b> (the next instruction), the stack pointer and the general registers. Together these are what the OS must preserve whenever it takes the CPU away from one process and gives it to another.</p><p>A process is always in one of a handful of <em class=\"term\">states</em>. It is <b>new</b> while being created, <b>ready</b> when it could run but the CPU is busy, <b>running</b> while it holds the CPU, <b>waiting</b> (blocked) when it needs something — a disk block, a key press, a child process — before it can continue, and <b>terminated</b> when finished. The operating system keeps the ready processes in a queue and the <em class=\"term\">scheduler</em> picks the next one. The figure animates one process through its life; note that a waiting process never goes straight back to running — it re-enters the ready queue and waits its turn like everyone else.</p><p>If ten people open the same editor, how many programs and how many processes exist? Explain the difference in one sentence.</p>",
       "questions": [
         {
           "id": "waiting",
@@ -78,6 +78,11 @@
           "note": "Press Simulate: the token is one process moving through its life. Each box glows while the process is in that state.",
           "script": "diagram(\"direction: right\\n(New) as n\\n[Ready] as r #blue\\n[Running] as x #mint\\n[Waiting] as w #amber\\n(Terminated) as t\\nn -> r : admitted\\nr -> x : scheduler dispatch\\nx -> r : time slice over\\nx -> w : waits for I/O\\nw -> r : I/O done\\nx -> t : exit\\n@0 n -> r : admit\\n@1.2 r -> x : dispatch\\n@2.4 x -> w : I/O\\n@3.6 w -> r : done\\n@4.8 r -> x : dispatch\\n@6 x -> t : exit\\nloop 8\");"
         }
+      ],
+      "keynotes": [
+        "A program on disk is an inert file of instructions and initial data that does nothing by itself.",
+        "A process is that program in execution, with its own memory, its own place in the code and its own resources.",
+        "Ten people running the same editor create ten processes from one program, each with different state."
       ]
     },
     {
@@ -85,7 +90,7 @@
       "locator": "2.2",
       "title": "The process control block and the context switch",
       "eyebrow": "Bookkeeping",
-      "body": "<p>For each process the kernel keeps a record called the <em class=\"term\">process control block</em> (PCB; Linux calls it <code>task_struct</code>). It holds the process id, the state, the saved program counter and registers, scheduling information (priority, accumulated time), memory-management information (page tables or base/limit), the table of open files, accounting data and pointers linking it into the ready, waiting or device queues. The PCB is the process <em>as far as the kernel is concerned</em>: if you could copy the PCB and the memory it points to, you would have copied the process.</p><p>When the CPU changes from one process to another the kernel performs a <em class=\"term\">context switch</em>: it saves the registers and program counter of the outgoing process into its PCB, picks the incoming process, loads <em>its</em> saved state from <em>its</em> PCB, switches the memory map and resumes it exactly where it left off. The incoming process never notices the gap. A switch does no useful work for either program — it is pure overhead — and also hurts indirectly, because the new process finds the caches and TLB filled with the old process’s data. Typical direct costs are a few microseconds.</p><p>That overhead is the reason scheduling is a trade-off rather than a free lunch. The table shows the fraction of CPU time lost to switching when each switch costs 10 µs, as the time quantum shrinks. Slices of 10–100 ms waste almost nothing; slices of tens of microseconds waste nearly a third.</p>",
+      "body": "<p>To juggle many processes the kernel needs a notebook entry for each, and the way it swaps between them is a small piece of machinery worth following carefully. For each process the kernel keeps a record called the <em class=\"term\">process control block</em> (PCB; Linux calls it <code>task_struct</code>). It holds the process id, the state, the saved program counter and registers, scheduling information (priority, accumulated time), memory-management information (page tables or base/limit), the table of open files, accounting data and pointers linking it into the ready, waiting or device queues. The PCB is the process <em>as far as the kernel is concerned</em>: if you could copy the PCB and the memory it points to, you would have copied the process.</p><p>When the CPU changes from one process to another the kernel performs a <em class=\"term\">context switch</em>: it saves the registers and program counter of the outgoing process into its PCB, picks the incoming process, loads <em>its</em> saved state from <em>its</em> PCB, switches the memory map and resumes it exactly where it left off. The incoming process never notices the gap. A switch does no useful work for either program — it is pure overhead — and also hurts indirectly, because the new process finds the caches and TLB filled with the old process’s data. Typical direct costs are a few microseconds.</p><p>That overhead is the reason scheduling is a trade-off rather than a free lunch. The table shows the fraction of CPU time lost to switching when each switch costs 10 µs, as the time quantum shrinks. Slices of 10–100 ms waste almost nothing; slices of tens of microseconds waste nearly a third.</p><p>Walk through a context switch in your head: save the state of one process into its PCB, load another’s. Why is that time pure overhead?</p>",
       "worked": [
         {
           "toc": "Formula",
@@ -180,6 +185,11 @@
           "prompt": "<p>A system uses a 5 ms quantum and each context switch costs 25 µs. What percentage of CPU time is spent switching?</p>",
           "answer": "Overhead = s/(q + s) = 25 / (5000 + 25) = 0.00498 ≈ <b>0.5 %</b>."
         }
+      ],
+      "keynotes": [
+        "For each process the kernel keeps a process control block (PCB; Linux calls it task_struct).",
+        "It holds the process id, the state, the saved program counter and registers, scheduling information, memory-management information, the table of open files and accounting data.",
+        "The PCB is the process as far as the kernel is concerned, and switching processes means saving one PCB’s state and loading another’s."
       ]
     },
     {
@@ -187,7 +197,7 @@
       "locator": "2.3",
       "title": "Creating and ending processes",
       "eyebrow": "Life cycle",
-      "body": "<p>Processes form a tree. At boot the kernel creates one first process (<code>init</code> or <code>systemd</code>); every other process is created by an existing one, the <em>parent</em>, which makes a <em>child</em>. On Unix the whole mechanism is two calls. <code>fork()</code> creates an almost exact copy of the calling process: the child has the same code, the same open files, a copy of the memory and the same program counter, so both continue from the line after <code>fork()</code>. The only difference is the return value — the parent receives the child’s process id, the child receives 0 — and a program branches on that. To run a <em>different</em> program the child then calls <code>exec()</code>, which replaces its memory image with a new program loaded from disk. The parent usually calls <code>wait()</code> to sleep until the child finishes and to collect its exit status.</p><p>This is how a shell works: it reads a command line, forks, the child execs the program you named, and the shell waits for it. Copying the whole memory on each fork would be wasteful when an <code>exec</code> follows immediately, so modern kernels use <b>copy-on-write</b>: parent and child initially share the same physical pages marked read-only, and a page is copied only when one of them writes to it. Windows takes a different route, <code>CreateProcess</code>, which creates a child and loads a given program in one step.</p><p>A process ends when it calls <code>exit()</code> (voluntarily), is killed by a signal, or crashes. A finished child whose parent has not yet called <code>wait()</code> is a <em class=\"term\">zombie</em> — dead, but its PCB entry stays so the exit status can be reported. A child whose parent died first is an <b>orphan</b> and is adopted by <code>init</code>.</p>",
+      "body": "<p>Processes form a family tree, and on Unix every new one is born through just two calls, which is a surprisingly small toolkit for so much power. Processes form a tree. At boot the kernel creates one first process (<code>init</code> or <code>systemd</code>); every other process is created by an existing one, the <em>parent</em>, which makes a <em>child</em>. On Unix the whole mechanism is two calls. <code>fork()</code> creates an almost exact copy of the calling process: the child has the same code, the same open files, a copy of the memory and the same program counter, so both continue from the line after <code>fork()</code>. The only difference is the return value — the parent receives the child’s process id, the child receives 0 — and a program branches on that. To run a <em>different</em> program the child then calls <code>exec()</code>, which replaces its memory image with a new program loaded from disk. The parent usually calls <code>wait()</code> to sleep until the child finishes and to collect its exit status.</p><p>This is how a shell works: it reads a command line, forks, the child execs the program you named, and the shell waits for it. Copying the whole memory on each fork would be wasteful when an <code>exec</code> follows immediately, so modern kernels use <b>copy-on-write</b>: parent and child initially share the same physical pages marked read-only, and a page is copied only when one of them writes to it. Windows takes a different route, <code>CreateProcess</code>, which creates a child and loads a given program in one step.</p><p>A process ends when it calls <code>exit()</code> (voluntarily), is killed by a signal, or crashes. A finished child whose parent has not yet called <code>wait()</code> is a <em class=\"term\">zombie</em> — dead, but its PCB entry stays so the exit status can be reported. A child whose parent died first is an <b>orphan</b> and is adopted by <code>init</code>.</p><p>After fork() both processes continue from the same line. How does the program tell which one is the child? Think of the return value.</p>",
       "worked": [
         {
           "toc": "Question",
@@ -316,6 +326,11 @@
           "prompt": "<p>Distinguish a zombie from an orphan in one sentence each.</p>",
           "answer": "<b>Zombie:</b> the child has terminated but the parent has not waited, so its PCB entry lingers. <b>Orphan:</b> the parent has terminated first, so the still-running child is adopted by init."
         }
+      ],
+      "keynotes": [
+        "Processes form a tree: at boot the kernel creates one first process (init or systemd) and every other process is created by a parent.",
+        "fork() creates an almost exact copy of the calling process, with the same code, open files and program counter, so both continue after the call.",
+        "exec() then replaces the child’s program with a new one."
       ]
     },
     {
@@ -323,7 +338,7 @@
       "locator": "2.4",
       "title": "Threads: several strands in one process",
       "eyebrow": "Concurrency inside a process",
-      "body": "<p>A process bundles two ideas: a <em>resource owner</em> (address space, open files) and a <em>unit of execution</em> (program counter, registers, stack). A <em class=\"term\">thread</em> separates them. Threads of one process share the code, the global data, the heap and the open files, but each has its own stack, registers and program counter. Creating a thread is far cheaper than creating a process — nothing needs to be copied — and switching between threads of the same process does not change the memory map, so it is also cheaper. Sharing memory makes communication trivial (read the same variable) and dangerous (two threads updating the same variable need synchronisation, which is the next chapter).</p><p>Threads pay off whenever a program has independent work to do: a web server handles each request in its own thread; a word processor spell-checks while you type; a numeric program splits a loop across cores. There are two ways to provide them. <b>User-level threads</b> are managed by a library in user space — creation and switching need no kernel call, but the kernel sees only one process, so a blocking system call in one thread blocks them all and they cannot use several cores. <b>Kernel-level threads</b> are known to the kernel, which can schedule them on different cores and run another thread when one blocks, at the cost of a system call for each operation. The mapping between the two gives the classic models: <b>many-to-one</b> (many user threads on one kernel thread), <b>one-to-one</b> (each user thread has its own kernel thread — Linux and Windows) and <b>many-to-many</b> (a pool of kernel threads multiplexes many user threads).</p>",
+      "body": "<p>A process bundles two ideas, owning resources and executing code, and a thread pulls them apart so that several strands of execution can share one set of belongings. A process bundles two ideas: a <em>resource owner</em> (address space, open files) and a <em>unit of execution</em> (program counter, registers, stack). A <em class=\"term\">thread</em> separates them. Threads of one process share the code, the global data, the heap and the open files, but each has its own stack, registers and program counter. Creating a thread is far cheaper than creating a process — nothing needs to be copied — and switching between threads of the same process does not change the memory map, so it is also cheaper. Sharing memory makes communication trivial (read the same variable) and dangerous (two threads updating the same variable need synchronisation, which is the next chapter).</p><p>Threads pay off whenever a program has independent work to do: a web server handles each request in its own thread; a word processor spell-checks while you type; a numeric program splits a loop across cores. There are two ways to provide them. <b>User-level threads</b> are managed by a library in user space — creation and switching need no kernel call, but the kernel sees only one process, so a blocking system call in one thread blocks them all and they cannot use several cores. <b>Kernel-level threads</b> are known to the kernel, which can schedule them on different cores and run another thread when one blocks, at the cost of a system call for each operation. The mapping between the two gives the classic models: <b>many-to-one</b> (many user threads on one kernel thread), <b>one-to-one</b> (each user thread has its own kernel thread — Linux and Windows) and <b>many-to-many</b> (a pool of kernel threads multiplexes many user threads).</p><p>List what threads of one process share and what each keeps for itself. Why is switching threads cheaper than switching processes?</p>",
       "questions": [
         {
           "id": "shared",
@@ -400,6 +415,11 @@
           "prompt": "<p>Give two advantages and one disadvantage of using threads rather than separate processes.</p>",
           "answer": "<b>Advantages:</b> cheaper to create and switch; communication through shared memory is fast and needs no kernel call. Also responsiveness and use of several cores. <b>Disadvantage:</b> no protection between threads — one faulty thread can corrupt shared data or crash the whole process, and shared data needs careful synchronisation."
         }
+      ],
+      "keynotes": [
+        "A thread separates the unit of execution (program counter, registers, stack) from the resource owner (address space, open files).",
+        "Threads of one process share the code, the global data, the heap and the open files, but each has its own stack, registers and program counter.",
+        "Creating a thread is far cheaper than creating a process, because nothing needs to be copied."
       ]
     },
     {
@@ -407,7 +427,7 @@
       "locator": "2.5",
       "title": "What “good scheduling” means",
       "eyebrow": "Measuring",
-      "body": "<p>“Fast” is not one number. A scheduler can aim at several goals and they pull in different directions. <b>CPU utilisation</b> keeps the processor busy. <b>Throughput</b> counts jobs finished per unit time. <b>Fairness</b> gives each process a reasonable share and avoids starvation. Per-process times are what you actually calculate in exercises, with <b>arrival</b> (AT) the moment a process joins the ready queue and <b>burst</b> (BT) the CPU time it needs:</p><ul><li><em class=\"term\">Completion time</em> (CT) — the clock reading when it finishes.</li><li><em class=\"term\">Turnaround time</em> (TAT) = CT − AT — everything the user waited, running included.</li><li><em class=\"term\">Waiting time</em> (WT) = TAT − BT — time spent in the ready queue doing nothing.</li><li><em class=\"term\">Response time</em> (RT) = first CPU − AT — how long before anything at all happens.</li></ul><p>Batch systems care about throughput and average turnaround; interactive systems care about response time and its variance; real-time systems care about meeting deadlines. Notice that waiting time is the cleanest measure of what a policy <em>costs</em> a process, because it removes the part (the burst) the policy cannot change.</p>",
+      "body": "<p>“Fast” is not one number, and you will find scheduling easier once you know exactly which quantities we measure, so let’s define them carefully. “Fast” is not one number. A scheduler can aim at several goals and they pull in different directions. <b>CPU utilisation</b> keeps the processor busy. <b>Throughput</b> counts jobs finished per unit time. <b>Fairness</b> gives each process a reasonable share and avoids starvation. Per-process times are what you actually calculate in exercises, with <b>arrival</b> (AT) the moment a process joins the ready queue and <b>burst</b> (BT) the CPU time it needs:</p><ul><li><em class=\"term\">Completion time</em> (CT) — the clock reading when it finishes.</li><li><em class=\"term\">Turnaround time</em> (TAT) = CT − AT — everything the user waited, running included.</li><li><em class=\"term\">Waiting time</em> (WT) = TAT − BT — time spent in the ready queue doing nothing.</li><li><em class=\"term\">Response time</em> (RT) = first CPU − AT — how long before anything at all happens.</li></ul><p>Batch systems care about throughput and average turnaround; interactive systems care about response time and its variance; real-time systems care about meeting deadlines. Notice that waiting time is the cleanest measure of what a policy <em>costs</em> a process, because it removes the part (the burst) the policy cannot change.</p><p>For a process with arrival time AT and burst BT, write out the formulas for turnaround time and waiting time from the completion time. You will use them in every numerical.</p>",
       "worked": [
         {
           "toc": "Completion times",
@@ -469,6 +489,11 @@
           "prompt": "<p>A process arrives at 2, needs 5 units, and completes at 20. Give its turnaround and waiting time.</p>",
           "answer": "TAT = CT − AT = 20 − 2 = <b>18</b>. WT = TAT − BT = 18 − 5 = <b>13</b>. The process spent 13 units in the ready queue and 5 running."
         }
+      ],
+      "keynotes": [
+        "CPU utilisation keeps the processor busy and throughput counts jobs finished per unit time.",
+        "Fairness gives each process a reasonable share and avoids starvation.",
+        "With arrival (AT) and burst (BT), turnaround time is TAT = CT − AT and waiting time is WT = TAT − BT."
       ]
     },
     {
@@ -476,7 +501,7 @@
       "locator": "2.6",
       "title": "First come, first served — and the convoy",
       "eyebrow": "Policy 1",
-      "body": "<p><em class=\"term\">FCFS</em> is the simplest policy: run the process that arrived first, to completion. It is easy to implement (a plain queue) and fair in the sense of order — but its average waiting time depends violently on <em>who</em> arrives first. A long job at the head of the queue makes every short job wait behind it: the <em class=\"term\">convoy effect</em>, named after a line of cars stuck behind one slow truck. It is also non-pre-emptive, so it is hopeless for interactive use: one CPU-bound job holds everybody up.</p><p>Press ▶ and watch the Gantt chart fill. Then the same three jobs under <em class=\"term\">SJF</em> (shortest job first), which always picks the smallest burst among those waiting. Compare the average waiting times: the only thing that changed is the <em>order</em>.</p>",
+      "body": "<p>The simplest policy is the one you meet in any queue, and its weakness is just as familiar if you have ever stood behind someone with a full trolley. <em class=\"term\">FCFS</em> is the simplest policy: run the process that arrived first, to completion. It is easy to implement (a plain queue) and fair in the sense of order — but its average waiting time depends violently on <em>who</em> arrives first. A long job at the head of the queue makes every short job wait behind it: the <em class=\"term\">convoy effect</em>, named after a line of cars stuck behind one slow truck. It is also non-pre-emptive, so it is hopeless for interactive use: one CPU-bound job holds everybody up.</p><p>Press ▶ and watch the Gantt chart fill. Then the same three jobs under <em class=\"term\">SJF</em> (shortest job first), which always picks the smallest burst among those waiting. Compare the average waiting times: the only thing that changed is the <em>order</em>.</p><p>Take one long job and three short ones in that order and compute the average waiting time. Then reverse the order. How large is the convoy effect?</p>",
       "questions": [
         {
           "id": "convoy",
@@ -545,6 +570,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "FCFS runs the process that arrived first to completion and is easy to implement with a plain queue.",
+        "Its average waiting time depends violently on who arrives first: a long job at the head makes every short job wait, the convoy effect.",
+        "It is non-pre-emptive, so it is hopeless for interactive systems."
       ]
     },
     {
@@ -552,7 +582,7 @@
       "locator": "2.7",
       "title": "Shortest job first and its pre-emptive form",
       "eyebrow": "Policy 2",
-      "body": "<p>SJF is <em>provably optimal</em> for average waiting time: swapping a long job ahead of a shorter one can only increase the total wait (each of the jobs between them waits longer). The catch is that it needs the future. Nobody knows a burst length in advance, so real systems predict it from history with an exponential average: τ<sub>n+1</sub> = α·t<sub>n</sub> + (1 − α)·τ<sub>n</sub>, where t<sub>n</sub> is the most recent actual burst and τ<sub>n</sub> the previous prediction. With α = ½ recent and older history count equally; with α = 1 only the last burst matters.</p><p>The pre-emptive version, <em class=\"term\">SRT</em> (shortest remaining time), re-decides every time a process arrives: if the newcomer needs less than what the running job has left, it takes the CPU. It never does worse than SJF on average waiting, but it causes more switches and it can starve long jobs when short ones keep arriving. Watch P1 being pre-empted when P2 arrives in the figure.</p>",
+      "body": "<p>There is a provably best policy for average waiting time, and the catch that stops you using it is delightful: it needs the future. SJF is <em>provably optimal</em> for average waiting time: swapping a long job ahead of a shorter one can only increase the total wait (each of the jobs between them waits longer). The catch is that it needs the future. Nobody knows a burst length in advance, so real systems predict it from history with an exponential average: τ<sub>n+1</sub> = α·t<sub>n</sub> + (1 − α)·τ<sub>n</sub>, where t<sub>n</sub> is the most recent actual burst and τ<sub>n</sub> the previous prediction. With α = ½ recent and older history count equally; with α = 1 only the last burst matters.</p><p>The pre-emptive version, <em class=\"term\">SRT</em> (shortest remaining time), re-decides every time a process arrives: if the newcomer needs less than what the running job has left, it takes the CPU. It never does worse than SJF on average waiting, but it causes more switches and it can starve long jobs when short ones keep arriving. Watch P1 being pre-empted when P2 arrives in the figure.</p><p>Predict the next burst with α = ½ and compare it with the real one. How does the exponential average forget old history?</p>",
       "worked": [
         {
           "toc": "Formula",
@@ -669,6 +699,11 @@
           "prompt": "<p>With α = 0.5, τ₀ = 12 and observed bursts 8, 8, 16, predict τ₃ (the prediction after seeing all three).</p>",
           "answer": "τ₁ = 0.5(8) + 0.5(12) = 10; τ₂ = 0.5(8) + 0.5(10) = 9; τ₃ = 0.5(16) + 0.5(9) = <b>12.5</b>."
         }
+      ],
+      "keynotes": [
+        "SJF is provably optimal for average waiting time, because swapping a long job ahead of a shorter one can only increase the total wait.",
+        "Nobody knows a burst length in advance, so real systems predict it from history with an exponential average τ(n+1) = α·t(n) + (1 − α)·τ(n).",
+        "The pre-emptive form is shortest remaining time first."
       ]
     },
     {
@@ -676,7 +711,7 @@
       "locator": "2.8",
       "title": "Round Robin: everyone gets a turn",
       "eyebrow": "Policy 3",
-      "body": "<p>Interactive systems cannot let one job hog the CPU. <em class=\"term\">Round Robin</em> gives each process a fixed <em class=\"term\">time quantum</em>; when the quantum expires the timer interrupt fires, the running process goes to the back of the ready queue and the next one runs. New arrivals join the queue behind the ones already waiting — but ahead of the process that has just been pre-empted. If there are n processes and the quantum is q, no process waits more than (n − 1)·q before its next turn, which is exactly the guarantee an interactive user wants.</p><p>The quantum is the one knob. Very large: Round Robin degenerates into FCFS. Very small: the CPU spends its time <em>switching</em> (see the overhead table) rather than working. A common rule of thumb is to choose q so that about 80 % of CPU bursts are shorter than one quantum — they then finish without being cut off. Compare the three cards below on the same jobs.</p>",
+      "body": "<p>Interactive systems cannot let one job hog the CPU, so they give everyone a short turn in rotation, as you would share a swing. Interactive systems cannot let one job hog the CPU. <em class=\"term\">Round Robin</em> gives each process a fixed <em class=\"term\">time quantum</em>; when the quantum expires the timer interrupt fires, the running process goes to the back of the ready queue and the next one runs. New arrivals join the queue behind the ones already waiting — but ahead of the process that has just been pre-empted. If there are n processes and the quantum is q, no process waits more than (n − 1)·q before its next turn, which is exactly the guarantee an interactive user wants.</p><p>The quantum is the one knob. Very large: Round Robin degenerates into FCFS. Very small: the CPU spends its time <em>switching</em> (see the overhead table) rather than working. A common rule of thumb is to choose q so that about 80 % of CPU bursts are shorter than one quantum — they then finish without being cut off. Compare the three cards below on the same jobs.</p><p>Choose a quantum that is too small and one that is too large and say what goes wrong in each case. What happens as the quantum becomes enormous?</p>",
       "questions": [
         {
           "id": "quantum",
@@ -785,14 +820,19 @@
           "answer": "Order of service: P1 (4), P2 (3, done at 7), P3 (3, done at 10), then P1 runs the rest of its 24 alone. Waiting: P1 = 30 − 24 = 6, P2 = 4, P3 = 7 → average <b>5.67</b>. The two short jobs no longer wait behind the long one — that is the point of time-slicing."
         }
       ],
-      "after": "<p>With quantum 4 the jobs above finish with an average waiting time of 5.67 — worse than SJF's 3, better than FCFS's 17, and every process got the CPU within a few units. That last property, not the average, is why time-sharing systems use it. Round Robin also has <em>no starvation</em>: every ready process is served within a bounded time.</p>"
+      "after": "<p>With quantum 4 the jobs above finish with an average waiting time of 5.67 — worse than SJF's 3, better than FCFS's 17, and every process got the CPU within a few units. That last property, not the average, is why time-sharing systems use it. Round Robin also has <em>no starvation</em>: every ready process is served within a bounded time.</p>",
+      "keynotes": [
+        "Round Robin gives each process a fixed time quantum; when it expires the timer fires and the running process goes to the back of the ready queue.",
+        "If there are n processes and the quantum is q, no process waits more than (n − 1)q for its next turn.",
+        "A very small quantum wastes time on context switches and a very large one degenerates into FCFS."
+      ]
     },
     {
       "id": "priority",
       "locator": "2.9",
       "title": "Priority scheduling, starvation and aging",
       "eyebrow": "Policy 4",
-      "body": "<p><em class=\"term\">Priority</em> scheduling runs the most important job first; SJF is just the special case where priority is the inverse of the next burst. Priorities can be set internally (by the OS from measurable properties such as memory use or I/O ratio) or externally (by the administrator or the user’s <code>nice</code> value). It may be pre-emptive — a higher-priority arrival takes the CPU immediately — or not.</p><p>The danger is <em class=\"term\">starvation</em> (indefinite blocking): a low-priority job that never gets a turn while urgent jobs keep arriving. Legend has it that when the IBM 7094 at MIT was shut down in 1973 they found a low-priority job submitted in 1967 that had never run. The cure is <em class=\"term\">aging</em>: gradually raise a job’s priority the longer it waits, so eventually it overtakes everything. <em class=\"term\">HRRN</em> (highest response ratio next) builds the idea into a formula, response ratio = (W + B) / B, which grows with the waiting time W and favours short jobs B only mildly — a long job that has waited long enough will win.</p><p>Run the card below with priority numbers where <em>smaller means more important</em> (as in most textbooks): the order of service follows the priorities, not the arrival or the length.</p>",
+      "body": "<p>Not every job is equally important, and priority scheduling lets you say so, but it comes with a danger that you should recognise at once. <em class=\"term\">Priority</em> scheduling runs the most important job first; SJF is just the special case where priority is the inverse of the next burst. Priorities can be set internally (by the OS from measurable properties such as memory use or I/O ratio) or externally (by the administrator or the user’s <code>nice</code> value). It may be pre-emptive — a higher-priority arrival takes the CPU immediately — or not.</p><p>The danger is <em class=\"term\">starvation</em> (indefinite blocking): a low-priority job that never gets a turn while urgent jobs keep arriving. Legend has it that when the IBM 7094 at MIT was shut down in 1973 they found a low-priority job submitted in 1967 that had never run. The cure is <em class=\"term\">aging</em>: gradually raise a job’s priority the longer it waits, so eventually it overtakes everything. <em class=\"term\">HRRN</em> (highest response ratio next) builds the idea into a formula, response ratio = (W + B) / B, which grows with the waiting time W and favours short jobs B only mildly — a long job that has waited long enough will win.</p><p>Run the card below with priority numbers where <em>smaller means more important</em> (as in most textbooks): the order of service follows the priorities, not the arrival or the length.</p><p>A low-priority job waits for ever while high-priority jobs keep arriving. What is that called, and how does raising its priority over time cure it?</p>",
       "worked": [
         {
           "toc": "Question",
@@ -904,6 +944,11 @@
           "prompt": "<p>Five processes arrive together with (burst, priority): P1(10,3) P2(1,1) P3(2,4) P4(1,5) P5(5,2), smaller number = higher priority. Give the order of service and the average waiting time (non-pre-emptive).</p>",
           "answer": "Order by priority: P2, P5, P1, P3, P4. Waiting times: P2 0, P5 1, P1 6, P3 16, P4 18 → average <b>8.2</b>. Compare SJF, which would put the two 1-unit jobs first."
         }
+      ],
+      "keynotes": [
+        "Priority scheduling runs the most important job first; SJF is the special case where priority is the inverse of the next burst.",
+        "Priorities can be internal (set by the OS from measurable properties) or external (set by the administrator or the nice value) and it may be pre-emptive.",
+        "The danger is starvation (indefinite blocking), cured by aging, which raises a waiting job’s priority over time."
       ]
     },
     {
@@ -911,7 +956,7 @@
       "locator": "2.10",
       "title": "Multilevel queues and feedback queues",
       "eyebrow": "Policy 5",
-      "body": "<p>Real workloads mix interactive and batch jobs, and no single quantum suits both. A <em class=\"term\">multilevel queue</em> splits the ready queue into permanent classes — system processes, interactive, batch — each with its own policy (say Round Robin for interactive and FCFS for batch), and arbitrates between the queues by fixed priority or by time slices (80 % of the CPU to the foreground queue, 20 % to the background). A process belongs to one queue for life, which is simple but inflexible.</p><p>The <em class=\"term\">multilevel feedback queue</em> (MLFQ) lets processes <em>move</em>, and is the ancestor of the schedulers in Windows, macOS and old Linux. A new job enters the top queue with a short quantum. If it uses its whole quantum it was probably CPU-bound, so it is demoted to a lower queue with a longer quantum; if it blocks for I/O before the quantum ends it was interactive and stays high. Over time interactive jobs live at the top and receive quick responses, CPU hogs sink to the bottom and run in long, efficient slices. To stop starvation, a job that waits too long in a low queue is promoted. The scheduler learns the nature of each job without being told, which is why it is the design to remember.</p>",
+      "body": "<p>Real workloads mix interactive and batch jobs, and no single quantum suits both, so schedulers build a ladder of queues that you can think of as lanes on a motorway. Real workloads mix interactive and batch jobs, and no single quantum suits both. A <em class=\"term\">multilevel queue</em> splits the ready queue into permanent classes — system processes, interactive, batch — each with its own policy (say Round Robin for interactive and FCFS for batch), and arbitrates between the queues by fixed priority or by time slices (80 % of the CPU to the foreground queue, 20 % to the background). A process belongs to one queue for life, which is simple but inflexible.</p><p>The <em class=\"term\">multilevel feedback queue</em> (MLFQ) lets processes <em>move</em>, and is the ancestor of the schedulers in Windows, macOS and old Linux. A new job enters the top queue with a short quantum. If it uses its whole quantum it was probably CPU-bound, so it is demoted to a lower queue with a longer quantum; if it blocks for I/O before the quantum ends it was interactive and stays high. Over time interactive jobs live at the top and receive quick responses, CPU hogs sink to the bottom and run in long, efficient slices. To stop starvation, a job that waits too long in a low queue is promoted. The scheduler learns the nature of each job without being told, which is why it is the design to remember.</p><p>Explain how a feedback queue moves a CPU-hungry process downward and an I/O-bound one upward. What behaviour does it reward?</p>",
       "questions": [
         {
           "id": "mlfqwhy",
@@ -988,6 +1033,11 @@
           "prompt": "<p>A job needs 40 ms of CPU. Queues have quanta 8, 16 and FCFS (unbounded). Trace which queues it visits and how long it runs in each (no I/O).</p>",
           "answer": "Queue 0: runs 8 ms (used the whole quantum) → demoted. Queue 1: runs 16 ms (total 24) → demoted. Queue 2: runs the remaining <b>16 ms</b> to completion. Total 8 + 16 + 16 = 40."
         }
+      ],
+      "keynotes": [
+        "A multilevel queue splits the ready queue into permanent classes, each with its own policy such as Round Robin for interactive and FCFS for batch.",
+        "The queues are arbitrated by fixed priority or by time slices, for example 80 % of the CPU to the foreground queue and 20 % to the background.",
+        "A feedback queue lets a process move between queues according to its behaviour."
       ]
     },
     {
@@ -995,7 +1045,7 @@
       "locator": "2.11",
       "title": "Multiprocessors and the Linux scheduler",
       "eyebrow": "In practice",
-      "body": "<p>With several cores the scheduler gains new questions. In <b>asymmetric</b> multiprocessing one master core runs the kernel and hands work to the others; in <b>symmetric</b> multiprocessing (SMP, the norm) every core schedules itself, either from one common ready queue (simple, but a lock-contended hot spot) or from a per-core queue (scalable, but needing <b>load balancing</b> — push or pull tasks between cores). A task also prefers to stay on the core where it last ran because its data is still in that core’s cache: this <b>processor affinity</b> is soft (a preference) or hard (a rule).</p><p>Linux’s <em class=\"term\">Completely Fair Scheduler</em> (CFS) drops fixed quanta altogether. Each runnable task accumulates <b>virtual runtime</b> — CPU time scaled by its weight (derived from its nice value) — and the scheduler always runs the task with the <em>smallest</em> virtual runtime, kept in a red-black tree so the leftmost node is found in O(log n). A task that has had little CPU is behind, so it is chosen; the ideal is every task advancing at the same virtual rate, each getting exactly 1/n of the processor. A task’s time slice is its share of a target latency (for example 20 ms divided among the runnable tasks), with a minimum granularity so slices never become absurdly small.</p>",
+      "body": "<p>With several cores the scheduler gains new puzzles, and you will find that the answers are really about where the work should sit and how to share it fairly. With several cores the scheduler gains new questions. In <b>asymmetric</b> multiprocessing one master core runs the kernel and hands work to the others; in <b>symmetric</b> multiprocessing (SMP, the norm) every core schedules itself, either from one common ready queue (simple, but a lock-contended hot spot) or from a per-core queue (scalable, but needing <b>load balancing</b> — push or pull tasks between cores). A task also prefers to stay on the core where it last ran because its data is still in that core’s cache: this <b>processor affinity</b> is soft (a preference) or hard (a rule).</p><p>Linux’s <em class=\"term\">Completely Fair Scheduler</em> (CFS) drops fixed quanta altogether. Each runnable task accumulates <b>virtual runtime</b> — CPU time scaled by its weight (derived from its nice value) — and the scheduler always runs the task with the <em>smallest</em> virtual runtime, kept in a red-black tree so the leftmost node is found in O(log n). A task that has had little CPU is behind, so it is chosen; the ideal is every task advancing at the same virtual rate, each getting exactly 1/n of the processor. A task’s time slice is its share of a target latency (for example 20 ms divided among the runnable tasks), with a minimum granularity so slices never become absurdly small.</p><p>Compare a single common ready queue with per-core queues: which is simpler and which scales better? Why does a task prefer to stay on its core?</p>",
       "worked": [
         {
           "toc": "Equal weights",
@@ -1078,6 +1128,11 @@
           "note": "The loop CFS repeats. A task that ran a lot has a large vruntime and moves right; one that waited moves left.",
           "script": "diagram(\"direction: right\\n[Runnable tasks] as t #blue\\n[Red-black tree ordered by virtual runtime] as tree #violet\\n[Leftmost = smallest vruntime] as left #mint\\n(Run it for a slice) as run\\nt -> tree : insert\\ntree -> left : pick\\nleft -> run\\nrun -> t : vruntime grows, re-insert\\n@0 t -> tree : task\\n@1.2 tree -> left : min\\n@2.4 left -> run : chosen\\n@3.6 run -> t : re-queued\\nloop 5\");"
         }
+      ],
+      "keynotes": [
+        "In asymmetric multiprocessing one master core runs the kernel and hands work to the others; in symmetric multiprocessing (SMP) every core schedules itself.",
+        "A common ready queue is simple but a lock-contended hot spot; per-core queues scale but need load balancing.",
+        "A task prefers to stay on the core whose cache holds its data."
       ]
     },
     {
@@ -1085,7 +1140,7 @@
       "locator": "2.12",
       "title": "Real-time scheduling: meeting deadlines",
       "eyebrow": "Guarantees",
-      "body": "<p>In a <em class=\"term\">real-time</em> system the correctness of a result depends on <em>when</em> it is produced. A <b>hard</b> real-time system (airbag controller, flight control) must never miss a deadline; a <b>soft</b> one (video playback) merely degrades. Tasks are usually <b>periodic</b>: task i needs C<sub>i</sub> units of CPU every T<sub>i</sub> time units, and must finish within its period. The CPU utilisation of the task set is U = Σ C<sub>i</sub>/T<sub>i</sub>, and U ≤ 1 is obviously necessary.</p><p><b>Rate-monotonic (RM)</b> scheduling gives static priorities by period — the shorter the period, the higher the priority — and pre-empts. Liu and Layland proved that a set of n periodic tasks is schedulable by RM if U ≤ n(2<sup>1/n</sup> − 1), a bound that falls from 1 for one task towards ln 2 ≈ 0.693 for many; it is sufficient, not necessary. <b>Earliest-deadline-first (EDF)</b> uses dynamic priorities — always run the task whose deadline is nearest — and is optimal for a single processor: the set is schedulable if and only if U ≤ 1. EDF squeezes out more of the CPU, but RM is simpler, its failure mode under overload is more predictable (low-priority tasks miss first), and fixed priorities are widely supported.</p>",
+      "body": "<p>In a real-time system a right answer that arrives late is a wrong answer, and you can reason about this with a single, neat formula. In a <em class=\"term\">real-time</em> system the correctness of a result depends on <em>when</em> it is produced. A <b>hard</b> real-time system (airbag controller, flight control) must never miss a deadline; a <b>soft</b> one (video playback) merely degrades. Tasks are usually <b>periodic</b>: task i needs C<sub>i</sub> units of CPU every T<sub>i</sub> time units, and must finish within its period. The CPU utilisation of the task set is U = Σ C<sub>i</sub>/T<sub>i</sub>, and U ≤ 1 is obviously necessary.</p><p><b>Rate-monotonic (RM)</b> scheduling gives static priorities by period — the shorter the period, the higher the priority — and pre-empts. Liu and Layland proved that a set of n periodic tasks is schedulable by RM if U ≤ n(2<sup>1/n</sup> − 1), a bound that falls from 1 for one task towards ln 2 ≈ 0.693 for many; it is sufficient, not necessary. <b>Earliest-deadline-first (EDF)</b> uses dynamic priorities — always run the task whose deadline is nearest — and is optimal for a single processor: the set is schedulable if and only if U ≤ 1. EDF squeezes out more of the CPU, but RM is simpler, its failure mode under overload is more predictable (low-priority tasks miss first), and fixed priorities are widely supported.</p><p>For two tasks compute U = ΣCi/Ti and check whether it is at most 1. Is that enough for a guarantee, or only necessary?</p>",
       "worked": [
         {
           "toc": "Utilisation",
@@ -1185,6 +1240,11 @@
           "prompt": "<p>Tasks (C, T) = (3, 6) and (4, 8) have U = 1.0. Can EDF schedule them? Can RM be guaranteed to?</p>",
           "answer": "U = 0.5 + 0.5 = 1, so EDF can schedule it (U ≤ 1 is exact for EDF). RM cannot: A (T = 6) has priority; B runs 3–6, is pre-empted when A re-releases at 6 and has 1 unit left; A runs 6–9, so B finishes at 10 &gt; its deadline 8 and misses. RM’s guaranteed bound for n = 2 is 0.828 &lt; 1, consistent with this failure."
         }
+      ],
+      "keynotes": [
+        "In a hard real-time system (airbag controller, flight control) a deadline must never be missed; in a soft one (video playback) missing it merely degrades the result.",
+        "Task i needs Ci units of CPU every Ti time units and the utilisation is U = Σ Ci/Ti, where U ≤ 1 is necessary.",
+        "Rate-monotonic scheduling gives shorter periods higher priority."
       ]
     },
     {
@@ -1192,7 +1252,7 @@
       "locator": "2.13",
       "title": "Practice set",
       "eyebrow": "Practice",
-      "body": "<p>Work each problem before opening the answer, and use the Gantt-chart card to verify your schedule. For scheduling numericals the reliable method is: draw the timeline, mark each process’s completion time, then derive TAT = CT − AT and WT = TAT − BT.</p>",
+      "body": "<p>Now you get to practise, and the method is more reliable than any shortcut. Work each problem before opening the answer, and use the Gantt-chart card to verify your schedule. For scheduling numericals the reliable method is: draw the timeline, mark each process’s completion time, then derive TAT = CT − AT and WT = TAT − BT.</p><p>After each problem, check your answer against the Gantt chart card. If they disagree, redraw the timeline before doubting the formula.</p>",
       "problems": [
         {
           "id": "p-mix",
@@ -1209,6 +1269,11 @@
           "prompt": "<p>State the single most important difference between a process and a thread.</p>",
           "answer": "A process owns an address space and resources; threads of one process share them and differ only in the stack, registers and program counter — which is why thread creation and switching are cheaper but threads are less isolated."
         }
+      ],
+      "keynotes": [
+        "Work each problem before opening the answer.",
+        "Draw the timeline, mark each process’s completion time, then derive TAT = CT − AT and WT = TAT − BT.",
+        "Use the Gantt-chart card to verify your schedule."
       ]
     }
   ]

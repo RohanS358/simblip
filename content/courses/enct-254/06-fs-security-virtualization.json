@@ -8,7 +8,7 @@
       "locator": "6.1",
       "title": "The file abstraction",
       "eyebrow": "Naming and attributes",
-      "body": "<p>Memory is volatile and small; processes need somewhere permanent to keep programs and data. The OS provides it as the <em class=\"term\">file</em>: a named, persistent collection of bytes, however the disk actually stores them. A file has a <b>name</b>, a <b>type</b> (text, executable, directory — signalled by an extension or a magic number), a <b>location</b> (where its blocks are), a <b>size</b>, <b>protection</b> information (who may read, write, execute), and <b>time stamps</b> (created, modified, accessed). That metadata, not the data, is what a directory listing shows.</p><p>The operations are the system calls we met in Chapter 1: <code>create</code>, <code>open</code>, <code>read</code>, <code>write</code>, <code>seek</code> (reposition the file pointer), <code>truncate</code>, <code>close</code>, <code>delete</code>. <code>open</code> is the key one. It searches the directory, checks permissions once, and returns a small integer <b>file descriptor</b> pointing into the kernel’s open-file table, so later reads do not repeat the lookup. The kernel keeps two tables: a <em>per-process</em> table of descriptors and a <em>system-wide</em> table with the current file offset and a reference count. That split is why a parent and its forked child can share one file offset.</p><p>Programs access a file in one of two ways. <b>Sequential access</b> reads or writes records in order, like a tape — the common case. <b>Direct (random) access</b> jumps to any block by number — essential for databases. An <b>indexed</b> method builds an index so a record can be found by key, then read directly.</p>",
+      "body": "<p>Memory is small and forgets everything when the power goes, so programs need somewhere permanent to keep their work, and the OS gives them the file, which you use every day. Memory is volatile and small; processes need somewhere permanent to keep programs and data. The OS provides it as the <em class=\"term\">file</em>: a named, persistent collection of bytes, however the disk actually stores them. A file has a <b>name</b>, a <b>type</b> (text, executable, directory — signalled by an extension or a magic number), a <b>location</b> (where its blocks are), a <b>size</b>, <b>protection</b> information (who may read, write, execute), and <b>time stamps</b> (created, modified, accessed). That metadata, not the data, is what a directory listing shows.</p><p>The operations are the system calls we met in Chapter 1: <code>create</code>, <code>open</code>, <code>read</code>, <code>write</code>, <code>seek</code> (reposition the file pointer), <code>truncate</code>, <code>close</code>, <code>delete</code>. <code>open</code> is the key one. It searches the directory, checks permissions once, and returns a small integer <b>file descriptor</b> pointing into the kernel’s open-file table, so later reads do not repeat the lookup. The kernel keeps two tables: a <em>per-process</em> table of descriptors and a <em>system-wide</em> table with the current file offset and a reference count. That split is why a parent and its forked child can share one file offset.</p><p>Programs access a file in one of two ways. <b>Sequential access</b> reads or writes records in order, like a tape — the common case. <b>Direct (random) access</b> jumps to any block by number — essential for databases. An <b>indexed</b> method builds an index so a record can be found by key, then read directly.</p><p>List the attributes of a file you saved today: name, type, location, size, protection and time stamps. Where is each one stored?</p>",
       "questions": [
         {
           "id": "fd",
@@ -70,6 +70,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A file is a named, persistent collection of bytes, however the disk actually stores them.",
+        "A file has a name, a type, a location, a size, protection information and time stamps.",
+        "Operations include create, open, read, write, seek and delete."
       ]
     },
     {
@@ -77,7 +82,7 @@
       "locator": "6.2",
       "title": "Directories: structure and naming",
       "eyebrow": "Organising names",
-      "body": "<p>A directory is itself a file whose contents map names to files. The structures have evolved. A <b>single-level</b> directory (one list for everyone) breaks at once on name clashes. A <b>two-level</b> directory gives each user a private list. A <b>tree-structured</b> directory lets users make subdirectories, giving every file a unique <b>absolute path</b> from the root (<code>/home/ram/notes.txt</code>) and allowing <b>relative paths</b> from the current directory (<code>../notes.txt</code>). An <b>acyclic-graph</b> directory allows a file or directory to appear under two names — sharing — through a <b>link</b>. A fully <b>general graph</b> allows cycles, which makes traversal and deletion dangerous and is generally avoided.</p><p>On Unix-style systems the name points to an <em class=\"term\">inode</em>: a small record holding the attributes and the locations of the data blocks. The name is only an entry in a directory, which is why two names can reach one inode — a <b>hard link</b>, with a reference count in the inode; the data is freed only when the count reaches zero. A <b>symbolic (soft) link</b> is instead a small file containing a path; it can cross file systems and may <em>dangle</em> if its target is deleted. Path lookup walks one component at a time: read the root directory, find the inode of <code>home</code>, read it, find <code>ram</code>, and so on — one or two disk accesses per component unless cached.</p>",
+      "body": "<p>A directory is itself a file that maps names to files, and the way directories are organised has evolved a lot, so you can follow the story from the simplest design to the one on your laptop. A directory is itself a file whose contents map names to files. The structures have evolved. A <b>single-level</b> directory (one list for everyone) breaks at once on name clashes. A <b>two-level</b> directory gives each user a private list. A <b>tree-structured</b> directory lets users make subdirectories, giving every file a unique <b>absolute path</b> from the root (<code>/home/ram/notes.txt</code>) and allowing <b>relative paths</b> from the current directory (<code>../notes.txt</code>). An <b>acyclic-graph</b> directory allows a file or directory to appear under two names — sharing — through a <b>link</b>. A fully <b>general graph</b> allows cycles, which makes traversal and deletion dangerous and is generally avoided.</p><p>On Unix-style systems the name points to an <em class=\"term\">inode</em>: a small record holding the attributes and the locations of the data blocks. The name is only an entry in a directory, which is why two names can reach one inode — a <b>hard link</b>, with a reference count in the inode; the data is freed only when the count reaches zero. A <b>symbolic (soft) link</b> is instead a small file containing a path; it can cross file systems and may <em>dangle</em> if its target is deleted. Path lookup walks one component at a time: read the root directory, find the inode of <code>home</code>, read it, find <code>ram</code>, and so on — one or two disk accesses per component unless cached.</p><p>Write the absolute path and a relative path to the same file. Why do tree-structured directories make every path unique?</p>",
       "questions": [
         {
           "id": "hard",
@@ -154,6 +159,11 @@
           "prompt": "<p>A file has link count 3. One name is removed with <code>rm</code>. What is the link count, and is the data still accessible?</p>",
           "answer": "The link count becomes <b>2</b> and the data is still accessible through the two remaining names; the blocks are freed only when the count reaches 0 (and no process has the file open)."
         }
+      ],
+      "keynotes": [
+        "A single-level directory breaks at once on name clashes; a two-level directory gives each user a private list.",
+        "A tree-structured directory lets users make subdirectories, giving every file a unique absolute path such as /home/ram/notes.txt.",
+        "Relative paths work from the current directory."
       ]
     },
     {
@@ -161,7 +171,7 @@
       "locator": "6.3",
       "title": "Implementing a file system",
       "eyebrow": "On-disk layout",
-      "body": "<p>A disk is carved into <b>blocks</b> (typically 4 KB), and the file system lays its structures on them. A typical Unix-style layout has: a <b>boot block</b> (to start the OS), a <b>superblock</b> (size, block count, free counts, where the other tables are), a <b>free-space map</b>, an <b>inode table</b> (the array of file records), and the <b>data blocks</b>. To protect against damage the superblock is replicated. In memory the kernel keeps the open-file tables, a <b>mount table</b> and caches of directory and inode data so that most operations avoid the disk.</p><p>Mounting attaches a file system to a point in the tree: the kernel reads its superblock, checks it, and records the mount point so lookups cross into the new tree. A <b>virtual file system</b> (VFS) layer makes this uniform: it defines a common interface (<code>lookup</code>, <code>read</code>, <code>write</code>) and each concrete file system — ext4, NTFS, FAT, NFS — plugs in its own implementation, so <code>read()</code> looks identical whether the file lives on a local SSD or a network server.</p><p>A concurrent-access note: when several processes use one file, the OS offers locks (shared for readers, exclusive for writers), and a <b>consistency semantics</b>: Unix lets a write be visible at once to others who have the file open; the Andrew file system makes changes visible only when the file is closed.</p>",
+      "body": "<p>Now we look at how the disk is actually laid out, and you will see familiar names such as the superblock and the inode appear. A disk is carved into <b>blocks</b> (typically 4 KB), and the file system lays its structures on them. A typical Unix-style layout has: a <b>boot block</b> (to start the OS), a <b>superblock</b> (size, block count, free counts, where the other tables are), a <b>free-space map</b>, an <b>inode table</b> (the array of file records), and the <b>data blocks</b>. To protect against damage the superblock is replicated. In memory the kernel keeps the open-file tables, a <b>mount table</b> and caches of directory and inode data so that most operations avoid the disk.</p><p>Mounting attaches a file system to a point in the tree: the kernel reads its superblock, checks it, and records the mount point so lookups cross into the new tree. A <b>virtual file system</b> (VFS) layer makes this uniform: it defines a common interface (<code>lookup</code>, <code>read</code>, <code>write</code>) and each concrete file system — ext4, NTFS, FAT, NFS — plugs in its own implementation, so <code>read()</code> looks identical whether the file lives on a local SSD or a network server.</p><p>A concurrent-access note: when several processes use one file, the OS offers locks (shared for readers, exclusive for writers), and a <b>consistency semantics</b>: Unix lets a write be visible at once to others who have the file open; the Andrew file system makes changes visible only when the file is closed.</p><p>Name the structures of a Unix-style layout in order and say why the superblock is replicated.</p>",
       "questions": [
         {
           "id": "vfs",
@@ -193,6 +203,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A disk is carved into blocks (typically 4 KB), and a Unix-style layout has a boot block, a superblock, a free-space map, an inode table and the data blocks.",
+        "The superblock is replicated to protect against damage.",
+        "In memory the kernel keeps the open-file tables and a mount table."
       ]
     },
     {
@@ -200,7 +215,7 @@
       "locator": "6.4",
       "title": "Allocating disk blocks to files",
       "eyebrow": "Layout",
-      "body": "<p>How should a file’s blocks be placed? <em class=\"term\">Contiguous</em> allocation keeps the blocks side by side: sequential and random access are fast (one seek, then streaming), and a file is described by just a start block and a length. Its weaknesses are external fragmentation and the difficulty of growing a file; it persists in read-only media (CD-ROMs) and as <b>extents</b> (a start and length for each contiguous run) in modern file systems. <em class=\"term\">Linked</em> allocation chains the blocks: each block holds a pointer to the next. There is no fragmentation and files grow freely, but random access means following the chain — slow — and one lost pointer loses the rest of the file. The <b>FAT</b> (file allocation table) variant keeps all the pointers in one table at the start of the disk, cached in memory, which makes random access cheap and is why FAT survives on USB sticks.</p><p><em class=\"term\">Indexed</em> allocation gives each file an <em>index block</em> (an array of block numbers); block k of the file is entry k. Random access is a single lookup and there is no external fragmentation. For large files the index must itself grow, so Unix inodes combine schemes: a number of <b>direct</b> pointers (small files need no more), then a <b>single-indirect</b> pointer to a block of pointers, a <b>double-indirect</b> pointer to a block of such blocks, and a <b>triple-indirect</b> level. Small files, the common case, are therefore reached with no extra I/O while very large files are still supported.</p>",
+      "body": "<p>How should a file’s blocks be placed on the disk? There are three classic answers, and each trades speed against flexibility in a way you can predict. How should a file’s blocks be placed? <em class=\"term\">Contiguous</em> allocation keeps the blocks side by side: sequential and random access are fast (one seek, then streaming), and a file is described by just a start block and a length. Its weaknesses are external fragmentation and the difficulty of growing a file; it persists in read-only media (CD-ROMs) and as <b>extents</b> (a start and length for each contiguous run) in modern file systems. <em class=\"term\">Linked</em> allocation chains the blocks: each block holds a pointer to the next. There is no fragmentation and files grow freely, but random access means following the chain — slow — and one lost pointer loses the rest of the file. The <b>FAT</b> (file allocation table) variant keeps all the pointers in one table at the start of the disk, cached in memory, which makes random access cheap and is why FAT survives on USB sticks.</p><p><em class=\"term\">Indexed</em> allocation gives each file an <em>index block</em> (an array of block numbers); block k of the file is entry k. Random access is a single lookup and there is no external fragmentation. For large files the index must itself grow, so Unix inodes combine schemes: a number of <b>direct</b> pointers (small files need no more), then a <b>single-indirect</b> pointer to a block of pointers, a <b>double-indirect</b> pointer to a block of such blocks, and a <b>triple-indirect</b> level. Small files, the common case, are therefore reached with no extra I/O while very large files are still supported.</p><p>For contiguous, linked and indexed allocation, say which is best for random access and which wastes space on pointers.</p>",
       "worked": [
         {
           "toc": "Pointers per block",
@@ -322,6 +337,11 @@
           "prompt": "<p>A disk has 2²⁸ blocks and a FAT entry is 4 bytes. How big is the FAT?</p>",
           "answer": "2²⁸ × 4 B = 2³⁰ B = <b>1 GB</b> — which is why FAT is impractical on very large disks (and the table must be cached)."
         }
+      ],
+      "keynotes": [
+        "Contiguous allocation keeps blocks side by side, so access is fast, but it suffers external fragmentation and files are hard to grow.",
+        "Linked allocation chains blocks by pointers, so there is no external fragmentation but random access is slow.",
+        "Indexed allocation uses an index block (an inode) listing the file’s blocks."
       ]
     },
     {
@@ -329,7 +349,7 @@
       "locator": "6.5",
       "title": "Free-space management",
       "eyebrow": "Tracking what is free",
-      "body": "<p>The file system must know which blocks are free. A <b>bit map</b> (bit vector) has one bit per block — 1 free, 0 allocated; it is compact and makes finding a run of contiguous free blocks easy, but a large disk has a large bitmap. A <b>linked list</b> of free blocks needs no extra space but is slow to traverse. <b>Grouping</b> stores the addresses of n free blocks in the first free block, the last of which points to the next group. <b>Counting</b> stores (first free block, number of contiguous free blocks) pairs — good when free blocks come in runs. Modern file systems add <b>space maps</b> and delayed allocation (decide the layout at flush time, so many writes form one contiguous extent).</p>",
+      "body": "<p>The file system must also remember which blocks are free, and the methods are simple enough that you can compare them at a glance. The file system must know which blocks are free. A <b>bit map</b> (bit vector) has one bit per block — 1 free, 0 allocated; it is compact and makes finding a run of contiguous free blocks easy, but a large disk has a large bitmap. A <b>linked list</b> of free blocks needs no extra space but is slow to traverse. <b>Grouping</b> stores the addresses of n free blocks in the first free block, the last of which points to the next group. <b>Counting</b> stores (first free block, number of contiguous free blocks) pairs — good when free blocks come in runs. Modern file systems add <b>space maps</b> and delayed allocation (decide the layout at flush time, so many writes form one contiguous extent).</p><p>For a disk with one million blocks, how big is a bitmap? Is that cheap or expensive?</p>",
       "worked": [
         {
           "toc": "Blocks",
@@ -381,6 +401,11 @@
           "prompt": "<p>How large is a free-space bitmap for a 500 GB disk with 4 KB blocks?</p>",
           "answer": "Blocks = 500 × 2³⁰ / 2¹² = 500 × 2¹⁸ = 131,072,000. Bits = 131,072,000 → <b>16.4 MB</b> (131,072,000 / 8)."
         }
+      ],
+      "keynotes": [
+        "A bit map has one bit per block (1 free, 0 allocated): compact and good for finding contiguous runs, but large on a big disk.",
+        "A linked list of free blocks needs no extra space but is slow to traverse.",
+        "Grouping and counting store runs of free blocks more compactly."
       ]
     },
     {
@@ -388,7 +413,7 @@
       "locator": "6.6",
       "title": "Performance and reliability: caching, journaling",
       "eyebrow": "Surviving crashes",
-      "body": "<p>Disks are slow, so file systems cache aggressively: the <b>buffer cache</b> keeps recently used blocks, <b>read-ahead</b> fetches the next blocks of a sequential file, and <b>delayed write</b> holds modified blocks in memory for seconds before flushing. The price is danger: a crash with dirty blocks in memory loses data and can leave the on-disk structures inconsistent — for example a new file’s directory entry is written but its inode is not. After such a crash the traditional repair tool (<code>fsck</code>) scans the whole disk and takes minutes to hours.</p><p>A <b>journaling</b> file system (ext3/4, NTFS, XFS) avoids that. Before changing the real structures it writes a short description of the intended change — a <em>transaction</em> — to a sequential <b>log</b> and commits it; only then does it apply the change in place. After a crash the log is replayed: committed transactions are redone, incomplete ones discarded, and the file system is consistent in seconds. <b>Log-structured</b> file systems go further and make the log the file system. Copy-on-write designs (ZFS, Btrfs) never overwrite a live block, so the old consistent tree remains valid until the new one is atomically published. Backups and snapshots complete the picture.</p>",
+      "body": "<p>Disks are slow, so file systems cache aggressively, and the price of that speed is danger when the power fails, which a clever idea called journaling answers for you. Disks are slow, so file systems cache aggressively: the <b>buffer cache</b> keeps recently used blocks, <b>read-ahead</b> fetches the next blocks of a sequential file, and <b>delayed write</b> holds modified blocks in memory for seconds before flushing. The price is danger: a crash with dirty blocks in memory loses data and can leave the on-disk structures inconsistent — for example a new file’s directory entry is written but its inode is not. After such a crash the traditional repair tool (<code>fsck</code>) scans the whole disk and takes minutes to hours.</p><p>A <b>journaling</b> file system (ext3/4, NTFS, XFS) avoids that. Before changing the real structures it writes a short description of the intended change — a <em>transaction</em> — to a sequential <b>log</b> and commits it; only then does it apply the change in place. After a crash the log is replayed: committed transactions are redone, incomplete ones discarded, and the file system is consistent in seconds. <b>Log-structured</b> file systems go further and make the log the file system. Copy-on-write designs (ZFS, Btrfs) never overwrite a live block, so the old consistent tree remains valid until the new one is atomically published. Backups and snapshots complete the picture.</p><p>Explain how a journal makes a multi-step update such as creating a file appear to happen all at once.</p>",
       "questions": [
         {
           "id": "journal",
@@ -420,6 +445,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "File systems cache aggressively: the buffer cache keeps recently used blocks, read-ahead fetches the next blocks and delayed write holds modified blocks in memory for seconds.",
+        "A crash with dirty blocks in memory loses data and can leave structures inconsistent, for example a directory entry written without its inode.",
+        "Journaling records intended changes first so recovery can replay or discard them."
       ]
     },
     {
@@ -427,7 +457,7 @@
       "locator": "6.7",
       "title": "Protection: who may do what",
       "eyebrow": "Access control",
-      "body": "<p>Protection controls the access of programs, processes and users to resources defined by the system. The guiding rule is the <b>principle of least privilege</b>: give each subject exactly the access it needs and no more. The model is the <b>access matrix</b>: rows are domains (users or processes), columns are objects (files, devices), and each cell lists the rights (read, write, execute, own). The matrix is almost empty, so it is stored in slices. Cut by column, you get an <em class=\"term\">access-control list</em> (ACL) kept with each object: <em>who may touch me</em>. Cut by row, you get a <em class=\"term\">capability</em> list kept with each subject: <em>what I may touch</em>, a token the subject presents.</p><p>Classic Unix gives every file an owner, a group and three triples of permission bits — user, group, other — each with read (r = 4), write (w = 2) and execute (x = 1). The mode 750 means owner rwx, group r-x, others none. For a directory, “execute” means the right to traverse (look names up), and “read” the right to list. Special bits add <b>setuid</b> (run with the owner’s rights — how <code>passwd</code> can edit a protected file) and the <b>sticky</b> bit on shared directories like <code>/tmp</code> so users can delete only their own files. Many systems add richer ACLs, <b>roles</b> (role-based access control) and <b>mandatory</b> policies (SELinux) the user cannot override.</p>",
+      "body": "<p>Who may do what to which file? Protection answers with a table, and the guiding rule is the one you would apply to a spare key: give out only what is needed. Protection controls the access of programs, processes and users to resources defined by the system. The guiding rule is the <b>principle of least privilege</b>: give each subject exactly the access it needs and no more. The model is the <b>access matrix</b>: rows are domains (users or processes), columns are objects (files, devices), and each cell lists the rights (read, write, execute, own). The matrix is almost empty, so it is stored in slices. Cut by column, you get an <em class=\"term\">access-control list</em> (ACL) kept with each object: <em>who may touch me</em>. Cut by row, you get a <em class=\"term\">capability</em> list kept with each subject: <em>what I may touch</em>, a token the subject presents.</p><p>Classic Unix gives every file an owner, a group and three triples of permission bits — user, group, other — each with read (r = 4), write (w = 2) and execute (x = 1). The mode 750 means owner rwx, group r-x, others none. For a directory, “execute” means the right to traverse (look names up), and “read” the right to list. Special bits add <b>setuid</b> (run with the owner’s rights — how <code>passwd</code> can edit a protected file) and the <b>sticky</b> bit on shared directories like <code>/tmp</code> so users can delete only their own files. Many systems add richer ACLs, <b>roles</b> (role-based access control) and <b>mandatory</b> policies (SELinux) the user cannot override.</p><p>Draw a tiny access matrix for two users and two files. How do access-control lists and capabilities store the same information differently?</p>",
       "worked": [
         {
           "toc": "Question",
@@ -556,6 +586,11 @@
           "prompt": "<p>A directory has mode 700 and belongs to Ram. Can another user, Sita, list it, or read a file inside it with a known name?</p>",
           "answer": "No to both. Sita falls in “other” with no permissions, and she lacks execute (traverse) on the directory, so she cannot even look up the name of a file inside."
         }
+      ],
+      "keynotes": [
+        "The principle of least privilege gives each subject exactly the access it needs and no more.",
+        "The access matrix has rows for domains (users or processes), columns for objects (files, devices) and cells listing rights such as read, write, execute and own.",
+        "The matrix is almost empty, so it is stored in slices as access-control lists or capabilities."
       ]
     },
     {
@@ -563,7 +598,7 @@
       "locator": "6.8",
       "title": "Security: threats and defences",
       "eyebrow": "Hostile environment",
-      "body": "<p>Protection assumes the system works as designed; <em class=\"term\">security</em> defends it against deliberate attack. The classic threats are <b>malware</b> (viruses attach to programs, worms spread by themselves over the network, trojans pretend to be useful, ransomware encrypts your files), <b>buffer-overflow</b> attacks (a program copies input into a fixed-size buffer without a length check, overwriting a neighbouring return address so the attacker’s code runs), <b>denial of service</b> (flood a service until it cannot answer), <b>privilege escalation</b>, <b>eavesdropping</b> and <b>spoofing</b> — and people, via phishing and weak passwords.</p><p>The defences are layered. <em class=\"term\">Authentication</em> proves who you are: something you know (a password, stored only as a salted hash), something you have (a phone or key), something you are (a fingerprint) — combined as multi-factor. <b>Cryptography</b> protects data: symmetric ciphers (AES) for bulk data, public-key ciphers (RSA, elliptic curves) for exchanging keys and signing, hashes (SHA-256) for integrity. The OS contributes memory protection, non-executable stacks and <b>address-space layout randomisation</b> against overflows, <b>sandboxing</b> to confine untrusted programs, <b>secure boot</b> to verify each boot stage’s signature, firewalls and intrusion detection, audit logs and prompt patching. Security is never finished; it is the art of making an attack cost more than it is worth.</p>",
+      "body": "<p>Protection assumes the system works as designed, while security defends it against deliberate attack, and you should know the main threats by name. Protection assumes the system works as designed; <em class=\"term\">security</em> defends it against deliberate attack. The classic threats are <b>malware</b> (viruses attach to programs, worms spread by themselves over the network, trojans pretend to be useful, ransomware encrypts your files), <b>buffer-overflow</b> attacks (a program copies input into a fixed-size buffer without a length check, overwriting a neighbouring return address so the attacker’s code runs), <b>denial of service</b> (flood a service until it cannot answer), <b>privilege escalation</b>, <b>eavesdropping</b> and <b>spoofing</b> — and people, via phishing and weak passwords.</p><p>The defences are layered. <em class=\"term\">Authentication</em> proves who you are: something you know (a password, stored only as a salted hash), something you have (a phone or key), something you are (a fingerprint) — combined as multi-factor. <b>Cryptography</b> protects data: symmetric ciphers (AES) for bulk data, public-key ciphers (RSA, elliptic curves) for exchanging keys and signing, hashes (SHA-256) for integrity. The OS contributes memory protection, non-executable stacks and <b>address-space layout randomisation</b> against overflows, <b>sandboxing</b> to confine untrusted programs, <b>secure boot</b> to verify each boot stage’s signature, firewalls and intrusion detection, audit logs and prompt patching. Security is never finished; it is the art of making an attack cost more than it is worth.</p><p>Match each threat to its defence: a buffer overflow, ransomware and a password guess. Which defence is the cheapest and most effective?</p>",
       "questions": [
         {
           "id": "overflow",
@@ -640,6 +675,11 @@
           "prompt": "<p>Why does two-factor authentication make a stolen password far less useful?</p>",
           "answer": "The attacker also needs a second, independent factor — a code from the user’s phone or hardware key — which a password leak does not reveal. The two factors fail independently, so the chance both are compromised is much smaller."
         }
+      ],
+      "keynotes": [
+        "Malware includes viruses (attached to programs), worms (spreading by themselves), trojans (pretending to be useful) and ransomware (encrypting your files).",
+        "A buffer-overflow attack overwrites a neighbouring return address so the attacker’s code runs.",
+        "Defences are layered: authentication, cryptography, memory protection, sandboxing, secure boot, firewalls and prompt patching."
       ]
     },
     {
@@ -647,7 +687,7 @@
       "locator": "6.9",
       "title": "Virtual machines and containers",
       "eyebrow": "Sharing a machine",
-      "body": "<p>A <em class=\"term\">hypervisor</em> (virtual machine monitor) lets several operating systems — <em>guests</em> — share one set of hardware, each believing it owns a whole computer. <b>Type 1</b> hypervisors run directly on the hardware (Xen, VMware ESXi, KVM) and are the base of the cloud; <b>Type 2</b> hypervisors run as an application on a host OS (VirtualBox, VMware Workstation) and suit desktops. The trick is trapping: the guest kernel runs in <em>user</em> mode, so when it executes a privileged instruction the hardware traps to the hypervisor, which emulates the effect on the guest’s virtual device. Modern CPUs add hardware support (Intel VT-x, AMD-V) that makes this fast; memory is virtualised with nested page tables; I/O devices are emulated or passed through. Benefits: server consolidation, isolation, snapshots, live migration of a running VM between hosts.</p><p>A <em class=\"term\">container</em> (Docker, LXC) takes a lighter route and virtualises the <em>operating system</em> instead of the hardware: containers share one host kernel, but Linux <b>namespaces</b> give each its own view of processes, network, mounts and users, and <b>cgroups</b> limit its CPU, memory and I/O. There is no guest kernel to boot, so a container starts in milliseconds and uses little memory; the trade-off is weaker isolation (a kernel bug affects all) and the need for guests to use the same kernel. Orchestrators such as Kubernetes schedule thousands of containers across many machines.</p>",
+      "body": "<p>What if one machine could pretend to be several, each with its own operating system? That is the trick behind the cloud, and you can follow it by thinking about who is allowed to run privileged instructions. A <em class=\"term\">hypervisor</em> (virtual machine monitor) lets several operating systems — <em>guests</em> — share one set of hardware, each believing it owns a whole computer. <b>Type 1</b> hypervisors run directly on the hardware (Xen, VMware ESXi, KVM) and are the base of the cloud; <b>Type 2</b> hypervisors run as an application on a host OS (VirtualBox, VMware Workstation) and suit desktops. The trick is trapping: the guest kernel runs in <em>user</em> mode, so when it executes a privileged instruction the hardware traps to the hypervisor, which emulates the effect on the guest’s virtual device. Modern CPUs add hardware support (Intel VT-x, AMD-V) that makes this fast; memory is virtualised with nested page tables; I/O devices are emulated or passed through. Benefits: server consolidation, isolation, snapshots, live migration of a running VM between hosts.</p><p>A <em class=\"term\">container</em> (Docker, LXC) takes a lighter route and virtualises the <em>operating system</em> instead of the hardware: containers share one host kernel, but Linux <b>namespaces</b> give each its own view of processes, network, mounts and users, and <b>cgroups</b> limit its CPU, memory and I/O. There is no guest kernel to boot, so a container starts in milliseconds and uses little memory; the trade-off is weaker isolation (a kernel bug affects all) and the need for guests to use the same kernel. Orchestrators such as Kubernetes schedule thousands of containers across many machines.</p><p>Compare a Type 1 and a Type 2 hypervisor and a container: which shares the host kernel, and which runs a full guest OS?</p>",
       "questions": [
         {
           "id": "cont",
@@ -724,6 +764,11 @@
           "prompt": "<p>Give one advantage and one risk of containers over virtual machines.</p>",
           "answer": "Advantage: start in milliseconds and use far less memory because they share the kernel. Risk: a kernel vulnerability affects every container on the host, and containers cannot run a different OS kernel."
         }
+      ],
+      "keynotes": [
+        "A hypervisor lets several guest operating systems share one set of hardware, each believing it owns a whole computer.",
+        "Type 1 hypervisors run directly on the hardware (Xen, VMware ESXi, KVM); Type 2 run as an application on a host OS (VirtualBox, VMware Workstation).",
+        "The guest kernel runs in user mode, so privileged instructions trap to the hypervisor."
       ]
     },
     {
@@ -731,7 +776,7 @@
       "locator": "6.10",
       "title": "Contemporary systems",
       "eyebrow": "Real operating systems",
-      "body": "<p>Linux is a monolithic, modular kernel started by Linus Torvalds in 1991, licensed under the GPL, with processes and threads scheduled by CFS, demand-paged virtual memory, a VFS with ext4 as the usual file system, and a huge driver collection; it runs everything from phones to supercomputers. <b>Windows NT</b> (the line from Windows NT to Windows 11) is a hybrid kernel with an object-oriented design, NTFS, a registry of configuration, and strong backward compatibility. <b>macOS and iOS</b> use XNU, a Mach–BSD hybrid with a proprietary user interface layer. <b>Android</b> runs a Linux kernel with a managed runtime (ART) above it and apps in sandboxes with a permission model. <b>Embedded and real-time</b> systems favour tiny kernels (FreeRTOS, Zephyr) with deadline-driven schedulers; robots add middleware such as ROS; smart-cards run minimal, tightly secured systems. <b>Cloud and distributed</b> systems add network file systems, replication and consensus.</p><p>The same five concerns — processes, memory, files, I/O and protection — recur in every one, with different priorities: throughput for servers, responsiveness for desktops, battery for phones, determinism for controllers. If you can explain each of the six chapters in this course for a Linux kernel, you can understand any other.</p>",
+      "body": "<p>To finish the tour, let’s meet the systems you will actually use, and notice how the design ideas from this course show up in each of them. Linux is a monolithic, modular kernel started by Linus Torvalds in 1991, licensed under the GPL, with processes and threads scheduled by CFS, demand-paged virtual memory, a VFS with ext4 as the usual file system, and a huge driver collection; it runs everything from phones to supercomputers. <b>Windows NT</b> (the line from Windows NT to Windows 11) is a hybrid kernel with an object-oriented design, NTFS, a registry of configuration, and strong backward compatibility. <b>macOS and iOS</b> use XNU, a Mach–BSD hybrid with a proprietary user interface layer. <b>Android</b> runs a Linux kernel with a managed runtime (ART) above it and apps in sandboxes with a permission model. <b>Embedded and real-time</b> systems favour tiny kernels (FreeRTOS, Zephyr) with deadline-driven schedulers; robots add middleware such as ROS; smart-cards run minimal, tightly secured systems. <b>Cloud and distributed</b> systems add network file systems, replication and consensus.</p><p>The same five concerns — processes, memory, files, I/O and protection — recur in every one, with different priorities: throughput for servers, responsiveness for desktops, battery for phones, determinism for controllers. If you can explain each of the six chapters in this course for a Linux kernel, you can understand any other.</p><p>For Linux, Windows and Android, name the kernel style, the file system and the scheduler. What does each design choice trade?</p>",
       "questions": [
         {
           "id": "android",
@@ -793,6 +838,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Linux is a monolithic, modular kernel started by Linus Torvalds in 1991 under the GPL, with CFS scheduling, a VFS and ext4.",
+        "Windows NT is a hybrid kernel with an object-oriented design, NTFS and a registry of configuration.",
+        "macOS and iOS use XNU, a Mach–BSD hybrid, and Android runs a Linux kernel with a managed runtime (ART) above it and apps in sandboxes."
       ]
     },
     {
@@ -821,6 +871,12 @@
           "prompt": "<p>Explain why a journaling file system can recover in seconds while fsck may take hours.</p>",
           "answer": "The journal records exactly which metadata updates were in progress, so recovery replays or discards only those transactions. fsck has no such record and must scan every inode, directory and the free map to find inconsistencies."
         }
+      ],
+      "body": "<p>Now it is your turn to try the exercises, which draw on the whole course.</p><p>For each exercise, say which chapter’s idea it uses before you start. That habit makes the right method easy to find.</p>",
+      "keynotes": [
+        "Work each exercise on paper before opening the answer.",
+        "Say which chapter’s idea a question uses before choosing a method.",
+        "Check your results against the worked answer."
       ]
     },
     {
@@ -828,7 +884,12 @@
       "locator": "6.12",
       "title": "Course summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>The OS is an extended machine and resource manager, entered only through system calls and interrupts.</li><li>Processes and threads share the CPU by a scheduling policy; synchronisation tools prevent races; deadlock needs four conditions.</li><li>Paging with a TLB gives each process a private virtual address space; replacement and the working set govern performance.</li><li>I/O uses DMA and layered drivers; disks are scheduled to cut seeks; RAID adds speed and redundancy.</li><li>Files are named bytes; inodes, allocation and free-space maps organise the disk; journaling gives crash safety.</li><li>Protection (ACLs, capabilities, least privilege) and security (authentication, cryptography, isolation) defend the system; virtualisation and containers share one machine among many.</li></ul>"
+      "body": "<p>You have reached the end of the course, so here is everything in one short list.</p><ul><li>The OS is an extended machine and resource manager, entered only through system calls and interrupts.</li><li>Processes and threads share the CPU by a scheduling policy; synchronisation tools prevent races; deadlock needs four conditions.</li><li>Paging with a TLB gives each process a private virtual address space; replacement and the working set govern performance.</li><li>I/O uses DMA and layered drivers; disks are scheduled to cut seeks; RAID adds speed and redundancy.</li><li>Files are named bytes; inodes, allocation and free-space maps organise the disk; journaling gives crash safety.</li><li>Protection (ACLs, capabilities, least privilege) and security (authentication, cryptography, isolation) defend the system; virtualisation and containers share one machine among many.</li></ul><p>Try to give a one-sentence answer to “what is an operating system?” without looking, and then compare it with the summary.</p>",
+      "keynotes": [
+        "The OS is an extended machine and resource manager, entered only through system calls and interrupts.",
+        "Processes and threads share the CPU by a scheduling policy; synchronisation tools prevent races; deadlock needs four conditions.",
+        "Paging with a TLB gives each process a private virtual address space; I/O uses DMA and layered drivers."
+      ]
     }
   ]
 }
