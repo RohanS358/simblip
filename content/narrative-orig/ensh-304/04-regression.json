@@ -1,0 +1,42 @@
+{
+  "title": "Correlation and least-squares regression",
+  "subtitle": "Do two quantities move together, and can one predict the other? Fit the line that makes the smallest total squared miss.",
+  "sections": {
+    "scatter": {
+      "title": "Scatter plots and correlation",
+      "body": "<p>Plot pairs (x, y). The <em class=\"term\">correlation coefficient</em> r = Sxy/√(Sxx·Syy) lies in [−1, 1]: +1 perfect rising line, −1 perfect falling, 0 no <em>linear</em> relation. For the default data r = <b>0.9</b>; a falling line gives <b>-1</b>. Correlation is not causation, and r ignores curved patterns.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ls": {
+      "title": "The least-squares line",
+      "body": "<p>Fit ŷ = a + bx by minimising Σ(yᵢ − ŷᵢ)². Solution: b = Sxy/Sxx and a = ȳ − b·x̄, so the line always passes through (x̄, ȳ). Here slope <b>0.9</b> and intercept <b>1.3</b>. The residuals are the vertical gaps; squaring them punishes big misses.</p>",
+      "after": "",
+      "steps": "Data (1,2) (2,3) (3,5) (4,4) (5,6): x̄ = 3, ȳ = 4. Sxy = 9, Sxx = 10. Slope = 9/10, intercept = 4 − 0.9·3."
+    },
+    "r2": {
+      "title": "How good is the fit? R²",
+      "body": "<p>R² = 1 − SSres/SStot is the fraction of the variation in y explained by x; for simple regression R² = r². This fit has R² = <b>0.81</b> — 81 % explained. A high R² does not prove the model is right: always look at the residual plot for curves or fan shapes.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "pit": {
+      "title": "Pitfalls",
+      "body": "<ul><li><b>Extrapolation</b> beyond the data range is unreliable.</li><li><b>Outliers</b> with large leverage can tilt the line.</li><li><b>Non-linear</b> patterns: transform (log y) or use a curve.</li><li><b>Confounders</b>: ice-cream sales and drownings correlate because of summer.</li></ul>",
+      "after": "",
+      "steps": ""
+    },
+    "mult": {
+      "title": "More than one predictor",
+      "body": "<p>Multiple regression fits ŷ = b₀ + b₁x₁ + b₂x₂ + … by the same least-squares idea (solve the normal equations XᵀXb = Xᵀy — the Gaussian elimination of Numerical Methods). Gradient descent finds the same minimum iteratively, which is how machine-learning models are trained.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "rank": {
+      "title": "Rank correlation",
+      "body": "<p>Spearman’s ρ applies the correlation formula to the <em>ranks</em>: ρ = 1 − 6Σd²/(n(n² − 1)), d = rank difference. It detects any monotone relationship and resists outliers. Two judges ranking five entries with Σd² = 4 give ρ = 1 − 24/120 = <b>0.8</b>.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

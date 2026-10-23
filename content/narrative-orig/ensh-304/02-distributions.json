@@ -1,0 +1,42 @@
+{
+  "title": "Binomial, Poisson, normal and the central limit theorem",
+  "subtitle": "Three shapes describe most of what we count and measure — and one theorem explains why the bell curve turns up everywhere.",
+  "sections": {
+    "disc": {
+      "title": "Discrete vs continuous",
+      "body": "<p>A <em class=\"term\">discrete</em> variable takes countable values and has a probability mass function p(x) with Σp = 1. A <em class=\"term\">continuous</em> variable has a density f(x) with total area 1; probabilities are areas, so P(X = a) = 0 and P(a ≤ X ≤ b) = ∫f dx. The <em class=\"term\">cdf</em> F(x) = P(X ≤ x) works for both.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "binom": {
+      "title": "Binomial distribution",
+      "body": "<p>n independent trials, each succeeding with probability p: P(X = k) = ⁿCₖ pᵏ(1 − p)ⁿ⁻ᵏ, mean np, variance np(1 − p). For 10 fair coin tosses the chance of 4 to 6 heads is <b>0.65625</b>.</p>",
+      "after": "",
+      "steps": "P(X = 5) = ¹⁰C₅ (½)¹⁰ = 252/1024. Add k = 4 and 6 (210/1024 each)."
+    },
+    "pois": {
+      "title": "Poisson distribution",
+      "body": "<p>For events arriving independently at average rate λ per interval: P(X = k) = e⁻λ λᵏ/k!, with mean = variance = λ. It is the limit of the binomial as n → ∞, p → 0 with np = λ. With λ = 4 calls per hour, P(at most 2 calls) = <b>0.2381</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "norm": {
+      "title": "The normal distribution",
+      "body": "<p>f(x) = exp(−(x − μ)²/2σ²)/(σ√2π). Standardise with z = (x − μ)/σ and read the standard table. The 68–95–99.7 rule: P(|Z| ≤ 1) = <b>0.68269</b>, P(|Z| ≤ 1.96) = <b>0.95</b>.</p>",
+      "after": "",
+      "steps": "Heights ~ N(170, 10²). P(X > 185): z = (185 − 170)/10. Tail area beyond 1.5 is 0.0668."
+    },
+    "approx": {
+      "title": "Binomial becomes normal",
+      "body": "<p>When np and n(1 − p) are both at least about 5, Binomial(n, p) ≈ N(np, np(1 − p)). Step through n = 5, 10, 30 below and the bars fit the curve ever better. Apply a ±½ continuity correction when converting a count to a continuous area.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "clt": {
+      "title": "The central limit theorem",
+      "body": "<p>Take samples of size n from <em>any</em> population with mean μ and sd σ. The sample means X̄ are approximately N(μ, σ²/n) for large n, with standard error σ/√n. Start from a lopsided exponential population; single draws have sd <b>1.034</b>, yet means of 30 have sd <b>0.184</b> (theory 0.183) and a bell shape.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

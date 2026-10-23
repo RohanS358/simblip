@@ -1,0 +1,42 @@
+{
+  "title": "Control charts",
+  "subtitle": "A factory cannot inspect every item — but it can watch the average and notice the moment the process drifts.",
+  "sections": {
+    "var": {
+      "title": "Two kinds of variation",
+      "body": "<p>Every process varies. <em class=\"term\">Common-cause</em> variation is the steady random noise of a healthy process; <em class=\"term\">special-cause</em> variation comes from something specific (worn tool, new supplier). Statistical quality control (SQC) separates the two so we act only on real changes.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "xbar": {
+      "title": "The X̄ chart",
+      "body": "<p>Take small samples (size n) regularly and plot each sample mean. Centre line = grand mean X̿. Control limits sit three standard errors away: UCL, LCL = X̿ ± 3σ/√n (or X̿ ± A₂R̄ from tabulated constants). Because P(|Z| ≤ 3) = <b>0.9973</b>, a healthy process almost never crosses them by chance: about 1 false alarm in 370.</p>",
+      "after": "",
+      "steps": "Grand mean 50, σ = 4, n = 4. SE = 4/√4. Limits = 50 ± 3·2."
+    },
+    "rules": {
+      "title": "Signals beyond one point",
+      "body": "<p>A single point outside the limits is one signal. Others: 7 points in a row on one side of the centre line, 6 steadily rising, 2 of 3 beyond 2σ. Each pattern is unlikely under pure noise, so it flags a shift earlier than waiting for the limit.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "p": {
+      "title": "Charts for attributes",
+      "body": "<p>For defective fractions use the p-chart: centre p̄, limits p̄ ± 3√(p̄(1 − p̄)/n). For defects per unit use the c-chart: c̄ ± 3√c̄ (Poisson). Lower limits below zero are set to zero.</p>",
+      "after": "",
+      "steps": "p̄ = 0.04, n = 100: √(0.04·0.96/100) = 0.0196. UCL = 0.04 + 0.0588; LCL negative, use 0."
+    },
+    "cap": {
+      "title": "Process capability",
+      "body": "<p>Control asks “is it stable?”; capability asks “does it meet the spec?” Cp = (USL − LSL)/6σ. Cp ≥ 1.33 is comfortable; Cp = 1 leaves 0.27 % out of spec. Cpk = min(USL − μ, μ − LSL)/3σ also penalises an off-centre mean.</p>",
+      "after": "",
+      "steps": "Spec 40–60, σ = 2.5: 6σ = 15. So Cp = 1.33 if the mean is centred."
+    },
+    "acc": {
+      "title": "Acceptance sampling",
+      "body": "<p>A single-sampling plan (n, c) inspects n items from a lot and accepts if at most c are defective. The operating-characteristic curve plots P(accept) against the lot defect rate — computed with the binomial (or Poisson). Producer’s risk α rejects a good lot; consumer’s risk β accepts a bad one.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

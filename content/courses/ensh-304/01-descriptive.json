@@ -1,14 +1,14 @@
 {
   "title": "Summaries, probability rules and Bayes",
   "kicker": "ENSH 304 · Probability and Statistics · Chapter 1",
-  "subtitle": "Squeeze a pile of numbers into two or three, then learn the few rules that govern chance — and why a positive test is usually less alarming than it sounds.",
+  "subtitle": "Squeeze a pile of numbers into two or three, then learn the few rules that govern chance, and why a positive test is usually less alarming than it sounds.",
   "sections": [
     {
       "id": "center",
       "locator": "1.1",
       "title": "Centre and spread",
       "eyebrow": "Describing data",
-      "body": "<p>The <em class=\"term\">mean</em> x̄ = Σx/n balances the data; the <em class=\"term\">median</em> is the middle value and ignores outliers; the <em class=\"term\">mode</em> is the most frequent. Spread is measured by the <em class=\"term\">variance</em> s² = Σ(x − x̄)²/(n − 1) and its root, the <em class=\"term\">standard deviation</em> s (same units as the data). Charts: a histogram shows shape, a box plot shows median and quartiles, a scatter plot shows pairs.</p>",
+      "body": "<p>Suppose someone hands you a thousand exam marks and asks, “So, how did the class do?” You cannot recite a thousand numbers. You need to squeeze them into two or three. The <em class=\"term\">mean</em> x̄ = Σx/n balances the data; the <em class=\"term\">median</em> is the middle value and ignores outliers; the <em class=\"term\">mode</em> is the most frequent.</p><p>But averages alone are not enough, because two classes can share a mean and look completely different. So we also measure spread: the <em class=\"term\">variance</em> s² = Σ(x − x̄)²/(n − 1) and its root, the <em class=\"term\">standard deviation</em> s, in the same units as the data. Try it on 2, 4, 4, 4, 5, 5, 7, 9. Mean = 40/8 = 5. Squared deviations: 9,1,1,1,0,0,4,16 sum to 32. Divide by n − 1 = 7: s² = 32/7 ≈ 4.57, and s ≈ 2.14. For charts, a histogram shows shape, a box plot shows median and quartiles, and a scatter plot shows pairs. Incomes of 20, 22, 25, 27 and 400 (thousand)? The median describes a typical person; the 400 drags the mean far away.</p>",
       "worked": [
         {
           "toc": "Mean",
@@ -65,6 +65,11 @@
           "prompt": "<p>Find the sample standard deviation of 2, 4, 4, 4, 5, 5, 7, 9.</p>",
           "answer": "s² = 32/7 = 4.571, so s ≈ <b>2.14</b> (population formula ÷8 would give 2.0)."
         }
+      ],
+      "keynotes": [
+        "The mean x̄ = Σx/n balances the data, the median is the middle value and ignores outliers, and the mode is the most frequent.",
+        "Variance s² = Σ(x − x̄)²/(n − 1) and its root s, the standard deviation, measure spread in the same units as the data.",
+        "For 2, 4, 4, 4, 5, 5, 7, 9 the mean is 5, s² = 32/7 ≈ 4.57 and s ≈ 2.14."
       ]
     },
     {
@@ -72,7 +77,7 @@
       "locator": "1.2",
       "title": "Probability rules",
       "eyebrow": "The grammar of chance",
-      "body": "<p>P(A) lies in [0, 1]; the certain event has P = 1. <b>Complement</b>: P(Aᶜ) = 1 − P(A). <b>Addition</b>: P(A ∪ B) = P(A) + P(B) − P(A ∩ B). <b>Conditional</b>: P(A | B) = P(A ∩ B)/P(B). Events are <em class=\"term\">independent</em> when P(A ∩ B) = P(A)P(B). Counting: n! orderings, ⁿPᵣ = n!/(n − r)!, ⁿCᵣ = n!/(r!(n − r)!).</p>",
+      "body": "<p>Chance has a grammar, and it has only a few rules. P(A) lies in [0, 1]; the certain event has P = 1. <b>Complement</b>: P(Aᶜ) = 1 − P(A). <b>Addition</b>: P(A ∪ B) = P(A) + P(B) − P(A ∩ B). <b>Conditional</b>: P(A | B) = P(A ∩ B)/P(B). Events are <em class=\"term\">independent</em> when P(A ∩ B) = P(A)P(B). For counting: n! orderings, ⁿPᵣ = n!/(n − r)!, ⁿCᵣ = n!/(r!(n − r)!).</p><p>Roll two fair dice. P(sum = 7): 6 of the 36 outcomes, so 6/36. Now suppose you learn the first die is 3: only (3,4) works, so 1 of 6. Learning something changed the probability, and that is what conditional means. Test yourself: P(A) = 0.5, P(B) = 0.4, P(A ∩ B) = 0.2. Is P(A)P(B) = 0.2? Yes, so A and B are independent.</p>",
       "worked": [
         {
           "toc": "Count",
@@ -117,6 +122,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "P(A) lies in [0, 1]; the complement is P(Aᶜ) = 1 − P(A); addition is P(A ∪ B) = P(A) + P(B) − P(A ∩ B).",
+        "Conditional probability is P(A | B) = P(A ∩ B)/P(B), and events are independent when P(A ∩ B) = P(A)P(B).",
+        "For two fair dice P(sum = 7) = 6/36, and given the first die is 3 it is 1 of 6."
       ]
     },
     {
@@ -124,7 +134,7 @@
       "locator": "1.3",
       "title": "Bayes’ theorem, by counting people",
       "eyebrow": "Reversing a condition",
-      "body": "<p>P(A | B) = P(B | A)P(A)/P(B). The trick is to imagine 1000 people. A disease has prior 1%; the test catches 90% of cases (sensitivity) and wrongly flags 9% of healthy people (specificity 91%). Of 10 sick, <b>9</b> test positive; of 990 healthy, <b>89.1</b> also do. A positive result therefore means only <b>0.0917</b> probability of disease — most positives are false alarms because the condition is rare.</p>",
+      "body": "<p>Here is a puzzle that fools doctors: a disease affects 1% of people, and a test is 90% accurate. You test positive. Are you probably sick? Surprisingly, no. Bayes’ theorem reverses a condition: P(A | B) = P(B | A)P(A)/P(B). The easiest way to use it is to imagine 1000 people.</p><p>The disease has prior 1%; the test catches 90% of cases (sensitivity) and wrongly flags 9% of healthy people (specificity 91%). Of 10 sick, <b>9</b> test positive; of 990 healthy, <b>89.1</b> also do. A positive result therefore means only <b>0.0917</b> probability of disease: 9 / (9 + 89.1). Most positives are false alarms because the condition is rare. Raise the prior to 10% in the second figure and the same test is far more convincing. Why a higher posterior with the same test? Because there are now many more truly sick people among the positives.</p>",
       "worked": [
         {
           "toc": "Count",
@@ -201,6 +211,11 @@
           "prompt": "<p>A factory’s machine A makes 60% of parts (2% defective); machine B makes 40% (5% defective). A part is defective. P(it came from A)?</p>",
           "answer": "P(D) = 0.6·0.02 + 0.4·0.05 = 0.032. P(A|D) = 0.012/0.032 = <b>0.375</b>."
         }
+      ],
+      "keynotes": [
+        "Bayes’ theorem: P(A | B) = P(B | A)P(A)/P(B); imagine 1000 people to use it.",
+        "With a 1% prior, 90% sensitivity and 9% false flags, 9 of 10 sick test positive and 89.1 of 990 healthy do, so a positive result means only 0.0917 probability of disease.",
+        "Most positives are false alarms because the condition is rare; raising the prior to 10% makes the same test far more convincing."
       ]
     },
     {
@@ -208,7 +223,7 @@
       "locator": "1.4",
       "title": "When the maths is hard, simulate",
       "eyebrow": "Monte Carlo",
-      "body": "<p>If P(event) is awkward to derive, generate many random trials and count. Throwing random points in a unit square and counting those inside the quarter-circle estimates π/4. This run gives π ≈ <b>3.33</b> (error <b>0.1884</b>); the error shrinks like 1/√n, so 100× more trials gives only 10× more accuracy.</p>",
+      "body": "<p>When the maths gets awkward, you can let the computer do the thinking. If P(event) is hard to derive, generate many random trials and count. Throwing random points in a unit square and counting those inside the quarter-circle estimates π/4. This run gives π ≈ <b>3.33</b> (error <b>0.1884</b>).</p><p>Here is the catch: the error shrinks like 1/√n, so 100× more trials gives only 10× more accuracy. To cut a Monte Carlo error by 10× you need about 100× more trials. Mint points are inside the circle in the figure.</p>",
       "questions": [
         {
           "id": "mcq",
@@ -253,6 +268,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "If P(event) is awkward to derive, generate many random trials and count.",
+        "Random points in a unit square inside the quarter-circle estimate π/4; this run gives π ≈ 3.33 with error 0.1884.",
+        "The error shrinks like 1/√n, so 100× more trials gives only 10× more accuracy."
       ]
     },
     {
@@ -260,7 +280,7 @@
       "locator": "1.5",
       "title": "Shape and quartiles",
       "eyebrow": "Reading a distribution",
-      "body": "<p>Sort the data: Q1, the median Q2 and Q3 cut it into quarters; the IQR = Q3 − Q1 measures spread robustly, and points beyond 1.5·IQR from the box are flagged as outliers. A histogram that trails right is <em class=\"term\">right-skewed</em> (mean &gt; median), as incomes are; a symmetric one has mean ≈ median.</p>",
+      "body": "<p>How do you read a distribution at a glance? Sort the data first. Q1, the median Q2 and Q3 cut it into quarters; the IQR = Q3 − Q1 measures spread robustly, and points beyond 1.5·IQR from the box are flagged as outliers. And look at the shape: a histogram that trails right is <em class=\"term\">right-skewed</em> (mean &gt; median), as incomes are; a symmetric one has mean ≈ median. In a right-skewed sample, then, the mean is greater than the median.</p>",
       "questions": [
         {
           "id": "skew",
@@ -292,6 +312,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Q1, the median Q2 and Q3 cut sorted data into quarters; the IQR = Q3 − Q1 measures spread robustly.",
+        "Points beyond 1.5·IQR from the box are flagged as outliers.",
+        "A histogram that trails right is right-skewed (mean > median), as incomes are; a symmetric one has mean ≈ median."
       ]
     },
     {
@@ -299,7 +324,7 @@
       "locator": "1.6",
       "title": "Random variables: expectation and variance",
       "eyebrow": "Long-run averages",
-      "body": "<p>A random variable X assigns a number to each outcome. E[X] = Σx·P(x) is the long-run average and Var(X) = E[X²] − (E[X])². For a fair die E = 3.5 and Var = 35/12 ≈ 2.92. Linearity: E[aX + b] = aE[X] + b and Var(aX + b) = a²Var(X); for independent X, Y, Var(X + Y) = Var X + Var Y.</p>",
+      "body": "<p>If you play a game thousands of times, what do you win on average? That long-run average is the expectation. A random variable X assigns a number to each outcome. E[X] = Σx·P(x) is the long-run average and Var(X) = E[X²] − (E[X])².</p><p>For a fair die E = 3.5. Compute the variance: E[X²] = (1+4+9+16+25+36)/6 = 15.17, then subtract 3.5² = 12.25, so Var = 2.92 (it is exactly 35/12). Two rules make life easy: linearity E[aX + b] = aE[X] + b and Var(aX + b) = a²Var(X); and for independent X, Y, Var(X + Y) = Var X + Var Y. So if Var(X) = 4, then Var(3X + 1) = 9 × 4 = 36.</p>",
       "worked": [
         {
           "toc": "E[X²]",
@@ -344,6 +369,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "E[X] = Σx·P(x) is the long-run average and Var(X) = E[X²] − (E[X])².",
+        "For a fair die E = 3.5 and Var = 35/12 ≈ 2.92.",
+        "E[aX + b] = aE[X] + b and Var(aX + b) = a²Var(X); for independent X and Y, Var(X + Y) = Var X + Var Y."
       ]
     }
   ]

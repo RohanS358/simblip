@@ -1,14 +1,14 @@
 {
   "title": "Binomial, Poisson, normal and the central limit theorem",
   "kicker": "ENSH 304 · Probability and Statistics · Chapter 2",
-  "subtitle": "Three shapes describe most of what we count and measure — and one theorem explains why the bell curve turns up everywhere.",
+  "subtitle": "Three shapes describe most of what we count and measure, and one theorem explains why the bell curve turns up everywhere.",
   "sections": [
     {
       "id": "disc",
       "locator": "2.1",
       "title": "Discrete vs continuous",
       "eyebrow": "Two kinds of variable",
-      "body": "<p>A <em class=\"term\">discrete</em> variable takes countable values and has a probability mass function p(x) with Σp = 1. A <em class=\"term\">continuous</em> variable has a density f(x) with total area 1; probabilities are areas, so P(X = a) = 0 and P(a ≤ X ≤ b) = ∫f dx. The <em class=\"term\">cdf</em> F(x) = P(X ≤ x) works for both.</p>",
+      "body": "<p>Counting the number of buses that pass you in an hour is very different from measuring the exact time one arrives. The first gives whole numbers; the second can be anything on a scale. A <em class=\"term\">discrete</em> variable takes countable values and has a probability mass function p(x) with Σp = 1. A <em class=\"term\">continuous</em> variable has a density f(x) with total area 1; probabilities are areas, so P(X = a) = 0 and P(a ≤ X ≤ b) = ∫f dx.</p><p>Both share a tool, the <em class=\"term\">cdf</em> F(x) = P(X ≤ x). Here is the surprise to remember: for a continuous X, the chance of exactly 2.5 is 0, because a single point has no area.</p>",
       "questions": [
         {
           "id": "cont",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A discrete variable takes countable values and has a probability mass function p(x) with Σp = 1.",
+        "A continuous variable has a density f(x) with total area 1; probabilities are areas, so P(X = a) = 0 and P(a ≤ X ≤ b) = ∫f dx.",
+        "The cdf F(x) = P(X ≤ x) works for both."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "2.2",
       "title": "Binomial distribution",
       "eyebrow": "Counting successes",
-      "body": "<p>n independent trials, each succeeding with probability p: P(X = k) = ⁿCₖ pᵏ(1 − p)ⁿ⁻ᵏ, mean np, variance np(1 − p). For 10 fair coin tosses the chance of 4 to 6 heads is <b>0.65625</b>.</p>",
+      "body": "<p>Toss a coin 10 times: how many heads? That is the binomial question. With n independent trials, each succeeding with probability p, P(X = k) = ⁿCₖ pᵏ(1 − p)ⁿ⁻ᵏ, with mean np and variance np(1 − p). The chance of 4 to 6 heads in 10 fair tosses is <b>0.65625</b>.</p><p>Do it by hand. P(X = 5) = ¹⁰C₅ (½)¹⁰ = 252/1024 ≈ 0.246. Add k = 4 and 6 (210/1024 each) and P(4 ≤ X ≤ 6) = 0.656. Shaded bars sum to the probability in the figure. And a binomial with n = 40, p = 0.25 has mean np = 10.</p>",
       "worked": [
         {
           "toc": "k = 5",
@@ -105,6 +110,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Binomial: n independent trials with success probability p give P(X = k) = ⁿCₖ pᵏ(1 − p)ⁿ⁻ᵏ, mean np and variance np(1 − p).",
+        "For 10 fair coin tosses P(X = 5) = 252/1024 ≈ 0.246 and P(4 ≤ X ≤ 6) = 0.65625.",
+        "A binomial with n = 40 and p = 0.25 has mean 10."
       ]
     },
     {
@@ -112,7 +122,7 @@
       "locator": "2.3",
       "title": "Poisson distribution",
       "eyebrow": "Rare events in an interval",
-      "body": "<p>For events arriving independently at average rate λ per interval: P(X = k) = e⁻λ λᵏ/k!, with mean = variance = λ. It is the limit of the binomial as n → ∞, p → 0 with np = λ. With λ = 4 calls per hour, P(at most 2 calls) = <b>0.2381</b>.</p>",
+      "body": "<p>What about events that arrive at random, like calls to a help-line or typos on a page? The Poisson distribution counts rare events in an interval. For events arriving independently at average rate λ per interval: P(X = k) = e⁻λ λᵏ/k!, with mean = variance = λ. It is the limit of the binomial as n → ∞, p → 0 with np = λ.</p><p>With λ = 4 calls per hour, P(at most 2 calls) = <b>0.2381</b>; the bars for k = 0, 1, 2 are shaded in the figure. A Poisson variable has variance equal to its mean, λ, so you can recognise one from just two numbers.</p>",
       "questions": [
         {
           "id": "pv",
@@ -157,6 +167,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "For events arriving independently at average rate λ per interval, P(X = k) = e⁻λ λᵏ/k! with mean = variance = λ.",
+        "It is the limit of the binomial as n → ∞ and p → 0 with np = λ.",
+        "With λ = 4 calls per hour, P(at most 2 calls) = 0.2381."
       ]
     },
     {
@@ -164,7 +179,7 @@
       "locator": "2.4",
       "title": "The normal distribution",
       "eyebrow": "The bell curve",
-      "body": "<p>f(x) = exp(−(x − μ)²/2σ²)/(σ√2π). Standardise with z = (x − μ)/σ and read the standard table. The 68–95–99.7 rule: P(|Z| ≤ 1) = <b>0.68269</b>, P(|Z| ≤ 1.96) = <b>0.95</b>.</p>",
+      "body": "<p>Now the star of statistics, the bell curve. f(x) = exp(−(x − μ)²/2σ²)/(σ√2π). To use it, standardise with z = (x − μ)/σ and read the standard table. Remember the 68–95–99.7 rule: P(|Z| ≤ 1) = <b>0.68269</b>, P(|Z| ≤ 1.96) = <b>0.95</b>, the central 95 % in the figure.</p><p>Try it. Heights ~ N(170, 10²). P(X &gt; 185): z = (185 − 170)/10 = 1.5, and the tail area beyond 1.5 is 0.0668. And x = 55 from N(40, 5²) has z = (55 − 40)/5 = 3: three standard deviations out, which is very rare.</p>",
       "worked": [
         {
           "toc": "z-score",
@@ -222,6 +237,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "The normal density is f(x) = exp(−(x − μ)²/2σ²)/(σ√2π); standardise with z = (x − μ)/σ and read the standard table.",
+        "P(|Z| ≤ 1) = 0.68269 and P(|Z| ≤ 1.96) = 0.95.",
+        "For heights ~ N(170, 10²), P(X > 185) has z = 1.5 and tail area 0.0668."
       ]
     },
     {
@@ -229,7 +249,7 @@
       "locator": "2.5",
       "title": "Binomial becomes normal",
       "eyebrow": "Approximation",
-      "body": "<p>When np and n(1 − p) are both at least about 5, Binomial(n, p) ≈ N(np, np(1 − p)). Step through n = 5, 10, 30 below and the bars fit the curve ever better. Apply a ±½ continuity correction when converting a count to a continuous area.</p>",
+      "body": "<p>Computing binomial probabilities for big n is tedious, but there is a shortcut you will love. When np and n(1 − p) are both at least about 5, Binomial(n, p) ≈ N(np, np(1 − p)). Step through n = 5, 10, 30 in the figure and watch the bars fit the curve ever better.</p><p>A small trick makes it accurate: apply a ±½ continuity correction when converting a count to a continuous area. So to approximate P(X ≤ 12) for a binomial by a normal, you use 12.5 as the cut-off.</p>",
       "questions": [
         {
           "id": "cc",
@@ -269,6 +289,11 @@
           "note": "Each frame increases n.",
           "script": "var lab = create(\"steplab\", {\"name\":\"appr\",\"engine\":\"dist\",\"kind\":\"binomial\",\"n\":\"5 10 30\",\"p\":0.5,\"width\":600,\"height\":440});"
         }
+      ],
+      "keynotes": [
+        "When np and n(1 − p) are both at least about 5, Binomial(n, p) ≈ N(np, np(1 − p)).",
+        "The bars fit the curve ever better as n goes through 5, 10 and 30.",
+        "Apply a ±½ continuity correction when converting a count to a continuous area."
       ]
     },
     {
@@ -276,7 +301,7 @@
       "locator": "2.6",
       "title": "The central limit theorem",
       "eyebrow": "Why the bell shows up",
-      "body": "<p>Take samples of size n from <em>any</em> population with mean μ and sd σ. The sample means X̄ are approximately N(μ, σ²/n) for large n, with standard error σ/√n. Start from a lopsided exponential population; single draws have sd <b>1.034</b>, yet means of 30 have sd <b>0.184</b> (theory 0.183) and a bell shape.</p>",
+      "body": "<p>Here is why the bell curve is everywhere, and it is a small miracle. Take samples of size n from <em>any</em> population with mean μ and sd σ. The sample means X̄ are approximately N(μ, σ²/n) for large n, with standard error σ/√n.</p><p>See it with your own eyes: start from a lopsided exponential population; single draws have sd <b>1.034</b>, yet means of 30 have sd <b>0.184</b> (theory 0.183) and a bell shape. The histogram of 400 sample means is symmetric in the figure. And since the standard error is σ/√n, quadrupling the sample size halves it.</p>",
       "questions": [
         {
           "id": "se",
@@ -329,6 +354,11 @@
           "prompt": "<p>Weights have σ = 12 g. What is the standard error of the mean of 36 items?</p>",
           "answer": "σ/√n = 12/6 = <b>2 g</b>."
         }
+      ],
+      "keynotes": [
+        "Samples of size n from any population with mean μ and sd σ have means X̄ approximately N(μ, σ²/n), with standard error σ/√n.",
+        "From a lopsided exponential population, single draws have sd 1.034 yet means of 30 have sd 0.184 (theory 0.183) and a bell shape.",
+        "Quadrupling the sample size halves the standard error."
       ]
     }
   ]

@@ -1,0 +1,53 @@
+{
+  "subtitle": "Do two quantities move together, and can one predict the other? Fit the line that makes the smallest total squared miss.",
+  "sections": {
+    "scatter": {
+      "body": "<p>Do taller people weigh more? Do hotter days sell more ice cream? To find out you plot pairs (x, y) and look for a pattern. The <em class='term'>correlation coefficient</em> r = Sxy/√(Sxx·Syy) puts a number on it, between −1 and 1: +1 is a perfect rising line, −1 a perfect falling one, and 0 means no <em>linear</em> relation.</p><p>For the default data r = <b>0.9</b>; a falling line gives <b>-1</b>. Two warnings you must remember: correlation is not causation, and r ignores curved patterns. So r = −0.95 means a strong falling linear relationship.</p>",
+      "keynotes": [
+        "The correlation coefficient r = Sxy/√(Sxx·Syy) lies in [−1, 1]: +1 is a perfect rising line, −1 a perfect falling one, and 0 means no linear relation.",
+        "For the default data r = 0.9; a falling line gives −1.",
+        "Correlation is not causation, and r ignores curved patterns."
+      ]
+    },
+    "ls": {
+      "body": "<p>Many lines pass near a cloud of points, so which is best? The one with the smallest total squared miss. Fit ŷ = a + bx by minimising Σ(yᵢ − ŷᵢ)². The solution is b = Sxy/Sxx and a = ȳ − b·x̄, so the line always passes through (x̄, ȳ). The residuals are the vertical gaps; squaring them punishes big misses. In the figure, the line pivots on the mean point.</p><p>Try the data (1,2) (2,3) (3,5) (4,4) (5,6): x̄ = 3, ȳ = 4. Sxy = 9, Sxx = 10. Slope = 9/10 = 0.9, intercept = 4 − 0.9·3 = 1.3. The least-squares line always passes through the point of means.</p>",
+      "keynotes": [
+        "Least squares fits ŷ = a + bx by minimising Σ(yᵢ − ŷᵢ)², with b = Sxy/Sxx and a = ȳ − b·x̄.",
+        "The line always passes through (x̄, ȳ).",
+        "For the data (1,2) (2,3) (3,5) (4,4) (5,6) the slope is 0.9 and the intercept 1.3."
+      ]
+    },
+    "r2": {
+      "body": "<p>How good is the line, as you can judge? R² = 1 − SSres/SStot is the fraction of the variation in y explained by x; for simple regression R² = r². This fit has R² = <b>0.81</b>, which means 81 % explained. So r = 0.9 gives R² = 0.81. But beware: a high R² does not prove the model is right. Always look at the residual plot for curves or fan shapes.</p>",
+      "keynotes": [
+        "R² = 1 − SSres/SStot is the fraction of the variation in y explained by x; for simple regression R² = r².",
+        "This fit has R² = 0.81, so 81 % is explained.",
+        "A high R² does not prove the model is right: look at the residual plot."
+      ]
+    },
+    "pit": {
+      "body": "<p>Regression is powerful and easy to abuse. Here are the four traps you should learn to spot.</p><ul><li><b>Extrapolation</b> beyond the data range is unreliable.</li><li><b>Outliers</b> with large leverage can tilt the line.</li><li><b>Non-linear</b> patterns: transform (log y) or use a curve.</li><li><b>Confounders</b>: ice-cream sales and drownings correlate because of summer.</li></ul><p>The best explanation for shark attacks and ice-cream sales rising together? A third factor, hot weather, drives both.</p>",
+      "keynotes": [
+        "Extrapolation beyond the data range is unreliable.",
+        "Outliers with large leverage can tilt the line; non-linear patterns need a transform (log y) or a curve.",
+        "Confounders can fake a relationship: ice-cream sales and drownings correlate because of summer."
+      ]
+    },
+    "mult": {
+      "body": "<p>One predictor is rarely enough. Multiple regression fits ŷ = b₀ + b₁x₁ + b₂x₂ + … by the same least-squares idea, which means you solve the normal equations XᵀXb = Xᵀy (the Gaussian elimination of Numerical Methods). Gradient descent finds the same minimum iteratively, which is how machine-learning models are trained. Solving the normal equations is a linear algebra problem.</p>",
+      "keynotes": [
+        "Multiple regression fits ŷ = b₀ + b₁x₁ + b₂x₂ + … by least squares.",
+        "The normal equations XᵀXb = Xᵀy are solved by Gaussian elimination.",
+        "Gradient descent finds the same minimum iteratively, which is how machine-learning models are trained."
+      ]
+    },
+    "rank": {
+      "body": "<p>What if your data are ranks, like judges scoring a contest, not measurements? Spearman’s ρ applies the correlation formula to the <em>ranks</em>: ρ = 1 − 6Σd²/(n(n² − 1)), d = rank difference. It detects any monotone relationship and resists outliers.</p><p>Two judges ranking five entries with Σd² = 4 give ρ = 1 − 24/120 = <b>0.8</b>. And if Σd² = 0 the judges agree perfectly, so ρ = 1.</p>",
+      "keynotes": [
+        "Spearman’s ρ applies the correlation formula to the ranks: ρ = 1 − 6Σd²/(n(n² − 1)).",
+        "It detects any monotone relationship and resists outliers.",
+        "Two judges ranking five entries with Σd² = 4 give ρ = 1 − 24/120 = 0.8."
+      ]
+    }
+  }
+}

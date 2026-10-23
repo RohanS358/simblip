@@ -1,0 +1,42 @@
+{
+  "title": "Summaries, probability rules and Bayes",
+  "subtitle": "Squeeze a pile of numbers into two or three, then learn the few rules that govern chance — and why a positive test is usually less alarming than it sounds.",
+  "sections": {
+    "center": {
+      "title": "Centre and spread",
+      "body": "<p>The <em class=\"term\">mean</em> x̄ = Σx/n balances the data; the <em class=\"term\">median</em> is the middle value and ignores outliers; the <em class=\"term\">mode</em> is the most frequent. Spread is measured by the <em class=\"term\">variance</em> s² = Σ(x − x̄)²/(n − 1) and its root, the <em class=\"term\">standard deviation</em> s (same units as the data). Charts: a histogram shows shape, a box plot shows median and quartiles, a scatter plot shows pairs.</p>",
+      "after": "",
+      "steps": "Data: 2, 4, 4, 4, 5, 5, 7, 9. Mean = 40/8. Squared deviations: 9,1,1,1,0,0,4,16 sum to 32. Divide by n − 1 = 7. Standard deviation is the root."
+    },
+    "prob": {
+      "title": "Probability rules",
+      "body": "<p>P(A) lies in [0, 1]; the certain event has P = 1. <b>Complement</b>: P(Aᶜ) = 1 − P(A). <b>Addition</b>: P(A ∪ B) = P(A) + P(B) − P(A ∩ B). <b>Conditional</b>: P(A | B) = P(A ∩ B)/P(B). Events are <em class=\"term\">independent</em> when P(A ∩ B) = P(A)P(B). Counting: n! orderings, ⁿPᵣ = n!/(n − r)!, ⁿCᵣ = n!/(r!(n − r)!).</p>",
+      "after": "",
+      "steps": "Two fair dice. P(sum = 7): 6 of the 36 outcomes. Given the first die is 3, only (3,4) works: 1 of 6."
+    },
+    "bayes": {
+      "title": "Bayes’ theorem, by counting people",
+      "body": "<p>P(A | B) = P(B | A)P(A)/P(B). The trick is to imagine 1000 people. A disease has prior 1%; the test catches 90% of cases (sensitivity) and wrongly flags 9% of healthy people (specificity 91%). Of 10 sick, <b>9</b> test positive; of 990 healthy, <b>89.1</b> also do. A positive result therefore means only <b>0.0917</b> probability of disease — most positives are false alarms because the condition is rare.</p>",
+      "after": "",
+      "steps": "True positives: 1000 × 0.01 × 0.90 = 9. False positives: 990 × 0.09 = 89.1. Posterior = 9 / (9 + 89.1)."
+    },
+    "mc": {
+      "title": "When the maths is hard, simulate",
+      "body": "<p>If P(event) is awkward to derive, generate many random trials and count. Throwing random points in a unit square and counting those inside the quarter-circle estimates π/4. This run gives π ≈ <b>3.33</b> (error <b>0.1884</b>); the error shrinks like 1/√n, so 100× more trials gives only 10× more accuracy.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "shape": {
+      "title": "Shape and quartiles",
+      "body": "<p>Sort the data: Q1, the median Q2 and Q3 cut it into quarters; the IQR = Q3 − Q1 measures spread robustly, and points beyond 1.5·IQR from the box are flagged as outliers. A histogram that trails right is <em class=\"term\">right-skewed</em> (mean &gt; median), as incomes are; a symmetric one has mean ≈ median.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "expect": {
+      "title": "Random variables: expectation and variance",
+      "body": "<p>A random variable X assigns a number to each outcome. E[X] = Σx·P(x) is the long-run average and Var(X) = E[X²] − (E[X])². For a fair die E = 3.5 and Var = 35/12 ≈ 2.92. Linearity: E[aX + b] = aE[X] + b and Var(aX + b) = a²Var(X); for independent X, Y, Var(X + Y) = Var X + Var Y.</p>",
+      "after": "",
+      "steps": "Fair die: E[X²] = (1+4+9+16+25+36)/6. Subtract 3.5² = 12.25."
+    }
+  }
+}
