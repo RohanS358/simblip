@@ -1,14 +1,14 @@
 {
   "title": "TCP and UDP",
   "kicker": "ENCT 304 · Computer Networks · Chapter 5",
-  "subtitle": "IP delivers packets when it feels like it. TCP turns that into a reliable, ordered stream — and learns how fast it may go.",
+  "subtitle": "IP delivers packets when it feels like it. TCP turns that into a reliable, ordered stream, and learns how fast it may go.",
   "sections": [
     {
       "id": "ports",
       "locator": "5.1",
       "title": "Process-to-process delivery",
       "eyebrow": "Transport",
-      "body": "<p>The network layer gets a packet to a <em>host</em>; the transport layer gets it to a <em>process</em>. A 16-bit <em class=\"term\">port number</em> identifies the process; the pair (IP, port) is a <em class=\"term\">socket</em>. The sender <em class=\"term\">multiplexes</em> many applications onto one network connection; the receiver <em class=\"term\">demultiplexes</em> by port. <em class=\"term\">UDP</em> adds only ports and a checksum: fast, connectionless, no guarantees (DNS, streaming, games). <em class=\"term\">TCP</em> adds connections, reliability, ordering, flow and congestion control (web, email, files).</p>",
+      "body": "<p>The postman delivers a letter to your building. But who in the building should open it? The network layer gets a packet to a <em>host</em>; the transport layer gets it to a <em>process</em>. A 16-bit <em class=\"term\">port number</em> identifies the process, and the pair (IP, port) is a <em class=\"term\">socket</em>. The sender <em class=\"term\">multiplexes</em> many applications onto one network connection; the receiver <em class=\"term\">demultiplexes</em> by port.</p><p>You have two flavours to choose from. <em class=\"term\">UDP</em> adds only ports and a checksum: fast, connectionless, no guarantees (DNS, streaming, games). <em class=\"term\">TCP</em> adds connections, reliability, ordering, flow and congestion control (web, email, files). Why would an application choose UDP? When speed and low delay matter more than perfect delivery, as in a live call.</p>",
       "questions": [
         {
           "id": "udp",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The network layer gets a packet to a host; the transport layer gets it to a process by a 16-bit port number, and (IP, port) is a socket.",
+        "The sender multiplexes many applications onto one network connection; the receiver demultiplexes by port.",
+        "UDP adds only ports and a checksum (DNS, streaming, games); TCP adds connections, reliability, ordering, flow and congestion control (web, email, files)."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "5.2",
       "title": "The three-way handshake",
       "eyebrow": "Connections",
-      "body": "<p>Before data flows TCP agrees initial sequence numbers: the client sends SYN, the server replies SYN-ACK, the client ACKs. Teardown uses FIN and ACK in each direction (a four-step close), since each side closes its half independently. Press Simulate to watch the segments cross.</p>",
+      "body": "<p>Before two people talk seriously on the phone, they check: “Can you hear me?” “Yes, can you hear me?” “Yes.” TCP does the same with its three-way handshake. Before data flows it agrees initial sequence numbers: the client sends SYN, the server replies SYN-ACK, the client ACKs. Teardown uses FIN and ACK in each direction (a four-step close), since each side closes its half independently.</p><p>Press Simulate to watch the segments cross. Why three messages rather than two? Because both sides must confirm that they can send and hear, and two messages would only prove one direction.</p>",
       "questions": [
         {
           "id": "syn",
@@ -87,6 +92,11 @@
           "note": "Open, transfer, close.",
           "script": "diagram(\"mode: sequence\\n[Client] as c\\n[Server] as s\\nc -> s : SYN, seq = x\\ns --> c : SYN-ACK, seq = y, ack = x+1\\nc -> s : ACK, ack = y+1\\nc -> s : data\\ns --> c : ACK\\nc -> s : FIN\\ns --> c : ACK + FIN\\nc -> s : ACK\");"
         }
+      ],
+      "keynotes": [
+        "Before data flows TCP agrees initial sequence numbers: the client sends SYN, the server replies SYN-ACK, the client ACKs.",
+        "Teardown uses FIN and ACK in each direction, a four-step close, since each side closes its half independently.",
+        "The three messages let both sides confirm they can send and receive."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "5.3",
       "title": "Reliability and flow control",
       "eyebrow": "Sequence and window",
-      "body": "<p>TCP numbers every byte. The receiver's acknowledgement is cumulative (\"I have everything up to byte N\"). Loss is detected by a timeout or by three duplicate ACKs (fast retransmit). The receiver also advertises a <em class=\"term\">window</em>, the free space in its buffer, and the sender never has more than that outstanding: <em class=\"term\">flow control</em> stops a fast sender overrunning a slow receiver. It is the sliding window of the previous chapter, applied to a byte stream.</p>",
+      "body": "<p>How does TCP promise you that every byte arrives, in order, even over an unreliable network? By numbering. TCP numbers every byte. The receiver’s acknowledgement is cumulative (“I have everything up to byte N”). Loss is detected by a timeout or by three duplicate ACKs (fast retransmit).</p><p>The receiver also advertises a <em class=\"term\">window</em>, the free space in its buffer, and the sender never has more than that outstanding: <em class=\"term\">flow control</em> stops a fast sender overrunning a slow receiver. It is the sliding window of the previous chapter, applied to a byte stream. Say a receiver advertises a 4000-byte window and the sender has sent bytes 1000–2999 unacknowledged. It may send 4000 − 2000 = 2000 more bytes. Three duplicate ACKs signal that a segment was probably lost.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -138,6 +148,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "TCP numbers every byte, and acknowledgements are cumulative (“I have everything up to byte N”).",
+        "Loss is detected by a timeout or by three duplicate ACKs (fast retransmit).",
+        "A 4000-byte advertised window with 2000 bytes in flight lets the sender send 2000 more; flow control stops a fast sender overrunning a slow receiver."
       ]
     },
     {
@@ -145,7 +160,7 @@
       "locator": "5.4",
       "title": "Congestion control",
       "eyebrow": "Sharing the network",
-      "body": "<p>Flow control protects the receiver; <em class=\"term\">congestion control</em> protects the network. TCP keeps a congestion window <i>cwnd</i>. <em class=\"term\">Slow start</em>: cwnd doubles each RTT from 1 until it reaches <i>ssthresh</i>. <em class=\"term\">Congestion avoidance</em>: +1 segment per RTT. On three duplicate ACKs, Reno halves the threshold and continues from there (fast recovery); Tahoe restarts from 1. A timeout sends both back to 1. The saw-tooth is the signature of TCP.</p>",
+      "body": "<p>Flow control protects the receiver. But who protects the network from you and everyone sending too fast? <em class=\"term\">Congestion control</em> does, and TCP does it by feeling its way, like someone testing bathwater. TCP keeps a congestion window <i>cwnd</i>. <em class=\"term\">Slow start</em>: cwnd doubles each RTT from 1 until it reaches <i>ssthresh</i>. <em class=\"term\">Congestion avoidance</em>: +1 segment per RTT.</p><p>When trouble comes: on three duplicate ACKs, Reno halves the threshold and continues from there (fast recovery); Tahoe restarts from 1. A timeout sends both back to 1. The saw-tooth is the signature of TCP. In the first figure, Reno grows, loses a packet at RTT 9, and then halves; in the second, Tahoe restarts from 1 after the same loss. During slow start, cwnd grows exponentially, doubling every round trip.</p>",
       "questions": [
         {
           "id": "ss",
@@ -219,6 +234,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Flow control protects the receiver; congestion control protects the network, using the congestion window cwnd.",
+        "Slow start doubles cwnd each RTT from 1 until ssthresh; congestion avoidance adds 1 segment per RTT.",
+        "On three duplicate ACKs Reno halves the threshold and continues (fast recovery) while Tahoe restarts from 1; a timeout sends both back to 1."
       ]
     },
     {
@@ -226,7 +246,7 @@
       "locator": "5.5",
       "title": "Sockets",
       "eyebrow": "Programming",
-      "body": "<p>A <em class=\"term\">socket</em> is the programmer’s handle on this machinery. A server calls <code>socket → bind → listen → accept</code> and then <code>recv/send</code>; a client calls <code>socket → connect</code> then <code>send/recv</code>. <code>accept</code> returns a new socket for each client while the listening socket keeps waiting.</p>",
+      "body": "<p>A <em class=\"term\">socket</em> is your handle on all this machinery as a programmer. A server calls <code>socket → bind → listen → accept</code> and then <code>recv/send</code>; a client calls <code>socket → connect</code> then <code>send/recv</code>. The figure shows the call order on each side.</p><p>One subtlety pays off the first time you write a server. <code>accept</code> returns a new socket for each client while the listening socket keeps waiting, like a receptionist who hands each visitor to a colleague and returns to the desk.</p>",
       "questions": [
         {
           "id": "accept",
@@ -266,6 +286,11 @@
           "note": "The call order on each side.",
           "script": "diagram(\"mode: sequence\\n[Client] as c\\n[Server] as s\\ns -> s : socket, bind, listen\\nc -> c : socket\\nc -> s : connect, then handshake\\ns -> s : accept → new socket\\nc -> s : send(request)\\ns --> c : send(response)\\nc -> s : close\");"
         }
+      ],
+      "keynotes": [
+        "A server calls socket, bind, listen and accept, then recv/send.",
+        "A client calls socket and connect, then send/recv.",
+        "accept returns a new socket for each client while the listening socket keeps waiting."
       ]
     },
     {
@@ -273,7 +298,12 @@
       "locator": "5.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Ports pick processes; TCP = reliable stream, UDP = datagrams.</li><li>Handshake: SYN, SYN-ACK, ACK.</li><li>Flow control = receiver’s window; congestion control = cwnd (slow start, AIMD).</li></ul>"
+      "body": "<p>Three lines to keep.</p><ul><li>Ports pick processes; TCP = reliable stream, UDP = datagrams.</li><li>Handshake: SYN, SYN-ACK, ACK.</li><li>Flow control = receiver’s window; congestion control = cwnd (slow start, AIMD).</li></ul>",
+      "keynotes": [
+        "Ports pick processes; TCP is a reliable stream and UDP is datagrams.",
+        "The handshake is SYN, SYN-ACK, ACK.",
+        "Flow control uses the receiver’s window; congestion control uses cwnd (slow start, AIMD)."
+      ]
     }
   ]
 }

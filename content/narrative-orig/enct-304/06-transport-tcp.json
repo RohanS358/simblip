@@ -1,0 +1,42 @@
+{
+  "title": "TCP and UDP",
+  "subtitle": "IP delivers packets when it feels like it. TCP turns that into a reliable, ordered stream — and learns how fast it may go.",
+  "sections": {
+    "ports": {
+      "title": "Process-to-process delivery",
+      "body": "<p>The network layer gets a packet to a <em>host</em>; the transport layer gets it to a <em>process</em>. A 16-bit <em class=\"term\">port number</em> identifies the process; the pair (IP, port) is a <em class=\"term\">socket</em>. The sender <em class=\"term\">multiplexes</em> many applications onto one network connection; the receiver <em class=\"term\">demultiplexes</em> by port. <em class=\"term\">UDP</em> adds only ports and a checksum: fast, connectionless, no guarantees (DNS, streaming, games). <em class=\"term\">TCP</em> adds connections, reliability, ordering, flow and congestion control (web, email, files).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "hs": {
+      "title": "The three-way handshake",
+      "body": "<p>Before data flows TCP agrees initial sequence numbers: the client sends SYN, the server replies SYN-ACK, the client ACKs. Teardown uses FIN and ACK in each direction (a four-step close), since each side closes its half independently. Press Simulate to watch the segments cross.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "reliable": {
+      "title": "Reliability and flow control",
+      "body": "<p>TCP numbers every byte. The receiver's acknowledgement is cumulative (\"I have everything up to byte N\"). Loss is detected by a timeout or by three duplicate ACKs (fast retransmit). The receiver also advertises a <em class=\"term\">window</em>, the free space in its buffer, and the sender never has more than that outstanding: <em class=\"term\">flow control</em> stops a fast sender overrunning a slow receiver. It is the sliding window of the previous chapter, applied to a byte stream.</p>",
+      "after": "",
+      "steps": "A receiver advertises a 4000-byte window; the sender has sent bytes 1000–2999 unacknowledged. It may send 4000 − 2000 = 2000 more bytes."
+    },
+    "cc": {
+      "title": "Congestion control",
+      "body": "<p>Flow control protects the receiver; <em class=\"term\">congestion control</em> protects the network. TCP keeps a congestion window <i>cwnd</i>. <em class=\"term\">Slow start</em>: cwnd doubles each RTT from 1 until it reaches <i>ssthresh</i>. <em class=\"term\">Congestion avoidance</em>: +1 segment per RTT. On three duplicate ACKs, Reno halves the threshold and continues from there (fast recovery); Tahoe restarts from 1. A timeout sends both back to 1. The saw-tooth is the signature of TCP.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "sockets": {
+      "title": "Sockets",
+      "body": "<p>A <em class=\"term\">socket</em> is the programmer’s handle on this machinery. A server calls <code>socket → bind → listen → accept</code> and then <code>recv/send</code>; a client calls <code>socket → connect</code> then <code>send/recv</code>. <code>accept</code> returns a new socket for each client while the listening socket keeps waiting.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Ports pick processes; TCP = reliable stream, UDP = datagrams.</li><li>Handshake: SYN, SYN-ACK, ACK.</li><li>Flow control = receiver’s window; congestion control = cwnd (slow start, AIMD).</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

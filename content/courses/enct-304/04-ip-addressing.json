@@ -8,7 +8,7 @@
       "locator": "4.1",
       "title": "Reading an address",
       "eyebrow": "The format",
-      "body": "<p>An IPv4 address is 32 bits written as four decimal bytes. The <em class=\"term\">subnet mask</em> (or prefix length /<i>n</i>) marks the first <i>n</i> bits as the <b>network</b> part; the rest identify the <b>host</b>. Originally the split was fixed by <em class=\"term\">class</em>: A (first bit 0, /8), B (10, /16), C (110, /24), D (1110, multicast), E (reserved). Modern <em class=\"term\">CIDR</em> allows any prefix length.</p>",
+      "body": "<p>An IP address is like the postal address on a letter you send: the first part names the town, the last part names the house. An IPv4 address is 32 bits written as four decimal bytes. The <em class=\"term\">subnet mask</em> (or prefix length /<i>n</i>) marks the first <i>n</i> bits as the <b>network</b> part; the rest identify the <b>host</b>.</p><p>Originally the split was fixed by <em class=\"term\">class</em>: A (first bit 0, /8), B (10, /16), C (110, /24), D (1110, multicast), E (reserved). Modern <em class=\"term\">CIDR</em> allows any prefix length. As the figure shows, 192.168.10.77/26 is on network 192.168.10.64 with broadcast 192.168.10.127 and 62 usable hosts. Which class is 172.16.5.9 in the original classful scheme? The first byte 172 starts with bits 10, so class B.</p>",
       "questions": [
         {
           "id": "class",
@@ -55,6 +55,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "An IPv4 address is 32 bits written as four decimal bytes; the subnet mask (or prefix length /n) marks the first n bits as the network part.",
+        "Classes: A (first bit 0, /8), B (10, /16), C (110, /24), D (1110, multicast), E (reserved); CIDR allows any prefix length.",
+        "192.168.10.77/26 is on network 192.168.10.64 with broadcast 192.168.10.127 and 62 usable hosts."
       ]
     },
     {
@@ -62,7 +67,7 @@
       "locator": "4.2",
       "title": "Network, broadcast and usable hosts",
       "eyebrow": "The three numbers",
-      "body": "<p>AND the address with the mask to get the <b>network address</b>; set all host bits to 1 for the <b>broadcast address</b>; the usable hosts lie between them: 2<sup>h</sup> − 2 where <i>h</i> is the number of host bits (the all-zeros and all-ones addresses are reserved).</p>",
+      "body": "<p>Three numbers describe any subnet, and you can compute them in your head with practice. AND the address with the mask to get the <b>network address</b>. Set all host bits to 1 for the <b>broadcast address</b>. The usable hosts lie between them: 2<sup>h</sup> − 2 where <i>h</i> is the number of host bits (the all-zeros and all-ones addresses are reserved).</p><p>Do 192.168.10.77/26. The last byte 77 = 01001101, and /26 leaves 6 host bits. Network: zero the host bits → 01000000 = 64. Broadcast: set them → 01111111 = 127. So the range is 192.168.10.64 to 192.168.10.127, and usable hosts = 2⁶ − 2 = 62. How many usable hosts in a /27? Five host bits give 2⁵ − 2 = 30.</p>",
       "worked": [
         {
           "toc": "Binary",
@@ -112,6 +117,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "AND the address with the mask to get the network address; set all host bits to 1 for the broadcast address.",
+        "Usable hosts are 2^h − 2 where h is the number of host bits.",
+        "For 192.168.10.77/26 the network is 64, the broadcast is 127 and there are 2⁶ − 2 = 62 usable hosts."
       ]
     },
     {
@@ -119,7 +129,7 @@
       "locator": "4.3",
       "title": "VLSM: sizing each subnet",
       "eyebrow": "Variable length",
-      "body": "<p><em class=\"term\">VLSM</em> gives each network just the block it needs. Sort requirements largest first, give each the smallest power-of-two block that fits its hosts + 2, and place blocks back to back so they stay aligned. From 192.168.1.0/24 for 100, 50, 20 and 10 hosts: <b>192.168.1.0/25 192.168.1.128/26 192.168.1.192/27 192.168.1.224/28</b>.</p>",
+      "body": "<p>Giving every department the same size block wastes addresses, like booking the same size hall for a wedding and a tea party. <em class=\"term\">VLSM</em> gives each network just the block it needs. The recipe: sort requirements largest first, give each the smallest power-of-two block that fits its hosts + 2, and place blocks back to back so they stay aligned.</p><p>From 192.168.1.0/24 for 100, 50, 20 and 10 hosts you get <b>192.168.1.0/25 192.168.1.128/26 192.168.1.192/27 192.168.1.224/28</b>. Why allocate the largest subnet first? Because large blocks need the strictest alignment, and placing them first leaves no awkward gaps.</p>",
       "questions": [
         {
           "id": "vorder",
@@ -182,6 +192,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "VLSM gives each network just the block it needs.",
+        "Sort requirements largest first, give each the smallest power-of-two block that fits its hosts + 2, and place blocks back to back so they stay aligned.",
+        "From 192.168.1.0/24 for 100, 50, 20 and 10 hosts: 192.168.1.0/25, 192.168.1.128/26, 192.168.1.192/27 and 192.168.1.224/28."
       ]
     },
     {
@@ -189,7 +204,7 @@
       "locator": "4.4",
       "title": "Private, public, NAT and multicast",
       "eyebrow": "Special ranges",
-      "body": "<p>Private ranges (10/8, 172.16/12, 192.168/16) are not routed on the Internet; <em class=\"term\">NAT</em> rewrites a private source address and port to the router’s public address, keeping a table so replies return to the right host. Unicast goes to one host, broadcast to all hosts on a network, multicast (224/4) to a group. IPv6 (128-bit, written in hex) removes the address shortage and most need for NAT; transition uses dual stack, tunnelling or translation.</p>",
+      "body": "<p>There are not enough IPv4 addresses for every device you own, let alone the whole earth, so clever workarounds were invented. Private ranges (10/8, 172.16/12, 192.168/16) are not routed on the Internet. <em class=\"term\">NAT</em> rewrites a private source address and port to the router’s public address, keeping a table so replies return to the right host. That is why several hosts can share one public IP.</p><p>Know the three ways of sending: unicast goes to one host, broadcast to all hosts on a network, multicast (224/4) to a group. IPv6 (128-bit, written in hex) removes the address shortage and most need for NAT; transition uses dual stack, tunnelling or translation. In the figure, the NAT table maps the public port back to the private host.</p>",
       "questions": [
         {
           "id": "nat",
@@ -229,6 +244,11 @@
           "note": "The NAT table maps the public port back to the private host.",
           "script": "diagram(\"mode: sequence\\n[Host 192.168.1.5] as h\\n[NAT router] as r\\n[Server 203.0.113.9] as s\\nh -> r : src 192.168.1.5:5000\\nr -> s : src 198.51.100.1:40001 (table entry made)\\ns --> r : dst 198.51.100.1:40001\\nr --> h : dst 192.168.1.5:5000\");"
         }
+      ],
+      "keynotes": [
+        "Private ranges (10/8, 172.16/12, 192.168/16) are not routed on the Internet; NAT rewrites a private source address and port to the router’s public address using a table.",
+        "Unicast goes to one host, broadcast to all hosts on a network and multicast (224/4) to a group.",
+        "IPv6 (128-bit, written in hex) removes the address shortage; transition uses dual stack, tunnelling or translation."
       ]
     },
     {
@@ -236,7 +256,7 @@
       "locator": "4.5",
       "title": "Subnetting by the “magic number”",
       "eyebrow": "A quick method",
-      "body": "<p>For a mask whose interesting byte is <i>m</i>, the block size (\"magic number\") is 256 − <i>m</i>. Subnets start at multiples of it. For /26 the mask byte is 192, the block size 64, so subnets start at 0, 64, 128, 192 — and 77 falls in the block starting at 64.</p>",
+      "body": "<p>Here is a shortcut you will love in exams. For a mask whose interesting byte is <i>m</i>, the block size (the “magic number”) is 256 − <i>m</i>. Subnets start at multiples of it. For /26 the mask byte is 192, the block size 64, so subnets start at 0, 64, 128, 192, and 77 falls in the block starting at 64.</p><p>Try 10.1.1.130/27. /27 means mask byte 224, so the block is 32. Multiples of 32: …, 96, 128, 160. 130 lies in the block starting at 128, so the network is 10.1.1.128, the broadcast 10.1.1.159, and the usable hosts .129–.158. And the block size of a /28? The mask byte is 240, so 256 − 240 = 16.</p>",
       "worked": [
         {
           "toc": "Question",
@@ -284,6 +304,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The block size (magic number) is 256 − m for a mask byte m, and subnets start at multiples of it.",
+        "For /26 the mask byte is 192, the block size 64, so subnets start at 0, 64, 128, 192.",
+        "10.1.1.130/27 has block 32, so network 10.1.1.128, broadcast 10.1.1.159 and usable hosts .129–.158."
       ]
     },
     {
@@ -291,7 +316,12 @@
       "locator": "4.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Network = address AND mask; broadcast = host bits all 1; hosts = 2ʰ − 2.</li><li>VLSM: largest block first.</li><li>NAT trades address space for a translation table.</li></ul>"
+      "body": "<p>Three lines, and you can solve any subnetting question.</p><ul><li>Network = address AND mask; broadcast = host bits all 1; hosts = 2ʰ − 2.</li><li>VLSM: largest block first.</li><li>NAT trades address space for a translation table.</li></ul>",
+      "keynotes": [
+        "Network = address AND mask, broadcast = host bits all 1, and hosts = 2ʰ − 2.",
+        "With VLSM, allocate the largest block first.",
+        "NAT trades address space for a translation table."
+      ]
     }
   ]
 }

@@ -1,0 +1,42 @@
+{
+  "title": "Flow control and shared media",
+  "subtitle": "How a sender keeps the wire busy without drowning the receiver, recovers from loss, and shares a cable with others.",
+  "sections": {
+    "sw": {
+      "title": "Stop-and-wait",
+      "body": "<p>In <em class=\"term\">ARQ</em> (automatic repeat request) the receiver acknowledges good frames and the sender retransmits after a timeout. <em class=\"term\">Stop-and-wait</em> sends one frame, waits for its ACK, then sends the next. It is correct and trivial, but the link sits idle for a whole round trip per frame: with a long pipe the utilisation is tiny.</p>",
+      "after": "",
+      "steps": "1 Mb/s link, 1000-bit frames, one-way delay 20 ms. Frame time 1 ms; round trip 40 ms. Utilisation = frame time / (frame time + RTT)."
+    },
+    "window": {
+      "title": "Sliding window: Go-Back-N and Selective Repeat",
+      "body": "<p>A <em class=\"term\">sliding window</em> lets the sender have up to <i>W</i> unacknowledged frames in flight. <em class=\"term\">Go-Back-N</em>: the receiver accepts only the next expected frame, so one loss forces the sender to resend that frame <em>and all after it</em>. <em class=\"term\">Selective Repeat</em>: the receiver buffers out-of-order frames and acknowledges each, so only the lost frame is resent. With window 4 and frame 2 lost: Go-Back-N retransmits <b>4</b> frames, Selective Repeat just <b>1</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mac": {
+      "title": "Random access: ALOHA and CSMA",
+      "body": "<p>When many stations share a medium, collisions happen. <em class=\"term\">Pure ALOHA</em>: transmit whenever you like — maximum throughput 18.4% (1/2e). <em class=\"term\">Slotted ALOHA</em>: transmit only at slot starts — 36.8% (1/e). <em class=\"term\">CSMA</em> listens first; <em class=\"term\">CSMA/CD</em> (Ethernet) also listens while sending and aborts on a collision, then waits a random back-off that doubles each time; <em class=\"term\">CSMA/CA</em> (Wi-Fi) cannot hear collisions, so it avoids them with random waits and acknowledgements.</p>",
+      "after": "",
+      "steps": "Pure ALOHA throughput S = G·e^(−2G) peaks at G = 0.5. Slotted ALOHA S = G·e^(−G) peaks at G = 1."
+    },
+    "switching": {
+      "title": "Switched Ethernet and VLANs",
+      "body": "<p>A switch gives every port its own collision domain, so modern Ethernet is full duplex and needs no CSMA/CD. A <em class=\"term\">VLAN</em> splits one physical switch into several logical LANs; frames carry an 802.1Q tag with a VLAN id, and only a router moves traffic between VLANs. Uses: isolate departments, limit broadcasts, apply security.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "eff": {
+      "title": "Efficiency of the window",
+      "body": "<p>Link utilisation with a window of <i>W</i> frames is U = W × t<sub>frame</sub> / (t<sub>frame</sub> + RTT), capped at 1. The product bandwidth × delay tells you how many bits are needed in flight to fill the pipe; choose W at least that many frames.</p>",
+      "after": "",
+      "steps": "100 Mb/s link, 1250-byte frames (10 000 bits), RTT 10 ms. Frame time = 10 000 / 10⁸ = 0.1 ms; RTT / frame time = 100. Window needed to fill the pipe: 1 + 100 = 101 frames. With W = 7, utilisation is only 7 / 101."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Sliding windows keep the pipe full; window ≥ 1 + RTT/frame-time.</li><li>GBN resends the window; SR resends only the lost frame.</li><li>CSMA/CD detects, CSMA/CA avoids.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "subtitle": "The protocols you actually see: what happens between typing a name and seeing a page, and how modern networks are managed.",
+  "sections": {
+    "dhcp": {
+      "body": "<p>You walk into a café and your phone is online in a second. Who gave it an address? A new host has no IP, so it shouts a request to everyone. <em class='term'>DHCP</em> lends one in four messages, known as DORA: Discover (broadcast), Offer, Request, Acknowledge. The lease also carries the subnet mask, default gateway and DNS server, and expires unless renewed.</p><p>Why is DISCOVER a broadcast? Because the new host does not know the server’s address, or even its own.</p>",
+      "keynotes": [
+        "DHCP lends an address in four messages, DORA: Discover (broadcast), Offer, Request, Acknowledge.",
+        "The lease also carries the subnet mask, default gateway and DNS server.",
+        "The lease expires unless renewed."
+      ]
+    },
+    "dns": {
+      "body": "<p>Remember the phone book of the internet? <em class='term'>DNS</em> is a distributed hierarchy: root servers know the top-level domains (.com, .np), TLD servers know the domains, and the domain’s authoritative server knows the host. Your machine asks a <em class='term'>recursive resolver</em>, which does the walking and caches the answer for its TTL. A cold lookup walks the hierarchy; later ones hit the cache.</p><p>Try the TTL logic. A record has TTL 300 s and the resolver answered at t = 0. A query at t = 120 s is answered from the cache, since 120 &lt; 300; one at t = 400 s triggers a new lookup, since 400 &gt; 300. The TTL controls how long a cached answer may be used.</p>",
+      "keynotes": [
+        "DNS is a distributed hierarchy: root servers know the top-level domains, TLD servers know the domains and the authoritative server knows the host.",
+        "A recursive resolver does the walking and caches the answer for its TTL.",
+        "With TTL 300 s, a query at 120 s is answered from the cache and one at 400 s triggers a new lookup."
+      ]
+    },
+    "http": {
+      "body": "<p>You type a URL and press Enter. What happens? A chain of events, each one a protocol you now know. DNS finds the IP, TCP connects (TLS for HTTPS), the browser sends <code>GET /page HTTP/1.1</code> and the server replies with a status line, headers and the body. The figure shows the whole trip for one page.</p><p>Methods: GET (read), POST (send), PUT, DELETE. Status families: 2xx success, 3xx redirect, 4xx client error (404), 5xx server error (500). HTTP is called stateless because each request stands alone: the server remembers nothing, so cookies and tokens carry a session.</p>",
+      "keynotes": [
+        "Loading a page: DNS finds the IP, TCP connects (TLS for HTTPS), the browser sends GET /page HTTP/1.1 and the server replies with a status line, headers and body.",
+        "Methods are GET (read), POST (send), PUT and DELETE; status families are 2xx success, 3xx redirect, 4xx client error (404), 5xx server error (500).",
+        "HTTP is stateless; cookies and tokens carry a session."
+      ]
+    },
+    "mail": {
+      "body": "<p>Email uses different protocols for sending and for reading, and the split is worth knowing. <em class='term'>SMTP</em> <em>pushes</em> mail from your client to your server and between servers. To <em>read</em> it, <em class='term'>POP3</em> downloads messages (usually deleting them from the server) while <em class='term'>IMAP</em> keeps them on the server and syncs folders across devices.</p><p>Other services round out the picture: FTP moves files; SNMP manages devices; VoIP carries voice over IP. Which protocol keeps mail on the server so several devices stay in sync? IMAP.</p>",
+      "keynotes": [
+        "SMTP pushes mail from your client to your server and between servers.",
+        "POP3 downloads messages (usually deleting them from the server) while IMAP keeps them on the server and syncs folders across devices.",
+        "FTP moves files, SNMP manages devices and VoIP carries voice over IP."
+      ]
+    },
+    "sdn": {
+      "body": "<p>In a traditional router the brain (the control plane, which calculates routes) and the muscle (the data plane, which forwards packets) live together in every box. Imagine if each taxi had to plan its own city map! <em class='term'>SDN</em> separates them: a central <em class='term'>controller</em> computes behaviour and programs simple forwarding devices through an API (OpenFlow). One brain, many simple forwarders, as in the figure.</p><p>The benefits are a global view, automation and rapid change. Related ideas you will meet: network virtualisation, content delivery networks (CDNs cache content near users), and named-data and intent-based networking. SDN separates the control plane from the data plane.</p>",
+      "keynotes": [
+        "SDN separates the control plane (route calculation) from the data plane (forwarding).",
+        "A central controller computes behaviour and programs simple forwarding devices through an API (OpenFlow).",
+        "Benefits are a global view, automation and rapid change; related ideas include network virtualisation and CDNs."
+      ]
+    },
+    "sec": {
+      "body": "<p>Finally, what keeps all of this safe? You are aiming at four goals: confidentiality, integrity, authentication and availability. Your tools are TLS, which encrypts a connection; firewalls, which filter by address, port or application; VPNs, which tunnel private traffic over the Internet; and intrusion detection, which watches for attacks.</p><p>The next-generation areas (quantum networks, network virtualisation) build on the same layered ideas. What does TLS provide? An encrypted, authenticated connection between two endpoints.</p>",
+      "keynotes": [
+        "Security goals are confidentiality, integrity, authentication and availability.",
+        "TLS encrypts a connection, firewalls filter by address, port or application, VPNs tunnel private traffic over the Internet and intrusion detection watches for attacks.",
+        "Quantum networks and network virtualisation build on the same layered ideas."
+      ]
+    }
+  }
+}

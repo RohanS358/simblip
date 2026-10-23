@@ -1,0 +1,53 @@
+{
+  "subtitle": "How a sender keeps the wire busy without drowning the receiver, recovers from loss, and shares a cable with others.",
+  "sections": {
+    "sw": {
+      "body": "<p>The most polite way for you to talk is to say a sentence and then wait for “mm-hm” before the next one. That is <em class='term'>stop-and-wait</em>, the simplest kind of <em class='term'>ARQ</em> (automatic repeat request). The receiver acknowledges good frames and the sender retransmits after a timeout. It sends one frame, waits for its ACK, then sends the next. It is correct and trivial, but the link sits idle for a whole round trip per frame.</p><p>How bad is it? On a 1 Mb/s link with 1000-bit frames and a one-way delay of 20 ms, the frame time is 1 ms and the round trip 40 ms. Utilisation = frame time / (frame time + RTT) = 1/(1 + 40) ≈ 2.4%. In the figure four frames take 16 time units, each waiting for its own acknowledgement. So why is stop-and-wait poor on a long fast link? The sender spends nearly all its time waiting.</p>",
+      "keynotes": [
+        "ARQ: the receiver acknowledges good frames and the sender retransmits after a timeout.",
+        "Stop-and-wait sends one frame and waits for its ACK, leaving the link idle for a whole round trip per frame.",
+        "On a 1 Mb/s link with 1000-bit frames and 20 ms one-way delay, utilisation is 1/(1 + 40) ≈ 2.4%."
+      ]
+    },
+    "window": {
+      "body": "<p>Waiting after every frame wastes the wire, as you saw. A better idea: keep sending, and let the acknowledgements catch up. A <em class='term'>sliding window</em> lets the sender have up to <i>W</i> unacknowledged frames in flight. But what happens when one of them is lost? There are two answers.</p><p><em class='term'>Go-Back-N</em>: the receiver accepts only the next expected frame, so one loss forces the sender to resend that frame <em>and all after it</em>. <em class='term'>Selective Repeat</em>: the receiver buffers out-of-order frames and acknowledges each, so only the lost frame is resent. With window 4 and frame 2 lost, Go-Back-N retransmits <b>4</b> frames, Selective Repeat just <b>1</b>. See both in the figures. Go-Back-N resends frames that arrived safely because the receiver threw them away for being out of order.</p>",
+      "keynotes": [
+        "A sliding window lets the sender have up to W unacknowledged frames in flight.",
+        "Go-Back-N: the receiver accepts only the next expected frame, so a loss forces a resend of that frame and all after it; Selective Repeat buffers out-of-order frames, so only the lost frame is resent.",
+        "With window 4 and frame 2 lost, Go-Back-N retransmits 4 frames and Selective Repeat just 1."
+      ]
+    },
+    "mac": {
+      "body": "<p>Put many people in one room with one microphone, and you get chaos unless there are rules. That is the problem of a shared cable: when many stations share a medium, collisions happen. The oldest answer is <em class='term'>Pure ALOHA</em>: transmit whenever you like, giving a maximum throughput of 18.4% (1/2e). <em class='term'>Slotted ALOHA</em> transmits only at slot starts, doubling it to 36.8% (1/e).</p><p>Better manners: <em class='term'>CSMA</em> listens first. <em class='term'>CSMA/CD</em> (Ethernet) also listens while sending and aborts on a collision, then waits a random back-off that doubles each time. <em class='term'>CSMA/CA</em> (Wi-Fi) cannot hear collisions, so it avoids them with random waits and acknowledgements. The maths: pure ALOHA throughput S = G·e^(−2G) peaks at G = 0.5, giving S = 0.5e⁻¹ ≈ 0.184. Slotted ALOHA S = G·e^(−G) peaks at G = 1, giving e⁻¹ ≈ 0.368. Why can Wi-Fi not use collision detection? A radio cannot listen while it transmits.</p>",
+      "keynotes": [
+        "Pure ALOHA transmits whenever it likes and peaks at 18.4% (1/2e); slotted ALOHA transmits only at slot starts and peaks at 36.8% (1/e).",
+        "CSMA listens first; CSMA/CD (Ethernet) aborts on a collision and waits a random back-off that doubles each time; CSMA/CA (Wi-Fi) avoids collisions with random waits and acknowledgements.",
+        "Pure ALOHA S = G·e^(−2G) peaks at G = 0.5; slotted ALOHA S = G·e^(−G) peaks at G = 1."
+      ]
+    },
+    "switching": {
+      "body": "<p>Modern Ethernet got rid of the shared cable altogether. A switch gives every port its own collision domain, so modern Ethernet is full duplex and needs no CSMA/CD. And you can go one step further with a <em class='term'>VLAN</em>, which splits one physical switch into several logical LANs. Frames carry an 802.1Q tag with a VLAN id, and only a router moves traffic between VLANs.</p><p>Why do this? To isolate departments, limit broadcasts and apply security. In the figure, A and B talk directly, but A and C must go through the router. Hosts in different VLANs on the same switch can talk only via a router.</p>",
+      "keynotes": [
+        "A switch gives every port its own collision domain, so modern Ethernet is full duplex and needs no CSMA/CD.",
+        "A VLAN splits one physical switch into several logical LANs; frames carry an 802.1Q tag with a VLAN id.",
+        "Only a router moves traffic between VLANs; uses include isolating departments, limiting broadcasts and applying security."
+      ]
+    },
+    "eff": {
+      "body": "<p>How full is your pipe? A simple formula tells you. Link utilisation with a window of <i>W</i> frames is U = W × t<sub>frame</sub> / (t<sub>frame</sub> + RTT), capped at 1. The bandwidth × delay product tells you how many bits are needed in flight to fill the pipe, so choose W at least that many frames.</p><p>Work through it. A 100 Mb/s link, 1250-byte frames (10 000 bits), RTT 10 ms. The frame time = 10 000 / 10⁸ = 0.1 ms, and RTT / frame time = 100. The window needed to fill the pipe is 1 + 100 = 101 frames. With W = 7, utilisation is only 7 / 101 ≈ 6.9%. Bandwidth × delay tells you how much data must be in flight to keep the link busy.</p>",
+      "keynotes": [
+        "Utilisation with a window of W frames is U = W × t_frame / (t_frame + RTT), capped at 1.",
+        "Bandwidth × delay tells you how many bits must be in flight to fill the pipe.",
+        "For 100 Mb/s, 10 000-bit frames and RTT 10 ms, 101 frames fill the pipe; W = 7 gives only 7/101 ≈ 6.9%."
+      ]
+    },
+    "summary": {
+      "body": "<p>Three lines to take away.</p><ul><li>Sliding windows keep the pipe full; window ≥ 1 + RTT/frame-time.</li><li>GBN resends the window; SR resends only the lost frame.</li><li>CSMA/CD detects, CSMA/CA avoids.</li></ul>",
+      "keynotes": [
+        "Sliding windows keep the pipe full; the window should be at least 1 + RTT/frame-time.",
+        "Go-Back-N resends the window and Selective Repeat resends only the lost frame.",
+        "CSMA/CD detects collisions and CSMA/CA avoids them."
+      ]
+    }
+  }
+}

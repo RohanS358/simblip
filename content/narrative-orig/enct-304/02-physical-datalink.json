@@ -1,0 +1,42 @@
+{
+  "title": "Encoding, framing and error control",
+  "subtitle": "Turning bits into voltages, marking where frames start and end, and noticing — or fixing — the bit that got flipped.",
+  "sections": {
+    "encoding": {
+      "title": "Line coding",
+      "body": "<p>A wire carries voltages, so bits must be mapped to levels. <em class=\"term\">NRZ-L</em> holds a level for the whole bit; <em class=\"term\">NRZ-I</em> flips level for a 1. Both lose the clock on long runs of identical bits. <em class=\"term\">Manchester</em> puts a transition in the middle of every bit (low→high for 1, high→low for 0), so the receiver recovers the clock at the cost of double the signal rate — the code of classic 10 Mb/s Ethernet. <em class=\"term\">Bipolar AMI</em> sends 0 as no pulse and alternates + and − for 1s.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "framing": {
+      "title": "Framing and byte stuffing",
+      "body": "<p>The data link layer must tell the receiver where a frame starts and ends. A flag byte (HDLC uses 01111110) does it; to stop data that happens to contain the flag confusing the receiver, the sender inserts extra bits — <em class=\"term\">bit stuffing</em>: after five consecutive 1s in the data, insert a 0, which the receiver removes.</p>",
+      "after": "",
+      "steps": "Data: 0111111011 (contains six 1s in a row). After the first five 1s insert a 0 so the flag pattern 01111110 cannot appear inside the data."
+    },
+    "crc": {
+      "title": "Error detection: parity, checksum, CRC",
+      "body": "<p>A single <em class=\"term\">parity</em> bit catches any odd number of flipped bits but no even number. The <em class=\"term\">checksum</em> adds the words and sends the complement. The <em class=\"term\">CRC</em> treats the message as a polynomial and sends the remainder of dividing by an agreed generator G(x): the receiver divides the whole frame and accepts only a zero remainder. It catches all single-bit errors, all bursts up to the generator’s degree, and almost everything else. Dividing 1101011011 by 10011 gives the CRC <b>1110</b>; the frame sent is <b>11010110111110</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "hamming": {
+      "title": "Error correction: Hamming code",
+      "body": "<p>Detection needs a retransmission; <em class=\"term\">Hamming codes</em> let the receiver correct a single-bit error itself. Parity bits sit at positions 1, 2, 4, 8…; parity bit <i>p</i> covers every position whose binary index contains <i>p</i>. After an error the failing parity checks, read as a binary number, give the position of the bad bit — the <em class=\"term\">syndrome</em>. Data 1011 encodes to <b>0110011</b>; corrupt bit 5 and the syndrome reads <b>5</b>.</p>",
+      "after": "",
+      "steps": "4 data bits need r parity bits with 2ʳ ≥ 4 + r + 1. So Hamming(7,4): 7 bits sent for 4 data bits."
+    },
+    "protocols": {
+      "title": "PPP, HDLC and Ethernet",
+      "body": "<p><em class=\"term\">HDLC</em> and <em class=\"term\">PPP</em> frame point-to-point links with flags, an address/control field, a payload and a CRC. <em class=\"term\">Ethernet</em> (IEEE 802.3) frames carry destination and source MAC (6 bytes each), a type, 46–1500 bytes of data and a 4-byte CRC. The data link layer is split into LLC (flow and error control, protocol multiplexing) and MAC (who may transmit, and addressing).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Line coding maps bits to signals; Manchester embeds the clock.</li><li>Framing needs flags and bit stuffing.</li><li>CRC detects, Hamming corrects single errors.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

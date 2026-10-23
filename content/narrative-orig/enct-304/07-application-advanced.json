@@ -1,0 +1,42 @@
+{
+  "title": "DNS, DHCP, HTTP, email and software-defined networking",
+  "subtitle": "The protocols you actually see: what happens between typing a name and seeing a page, and how modern networks are managed.",
+  "sections": {
+    "dhcp": {
+      "title": "DHCP: getting an address",
+      "body": "<p>A new host has no IP. <em class=\"term\">DHCP</em> lends one in four messages, known as DORA: Discover (broadcast), Offer, Request, Acknowledge. The lease also carries the subnet mask, default gateway and DNS server, and expires unless renewed.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "dns": {
+      "title": "DNS: names to addresses",
+      "body": "<p><em class=\"term\">DNS</em> is a distributed hierarchy: root servers know the top-level domains (.com, .np), TLD servers know the domains, and the domain’s authoritative server knows the host. Your machine asks a <em class=\"term\">recursive resolver</em>, which does the walking and caches the answer for its TTL.</p>",
+      "after": "",
+      "steps": "A record has TTL 300 s. The resolver answered at t = 0. A query at t = 120 s is answered from the cache; one at t = 400 s triggers a new lookup."
+    },
+    "http": {
+      "title": "HTTP and the web",
+      "body": "<p>Typing a URL sets off a chain: DNS finds the IP, TCP connects (TLS for HTTPS), the browser sends <code>GET /page HTTP/1.1</code> and the server replies with a status line, headers and the body. Methods: GET (read), POST (send), PUT, DELETE. Status families: 2xx success, 3xx redirect, 4xx client error (404), 5xx server error (500). HTTP is stateless; cookies and tokens carry a session.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mail": {
+      "title": "Email: SMTP, POP3, IMAP",
+      "body": "<p><em class=\"term\">SMTP</em> <em>pushes</em> mail from your client to your server and between servers. To <em>read</em> it, <em class=\"term\">POP3</em> downloads messages (usually deleting them from the server) while <em class=\"term\">IMAP</em> keeps them on the server and syncs folders across devices. Other services: FTP moves files; SNMP manages devices; VoIP carries voice over IP.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "sdn": {
+      "title": "Software-defined networking",
+      "body": "<p>In a traditional router the control plane (route calculation) and data plane (forwarding) live together in each box. <em class=\"term\">SDN</em> separates them: a central <em class=\"term\">controller</em> computes behaviour and programs simple forwarding devices through an API (OpenFlow). Benefits: a global view, automation, rapid change. Related ideas: network virtualisation, content delivery networks (CDNs cache content near users), named-data and intent-based networking.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "sec": {
+      "title": "Network security in brief",
+      "body": "<p>Goals: confidentiality, integrity, authentication, availability. Tools: TLS encrypts a connection; firewalls filter by address, port or application; VPNs tunnel private traffic over the Internet; intrusion detection watches for attacks. The next-generation areas (quantum networks, network virtualisation) build on the same layered ideas.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
