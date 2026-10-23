@@ -45,3 +45,34 @@ What remains for S6:
 - the tools are in the registry (MCP/WebMCP/chat agent), but the on-device chat model's routing of "why does the LED not
   light?" onto them is untested, and teaching moves for an LED that is lit the wrong way round (needs netlist
   traversal) are not written.
+
+## Update 2026-10-23: tutor + diagnosis, external datasets, SketchNet v5
+
+**Tutor + sketch tools.** `lib/sketch/diagnose.ts` follows the current round (battery + to −): no source, open loop, terminal joined to
+nothing, LED/diode in backwards, short circuit, LED/diode with no series resistor, DC blocked by a capacitor. `teach.ts` uses it, so
+`sketch.recognize` answers "why does the LED not light?" from the reading. `lib/ai/tutor/router.ts` sends "read my drawing", "turn my drawing
+into a circuit" and "why isn't my circuit working" to the sketch tools. `lib/tools/tutor-sketch-e2e.test.mjs` drives the real tutor loop (scripted
+model) against ink drawn by synthetic hands. The scripted model means the tool loop and tools are tested, not any on-device model's wording.
+
+**External datasets** (`docs/ai/external-datasets.md`): CktComDb originals and the Circuit and Component Dataset crops were converted
+(`import-external.mjs`, source `public`, kept in `data/sketch/external/`, tracked by `meta.dataset` / `meta.domain`). Frozen test: CktComDb's own
+Test split, 1 700 drawings, never trained on. Licences: aitee Apache-2.0 (not used); Digitize-HCD CC BY 4.0 (data not provided); CktComDb and
+the Circuit and Component Dataset **unverified** (no licence in the archive, none found online). Use of them is local only until that is settled.
+
+**SketchNet v5** = v4's generated + synthetic-photo data plus the external training crops (each seen 8 times). Frozen CktComDb test, per drawing:
+
+| | v4 | v5 |
+|---|---|---|
+| top-1 / top-3 | 76.9 % / 91.5 % | **90.5 % / 98.5 %** |
+| "sure" coverage, right when sure | 72 %, 89.4 % | 84 %, 96.3 % |
+| switch | 3 % | 89 % |
+| and-gate (weakest) | 36 % | 60 % |
+
+Regression checks (v4 → v5): synthetic test 98.2 → 98.1 %; whole synthetic circuits exact 59.0 → 59.3 %; mechanics 92.6 → 92.6 %; optics benches
+routed as optics 89.3 → 96.4 %; single-symbol routing 91.9 → 90.5 % (mostly MOSFET, which no external data covers); synthetic photos whole
+scene 2/16, real-handwriting set (3 circuits, assistant-made labels) 6/16 parts found. A lone confident symbol no longer hides a drawing the
+mechanics reader names as unsupported (a pulley was being read as a MOSFET).
+
+Still open: no mechanics data exists in the provided datasets, so mechanics recognition is unchanged; no real phone photos; and/or/nand/nor gates
+still confuse each other; classes with no external data (bulb, led, xor-gate, mosfet, opamp); the whole-circuit RAR and Digitize-HCD data were
+not available.

@@ -3,7 +3,8 @@
 // reader wrong). Pure: works on the reading, not on the page.
 
 import type { CircuitGhost } from './circuit-ghost'
-import { linksOf } from './circuit-ghost'
+import { irOf, linksOf } from './circuit-ghost'
+import { diagnoseCircuit, type Finding } from './diagnose'
 import type { MechGhost } from './mech-ghost'
 import type { ReadResult } from './read-sketch'
 
@@ -19,6 +20,8 @@ export interface Review {
   moves: string[]
   /** Parts the reader itself is unsure of. */
   unsure: string[]
+  /** What would stop the circuit working, from its connections (lib/sketch/diagnose.ts). */
+  diagnosis?: Finding[]
 }
 
 const nameOf = (cls: string) => cls.replace(/-/g, ' ')
@@ -33,31 +36,21 @@ export function reviewCircuit(g: CircuitGhost): Review {
   })
   const read = `I read ${parts.length} parts: ${items.join(', ')}; ${links.length} connection${links.length === 1 ? '' : 's'} between them.`
 
-  const moves: string[] = []
-  if (!parts.some((p) => SOURCES.has(p.cls))) moves.push('There is no battery or source in the drawing, so nothing pushes current round. Is one missing?')
-  const used = new Set<string>()
-  for (const l of links) {
-    used.add(`${l.a.node}.${l.a.pin}`)
-    used.add(`${l.b.node}.${l.b.pin}`)
-  }
-  parts.forEach((p, i) => {
-    const open = p.pins.filter((q) => !used.has(`${p.id}.${q.name}`))
-    if (open.length > 0 && p.pins.length > 1) {
-      moves.push(`The ${label(i)} has ${open.length === 1 ? 'a terminal' : 'terminals'} (${open.map((q) => q.name).join(', ')}) joined to nothing, so the circuit is open there. Is a wire missing?`)
-    }
-  })
+  // what would stop it working, found by following the current round (with the person's corrections applied)
+  const diagnosis = diagnoseCircuit(irOf(g))
+  const moves: string[] = diagnosis.filter((f) => f.kind !== 'unsupported').map((f) => f.message)
   const loose = g.result.looseEnds?.length ?? 0
   if (loose > 0) moves.push(`${loose} wire end${loose === 1 ? '' : 's'} touch nothing. Was it meant to connect?`)
   parts.forEach((p, i) => {
     if (!POLAR.has(p.cls)) return
     if (p.cls === 'battery') moves.push(`I read the ${label(i)} with its long (+) plate on the ${p.pose === 180 ? 'right' : 'left'}. Is that the side you meant for +?`)
-    else if (p.cls === 'diode' || p.cls === 'led') moves.push(`I read the ${label(i)} pointing ${DIR[p.pose] ?? 'right'}, so current can only pass that way. Is that the direction you wanted?`)
+    else if ((p.cls === 'diode' || p.cls === 'led') && !diagnosis.some((f) => f.kind === 'backwards' && f.parts.includes(p.id))) moves.push(`I read the ${label(i)} pointing ${DIR[p.pose] ?? 'right'}, so current can only pass that way. Is that the direction you wanted?`)
     else if (p.cls === 'opamp' && p.polarityKnown === false) moves.push('I could not see the + and − marks on the op-amp, so I guessed which input is which. Which is the inverting one?')
   })
   const unsure = parts.flatMap((p, i) =>
     p.conf < 0.6 ? [`${label(i)} (${Math.round(p.conf * 100)} %, could also be ${p.alts.slice(0, 2).map((a) => nameOf(a.cls)).join(' or ') || 'something else'})`] : []
   )
-  return { read, moves, unsure }
+  return { read, moves, unsure, diagnosis }
 }
 
 export function reviewMech(g: MechGhost): Review {

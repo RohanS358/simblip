@@ -47,6 +47,8 @@ export interface OpticsResult {
 export const DEFAULT_FOCAL_PX = 150
 /** A drawn lens outline is at least this tall (page px); anything smaller is handwriting. */
 const MIN_LENS_PX = 48
+/** A light source is a drawn circle at least this big (page px radius). */
+const MIN_SOURCE_R = 8
 
 const tiltOf = (theta: number) => {
   // a vertical line is 0; fold into (−90, 90]
@@ -112,6 +114,17 @@ export function extractOptics(strokes: OpticStroke[]): OpticsResult {
     p.ids.forEach((i) => used.add(i))
   }
 
+  // Three or more similar tall loops side by side are the turns of a hand-drawn COIL (an inductor), not lenses:
+  // a bench has one or two lenses, spaced far apart. (A coil drawn with loops was being read as a row of lenses.)
+  if (lensShapes.length >= 3) {
+    const byX = lensShapes.slice().sort((x, y) => x.c.cx - y.c.cx)
+    const hs = byX.map((l) => l.c.h)
+    const similar = Math.max(...hs) <= 1.7 * Math.min(...hs)
+    const meanW = byX.reduce((acc, l) => acc + Math.max(l.c.w, 1), 0) / byX.length
+    const adjacent = byX.slice(1).every((l, i) => l.c.cx - byX[i].c.cx <= 2.4 * Math.max(meanW, 20))
+    if (similar && adjacent) lensShapes.length = 0
+  }
+
   const lines = prims.filter((p) => !p.ids.some((i) => used.has(i)) && p.len >= 6 && straightness(p) >= (p.len < 32 ? 0.7 : 0.82)).map(mkLine)
   const spent = new Set<string>()
 
@@ -160,6 +173,21 @@ export function extractOptics(strokes: OpticStroke[]): OpticsResult {
     const cx = (d.s.p0[0] + d.s.p1[0]) / 2
     const cy = (d.s.p0[1] + d.s.p1[1]) / 2
     parts.push({ id: newId(), cls: 'thin-lens', conf: 0.85, box: boxFor(cx, cy, d.s.len), angle: tiltOf(d.s.angle), strokeIds: [d.s.id, ...d.heads], f: d.f * DEFAULT_FOCAL_PX })
+  }
+  // A row of three or more similar, closely spaced "lenses" (loop outlines or double-headed strokes) is the teeth of
+  // a zigzag or the turns of a coil drawn tall, not an optical bench (a bench has one or two lenses, spaced widely).
+  {
+    const lensParts = parts.filter((q) => q.cls === 'thin-lens').sort((x, y) => x.box.x0 - y.box.x0)
+    if (lensParts.length >= 3) {
+      const hs = lensParts.map((q) => q.box.y1 - q.box.y0)
+      const meanH = hs.reduce((acc, v) => acc + v, 0) / hs.length
+      const similar = Math.max(...hs) <= 1.8 * Math.min(...hs)
+      const close = lensParts.slice(1).every((q, i) => q.box.x0 - lensParts[i].box.x0 <= 0.8 * meanH)
+      if (similar && close) {
+        const drop = new Set(lensParts.map((q) => q.id))
+        for (let i = parts.length - 1; i >= 0; i--) if (drop.has(parts[i].id)) parts.splice(i, 1)
+      }
+    }
   }
   for (const h of hostsByLen) {
     if (!hatchHost.has(h.id)) continue
@@ -219,6 +247,8 @@ export function extractOptics(strokes: OpticStroke[]): OpticsResult {
 
   // light sources: circles (their beam arrow gives the direction)
   for (const c of circles) {
+    // a speck or the ring a photo path draws for a junction dot is not a lamp
+    if (c.r < MIN_SOURCE_R) continue
     const diag = 2 * c.r * Math.SQRT2
     const tail = (a: { tail: Pt; tip: Pt }) => dist(a.tail, [c.cx, c.cy]) <= c.r + Math.max(10, 0.3 * c.r)
     const mine = arrows.filter(tail)
@@ -277,7 +307,8 @@ export function extractOptics(strokes: OpticStroke[]): OpticsResult {
 export function opticsEvidence(r: OpticsResult): number {
   const lenses = r.parts.filter((p) => p.cls === 'thin-lens' && p.conf >= 0.7).length
   if (lenses < 1) return 0
-  return 2 * lenses + r.parts.filter((p) => p.cls !== 'thin-lens').length
+  // (other parts add at most 3: a page of scribble must not out-vote the one thing only optics has, a lens)
+  return 2 * lenses + Math.min(3, r.parts.filter((p) => p.cls !== 'thin-lens').length)
 }
 
 void between

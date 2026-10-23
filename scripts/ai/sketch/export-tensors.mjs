@@ -26,6 +26,8 @@ const out = resolve(arg('out', 'D:/simblip-ml/data/synthetic-s1'))
 // --labels chars: the value reader's alphabet (no pose head to train)
 const LABELS = arg('labels', 'symbols') === 'chars' ? CHAR_MODEL_LABELS : ALL_LABELS
 const NO_POSE = arg('labels', 'symbols') === 'chars'
+// --repeat-public N: third-party (source "public") TRAIN samples are few next to generated ones, so each is seen N times
+const REPEAT_PUBLIC = Number(arg('repeat-public', 1))
 mkdirSync(out, { recursive: true })
 
 const GROUPS = ['synthetic', 'real', 'public']
@@ -47,7 +49,7 @@ function flush(split) {
     for (let k = 0; k < r.t.img.length; k++) img[i * 2 * IMG * IMG + k] = Math.round(r.t.img[k] * 255)
     Buffer.from(r.t.seq.buffer, r.t.seq.byteOffset, r.t.seq.byteLength).copy(seq, i * SEQ_LEN * SEQ_DIM * 4)
     cls[i] = LABELS.indexOf(r.s.cls)
-    pose[i] = NO_POSE || r.s.cls === UNKNOWN_CLASS ? 255 : POSES.indexOf(r.s.pose)
+    pose[i] = NO_POSE || r.s.cls === UNKNOWN_CLASS || r.s.meta?.poseKnown === false ? 255 : POSES.indexOf(r.s.pose)
     dev[i] = DEVICES.indexOf(r.s.device)
     grp[i] = GROUPS.indexOf(groupOf(r.s))
   })
@@ -62,7 +64,9 @@ function flush(split) {
 }
 
 for (const s of iterDirs(srcs)) {
-  buf[s.split].push({ s, t: preprocess(s.strokes) })
+  const t = preprocess(s.strokes)
+  const times = s.split === 'train' && groupOf(s) === 'public' ? REPEAT_PUBLIC : 1
+  for (let k = 0; k < times; k++) buf[s.split].push({ s, t })
   if (buf[s.split].length >= 4000) flush(s.split)
 }
 for (const k of Object.keys(buf)) flush(k)

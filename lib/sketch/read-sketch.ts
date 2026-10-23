@@ -86,7 +86,8 @@ export function mechanicsEvidence(g: MechGhost): number {
   let hard = 0
   let soft = 0
   for (const p of g.result?.parts ?? []) {
-    if (p.cls === 'block') hard++
+    // a rectangle-ish loop is a block only if the reader is fairly sure: the loops of a hand-drawn coil are not
+    if (p.cls === 'block' && p.conf >= 0.7) hard++
     else if (p.cls === 'ground' && p.conf >= 0.85) hard++
     else if (p.cls === 'mass' || p.cls === 'force' || p.cls === 'velocity') soft++
   }
@@ -122,6 +123,8 @@ const diagOf = (b: Box) => Math.hypot(b.x1 - b.x0, b.y1 - b.y0)
 const LABEL_REACH_PX = 200
 /** A drawing needs at least this many strokes before ink beside it can be taken for its labels. */
 const LABEL_HOST_MIN_STROKES = 6
+/** Ink whose diagonal is at most this share of the drawing's, beside a strong circuit, is a label, even one that could not be read. */
+const LABEL_MAX_SHARE = 0.3
 
 /**
  * Ink a "Done" might also be about. The strokes touching the seed are the subject, but a value label
@@ -168,7 +171,7 @@ export function readSketch(
   net: Net | null,
   charNet?: Parameters<typeof startCircuitGhost>[3],
   /** all: the strokes are ONE drawing (a photographed diagram), not a page with other things on it. */
-  opts: { all?: boolean } = {}
+  opts: { all?: boolean; /** circuit: the person asked for a circuit (the picture's "Read as circuit"): never read it as mechanics or optics */ domain?: 'auto' | 'circuit' } = {}
 ): ReadResult {
   if (!net) return { kind: 'fail', failure: { reason: 'not-loaded', message: 'The sketch recogniser is still loading. Try again in a moment.' } }
   let seed = strokes.find((s) => s.id === seedId)
@@ -184,7 +187,13 @@ export function readSketch(
       ...(merged?.result.parts.flatMap((p) => p.strokeIds) ?? []),
       ...(merged?.result.texts?.flatMap((t) => t.strokeIds) ?? []),
     ])
-    if (merged && merged.result.parts.length >= 2 && merged.result.ir.edges.length >= 1 && cluster.filter((c) => used.has(c.id)).length >= 0.6 * cluster.length) {
+    // The seed's ink belongs to the drawing if the reader used most of it (a value, a wired part), OR if it is only
+    // character-sized scribble beside a strong circuit (a label the reader could not read: still a label, not a sketch).
+    const own = unionBox(cluster)
+    const all = unionBox(host.cluster)
+    const labelSized = Math.hypot(own.x1 - own.x0, own.y1 - own.y0) <= LABEL_MAX_SHARE * Math.hypot(all.x1 - all.x0, all.y1 - all.y0) && cluster.length <= 9
+    const strong = !!merged && merged.result.parts.length >= 3 && merged.result.ir.edges.length >= merged.result.parts.length - 1
+    if (merged && merged.result.parts.length >= 2 && merged.result.ir.edges.length >= 1 && (cluster.filter((c) => used.has(c.id)).length >= 0.6 * cluster.length || (strong && labelSized))) {
       seedId = host.seedId
       seed = strokes.find((x) => x.id === seedId)
       cluster = host.cluster
@@ -194,8 +203,9 @@ export function readSketch(
   if (!seed) return { kind: 'fail', failure: { reason: 'no-ink', message: 'There is no sketch here to read.' } }
   // Mechanics parts are related by position, not touching (a ball above the ground), so the group is wider
   const mechCluster = opts.all ? strokes : connectedInk(strokes, seedId, 200)
-  const mech = mechCluster.length >= 3 ? startMechGhost(pageId, mechCluster) : null
-  const optics = mechCluster.length >= 3 ? startOpticsGhost(pageId, mechCluster) : null
+  const circuitOnly = opts.domain === 'circuit'
+  const mech = !circuitOnly && mechCluster.length >= 3 ? startMechGhost(pageId, mechCluster) : null
+  const optics = !circuitOnly && mechCluster.length >= 3 ? startOpticsGhost(pageId, mechCluster) : null
   const opticsScore = optics?.optics ? opticsEvidence(optics.optics) : 0
 
   // The network settles a lone symbol. If everything that touches the seed is one symbol it names
@@ -209,7 +219,9 @@ export function readSketch(
     const rest = mechCluster.filter((s) => !group.has(s.id))
     // other ink nearby that reads as mechanics or optics (a ball over a hatched wall) outvotes the symbol
     const elsewhere = rest.length >= 2 && ((mech ? mechanicsEvidence(mech) >= 1.5 : false) || opticsScore >= 3)
-    if (!elsewhere && !(mech && hasPendulum(mech, 2))) return { kind: 'symbol', pick: lone, ids: [seedId, ...lone.absorb], tier: 'sure' }
+    // a drawing the mechanics reader can NAME as unsupported (a pulley: wheel, rope, ceiling) is not one symbol, however sure the net is of a circle in it
+    const namedGap = cluster.length >= 5 && !!mech?.result?.gaps.length
+    if (!elsewhere && !namedGap && !(mech && hasPendulum(mech, 2))) return { kind: 'symbol', pick: lone, ids: [seedId, ...lone.absorb], tier: 'sure' }
   }
 
   // The circuit reading, compared with the geometric ones. Several confident parts joined by wires
@@ -229,6 +241,12 @@ export function readSketch(
   }
   const circuitScore = circuit ? circuit.result.parts.filter((p) => p.conf >= 0.8).length : 0
   if (circuit && circuitScore >= 3 && circuit.result.ir.edges.length >= circuitScore - 1) return { kind: 'circuit', ghost: circuit }
+  // A small circuit: two confident parts joined into a LOOP (as many connections as parts). A mechanics bench never
+  // reads as that (its few "parts" are joined once at most), but a battery and an LED, whose plates and arrows look
+  // like ground and a force, used to be taken for a ramp scene.
+  if (circuit && circuit.result.parts.length >= 2 && circuit.result.parts.every((p) => p.conf >= 0.7) && circuit.result.ir.edges.length >= circuit.result.parts.length) {
+    return { kind: 'circuit', ghost: circuit }
+  }
 
   // A lens settles the rest: a mechanics sketch has no use for one. (Checked before the pulley, so a
   // lens drawn as a double arrow or a circle-with-a-beam is never mistaken for a pulley or a ball.)
@@ -242,7 +260,8 @@ export function readSketch(
 
   if (mech && mechScore >= 1.5 && (!circuit || mechScore > circuitScore)) return { kind: 'mechanics', ghost: mech }
   // a pendulum has no block or hatched ground to point at, so it counts only when no circuit reading competes
-  if (mech && pendulum && !circuit) return { kind: 'mechanics', ghost: mech }
+  // (a pendulum is a hinge, a rod and a bob: a pile of "hinges" is the tips of a zigzag, not a pendulum)
+  if (mech && pendulum && !circuit && mech.ir.nodes.filter((n) => n.cls === 'hinge').length <= 2 && mech.ir.nodes.length <= 5) return { kind: 'mechanics', ghost: mech }
   if (circuit) return { kind: 'circuit', ghost: circuit }
 
   // The circuit reader found parts and wiring, so this is a circuit drawing — not one symbol. Say what is
