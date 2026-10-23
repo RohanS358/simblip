@@ -1,0 +1,42 @@
+{
+  "title": "Hidden surfaces, lighting and shading",
+  "subtitle": "Decide which surface is in front, then decide how bright it looks.",
+  "sections": {
+    "hsr": {
+      "title": "Visible-surface determination",
+      "body": "<p>When objects overlap, only the nearest surface along each line of sight may be drawn. <em class=\"term\">Object-space</em> methods compare polygons geometrically (painter’s algorithm); <em class=\"term\">image-space</em> methods decide per pixel. <em class=\"term\">Back-face detection</em> discards polygons facing away: a face is hidden if its normal N and the view vector V satisfy N·V &gt; 0 (roughly half the faces of a closed solid).</p>",
+      "after": "",
+      "steps": "A face has normal N = (0, 0, −1); the viewer looks along V = (0, 0, −1) (into the screen). N·V = 1 > 0 means the face points away from the viewer: back-facing, cull it."
+    },
+    "z": {
+      "title": "The Z-buffer",
+      "body": "<p>The <em class=\"term\">Z-buffer</em> keeps, for every pixel, the depth of the nearest surface drawn so far. Start with depth = ∞. For each polygon and each pixel it covers, compute the depth z; if z is smaller (nearer) than the stored value, write the colour and the new depth. Polygons can arrive in any order — no sorting, simple in hardware, cost O(pixels × overlapping surfaces) and one depth value per pixel. The A-buffer adds transparency; scan-line methods handle one row at a time.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "light": {
+      "title": "Illumination models",
+      "body": "<p>The Phong model sums three terms: <em class=\"term\">ambient</em> I = kₐ (light from everywhere), <em class=\"term\">diffuse</em> kd·cos θ (Lambert: proportional to the angle between the normal and the light — matte surfaces) and <em class=\"term\">specular</em> ks·cosⁿ α (a highlight where the reflection points at the eye; larger n = tighter, shinier). With ka = 0.1, kd = 0.5, ks = 0.4, n = 10, a surface lit head-on has I = <b>1</b>; at 60° it drops to <b>0.35</b>.</p>",
+      "after": "",
+      "steps": "Lit head-on (θ = 0): ambient + diffuse + specular = 0.1 + 0.5·1 + 0.4·1."
+    },
+    "shade": {
+      "title": "Shading methods",
+      "body": "<p>Computing the illumination model at every pixel is expensive, so surfaces are shaded by interpolation. <em class=\"term\">Constant (flat)</em> shading: one intensity per polygon — faceted look. <em class=\"term\">Gouraud</em>: compute intensity at the vertices and interpolate across the polygon — smooth, but can miss highlights that fall inside a polygon. <em class=\"term\">Phong shading</em>: interpolate the <em>normals</em> and apply the illumination model per pixel — accurate highlights, more expensive.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Back-face: N·V &gt; 0 → cull. Z-buffer: keep the nearest fragment per pixel.</li><li>Phong model = ambient + diffuse + specular; flat &lt; Gouraud &lt; Phong shading.</li></ul>",
+      "after": "",
+      "steps": ""
+    },
+    "try": {
+      "title": "Try it",
+      "body": "",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "title": "Display devices and the graphics pipeline",
+  "subtitle": "How a description of a scene becomes a grid of coloured dots.",
+  "sections": {
+    "display": {
+      "title": "Raster and random-scan displays",
+      "body": "<p>A <em class=\"term\">raster-scan</em> display refreshes a grid of pixels row by row, 60+ times a second, from a <em class=\"term\">frame buffer</em> in memory; its memory need is resolution × bits per pixel. A <em class=\"term\">random-scan</em> (vector) display draws lines directly and only what is needed — sharp lines, poor fills. Flat panels (LCD, LED, OLED) are raster devices.</p>",
+      "after": "",
+      "steps": "A 1920 × 1080 display with 24 bits (3 bytes) per pixel. Frame-buffer size. At 60 Hz the buffer is read 60 times a second: bandwidth ≈ 373 MB/s."
+    },
+    "pipe": {
+      "title": "The graphics pipeline",
+      "body": "<p>Every renderer applies the same stages: a <em class=\"term\">model</em> (vertices and faces) is transformed into world space, then into the camera’s view, <em class=\"term\">clipped</em> against the view volume, <em class=\"term\">projected</em> to 2-D, mapped to the viewport, and finally <em class=\"term\">rasterised</em> — converted to pixels, where visibility and shading are resolved. OpenGL, DirectX, WebGL and game engines are implementations of it.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "soft": {
+      "title": "Graphics software and standards",
+      "body": "<p>Low-level graphics APIs: OpenGL (and its web form <em class=\"term\">WebGL</em>), DirectX, Vulkan, Metal. PHIGS and GKS were early standards. On top sit engines and tools: Unity, Unreal, Blender and Maya for modelling and animation. Coordinates are usually Cartesian; graphics functions cover output primitives, attributes, transformations and input.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "app": {
+      "title": "Applications",
+      "body": "<p>Computer-aided design, medical imaging (CT/MRI volumes), scientific visualisation, games and film, user interfaces, simulation and training, virtual and augmented reality, and data visualisation. The same pipeline underlies all of them; what differs is the model and the speed requirement.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "viewing": {
+      "title": "2-D and 3-D viewing pipelines",
+      "body": "<p>In 2-D, a rectangular <em class=\"term\">window</em> in world coordinates selects what to show; the <em class=\"term\">viewport</em> is where it appears on screen; the window-to-viewport mapping scales and translates. In 3-D, a camera (position, direction, up) defines the view; a view volume (a box for parallel, a frustum for perspective) is clipped and projected onto a view plane.</p>",
+      "after": "",
+      "steps": "Window x from 0 to 100 mapped to a viewport x from 200 to 600. Where does x = 25 land? Scale 400/100 = 4, then shift: 200 + 4 × 25."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Frame buffer = width × height × bytes per pixel.</li><li>Pipeline: model → world → view → clip → project → viewport → raster.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

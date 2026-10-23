@@ -1,0 +1,52 @@
+{
+  "subtitle": "Do not draw what you cannot see: find the part of each line that lies inside the window.",
+  "sections": {
+    "why": {
+      "body": "<p>Imagine painting a mural and realising half your brushstrokes land on the neighbour’s wall. Wasted paint! In graphics, anything outside the window is wasted effort, and could even overflow the frame buffer. <em class='term'>Clipping</em> removes it before rasterising.</p><p>The design goal is cleverly lazy: decide most cases (fully inside, fully outside) very cheaply, and compute intersections only when you truly must. The main purpose of clipping, then, is to avoid drawing what lies outside the window.</p>",
+      "keynotes": [
+        "Anything outside the window is wasted effort and could overflow the frame buffer.",
+        "Clipping removes it before rasterising.",
+        "The goal is to decide fully inside and fully outside cheaply and compute intersections only when needed."
+      ]
+    },
+    "cohen": {
+      "body": "<p>Cohen and Sutherland had a lovely trick: give every endpoint a tiny passport that says which side of the window it is on. That passport is a 4-bit <em class='term'>outcode</em> (Top, Bottom, Right, Left), where a bit is 1 if the point lies beyond that edge.</p><p>Now the decisions are almost free. If both codes are 0000, <em class='term'>trivially accept</em>. If the AND of the codes is non-zero, both ends are beyond the same edge, so <em class='term'>trivially reject</em>. Otherwise clip the outside endpoint to one window edge by intersection and repeat.</p><p>Take the window (10,10)–(50,50) and the line (0,20)–(60,40). P1 = (0,20) is left of x = 10: outcode 0001. P2 = (60,40) is right of x = 50: outcode 0010. The AND is 0000 and the OR is not 0000, so it is undecided and we must clip. Intersect with x = 10: y = 20 + (40−20)·(10−0)/(60−0) = 23.33. After clipping both ends the line becomes <b>10,23.33 50,36.67</b>. In the figures, the amber box is the window and the blue line shrinks edge by edge; the second figure shows a trivial reject, with both ends left of the window.</p>",
+      "keynotes": [
+        "Each endpoint gets a 4-bit outcode (Top, Bottom, Right, Left), with a bit set if the point lies beyond that edge.",
+        "Both codes 0000: trivially accept; the AND of the codes non-zero: trivially reject; otherwise clip an edge and repeat.",
+        "For window (10,10)–(50,50) the line (0,20)–(60,40) clips to 10,23.33 50,36.67."
+      ]
+    },
+    "liang": {
+      "body": "<p>Cohen–Sutherland is clever, but you may notice it keeps clipping and re-testing. Liang and Barsky asked: why not work out the answer in one go? Write the line as P(t) = P₁ + t·(P₂ − P₁), 0 ≤ t ≤ 1, and ask which stretch of t lies inside.</p><p>Each window edge gives an inequality t·p ≤ q with p = −Δx, Δx, −Δy, Δy and q = x₁ − xmin, xmax − x₁, …. Where p &lt; 0 the line enters: raise t₀ to max(q/p). Where p &gt; 0 it leaves: lower t₁ to min(q/p). If t₀ &gt; t₁ the line is outside. It is faster than Cohen–Sutherland because it computes at most one intersection per end. On the same example it gives <b>10,23.33 50,36.67</b>, the same answer by a shorter road. Watch t₀ rise and t₁ fall in the figure.</p>",
+      "keynotes": [
+        "The line is P(t) = P₁ + t·(P₂ − P₁) with 0 ≤ t ≤ 1, and each window edge gives an inequality t·p ≤ q.",
+        "Where p < 0 the line enters, so raise t₀ to max(q/p); where p > 0 it leaves, so lower t₁ to min(q/p).",
+        "If t₀ > t₁ the line is outside; it needs at most one intersection per end, and the example gives 10,23.33 50,36.67."
+      ]
+    },
+    "poly": {
+      "body": "<p>Lines are easy. Polygons are harder, because clipping a polygon must produce a polygon, not a scatter of loose lines. Sutherland–Hodgman clips against one window edge at a time, keeping inside vertices and adding intersection points. It is right for convex polygons, but can leave extra edges for concave ones, and Weiler–Atherton handles those by walking the boundaries.</p><p>Text has its own options too: clip per character (all-or-none), per string, or per pixel (the most exact). So which algorithm clips concave polygons correctly? You can answer now: Weiler–Atherton.</p>",
+      "keynotes": [
+        "Clipping a polygon must produce a polygon, not loose lines.",
+        "Sutherland–Hodgman clips against one window edge at a time and is right for convex polygons; Weiler–Atherton handles concave ones by walking the boundaries.",
+        "Text is clipped per character (all-or-none), per string or per pixel (most exact)."
+      ]
+    },
+    "point": {
+      "body": "<p>Everything above rests on the simplest test of all. A point (x, y) is inside the window iff xmin ≤ x ≤ xmax and ymin ≤ y ≤ ymax. Four comparisons, nothing more.</p><p>Try it. Window [10, 50] × [10, 50]. Is (30, 55) inside? y = 55 &gt; 50, so it is outside (outcode 1000₂, above). And what about the corner point (50, 50)? The inequalities use ≤, so look carefully at the boundary before you answer.</p>",
+      "keynotes": [
+        "A point is inside the window iff xmin ≤ x ≤ xmax and ymin ≤ y ≤ ymax.",
+        "(30, 55) is outside the window [10, 50] × [10, 50] because y = 55 > 50 (outcode 1000).",
+        "The inequalities use ≤, so a point exactly on the boundary counts as inside."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two ideas, two styles.</p><ul><li>Cohen–Sutherland: outcodes, accept/reject fast, else clip an edge at a time.</li><li>Liang–Barsky: parametric t₀…t₁ interval, fewer intersections.</li></ul><p>One works with codes on the ends; the other works with a parameter along the line. Can you say which is which without looking back?</p>",
+      "keynotes": [
+        "Cohen–Sutherland uses outcodes to accept or reject quickly, else clips one edge at a time.",
+        "Liang–Barsky uses a parametric t₀…t₁ interval and needs fewer intersections."
+      ]
+    }
+  }
+}

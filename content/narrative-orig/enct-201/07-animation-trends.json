@@ -1,0 +1,48 @@
+{
+  "title": "Animation, AR/VR and real-time graphics",
+  "subtitle": "Motion is many pictures in a row — and the tricks that make a computer produce them fast enough.",
+  "sections": {
+    "anim": {
+      "title": "How animation works",
+      "body": "<p>Showing at least ~24 still images per second fools the eye into seeing motion; games aim for 60. <em class=\"term\">Raster animation</em> copies pixel blocks and cycles colour tables; <em class=\"term\">key-frame</em> systems define important poses and let the computer generate the <em class=\"term\">in-betweens</em>. Animation functions: object definition, path specification, key frames, in-betweening, a scene description.</p>",
+      "after": "",
+      "steps": "A 10-second clip at 24 frames/s. With key frames every 12 frames an animator poses 20 and the computer generates the other 220."
+    },
+    "interp": {
+      "title": "Interpolating motion",
+      "body": "<p>Linear interpolation moves at constant speed and looks mechanical; real motion eases in and out. A spline through the key positions gives smooth paths; a Bézier speed curve controls the timing (“ease-in-out”). Below, one control point shapes a path.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "motion": {
+      "title": "Motion specification",
+      "body": "<p><em class=\"term\">Direct specification</em>: give positions or velocities explicitly. <em class=\"term\">Goal-directed</em>: say where the object should end up and let the system work out the motion. <em class=\"term\">Kinematics</em> describes motion without forces (forward kinematics: joint angles → hand position; inverse kinematics: hand position → joint angles). <em class=\"term\">Dynamics</em> uses forces and mass — a ball bouncing, cloth draping: exactly what this notebook’s physics engine does.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "viz": {
+      "title": "Interactive visualisation and distributed rendering",
+      "body": "<p>Interactive visualisation lets users rotate, slice and query data in real time. Very large scenes are rendered across many machines (distributed/cloud rendering): split the image into tiles or the animation into frames, render in parallel, and assemble the result. Film studios use render farms; cloud gaming streams rendered video to thin clients.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "arvr": {
+      "title": "AR, VR and mixed reality",
+      "body": "<p><em class=\"term\">VR</em> replaces the world with a rendered one (head-mounted display plus head tracking; needs low latency, under about 20 ms from motion to photon, or users feel sick). <em class=\"term\">AR</em> overlays graphics on the real view (phone camera, glasses). <em class=\"term\">MR</em> anchors virtual objects in real space so they interact with it. All three run the same pipeline twice (one image per eye) at 90 Hz or more, plus tracking and registration.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "games": {
+      "title": "Game development and real-time graphics",
+      "body": "<p>A game engine (Unity, Unreal) runs a loop: read input, update the world (physics, AI), render, repeat — within one frame time. Real-time tricks: level of detail, culling, baked lighting, instancing, shaders programmed on the GPU. Applications of AR/VR/gaming: training, design review, therapy, education, entertainment.</p>",
+      "after": "",
+      "steps": "A target of 60 fps; physics takes 4 ms, AI 3 ms, rendering 8 ms. Total 15 ms &lt; 16.7 ms: the frame fits, with 1.7 ms to spare."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Animation = key frames + in-betweens; ease with splines.</li><li>VR needs low latency; engines loop input-update-render.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

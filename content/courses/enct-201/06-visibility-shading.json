@@ -8,7 +8,7 @@
       "locator": "5.1",
       "title": "Visible-surface determination",
       "eyebrow": "What is in front?",
-      "body": "<p>When objects overlap, only the nearest surface along each line of sight may be drawn. <em class=\"term\">Object-space</em> methods compare polygons geometrically (painter’s algorithm); <em class=\"term\">image-space</em> methods decide per pixel. <em class=\"term\">Back-face detection</em> discards polygons facing away: a face is hidden if its normal N and the view vector V satisfy N·V &gt; 0 (roughly half the faces of a closed solid).</p>",
+      "body": "<p>Stand in front of a wall with a vase on a table. Do you see the back of the vase? No, because something nearer is in the way. A renderer must make the same decision: when objects overlap, only the nearest surface along each line of sight may be drawn.</p><p>There are two schools. <em class=\"term\">Object-space</em> methods compare polygons geometrically (the painter’s algorithm); <em class=\"term\">image-space</em> methods decide per pixel. And a cheap first filter is <em class=\"term\">back-face detection</em>: a face is hidden if its normal N and the view vector V satisfy N·V &gt; 0, which removes roughly half the faces of a closed solid.</p><p>Try one. A face has normal N = (0, 0, −1); the viewer looks along V = (0, 0, −1) (into the screen). N·V = (0)(0) + (0)(0) + (−1)(−1) = 1 &gt; 0, so the face points away from the viewer: back-facing, cull it.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -52,6 +52,12 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Only the nearest surface along each line of sight may be drawn.",
+        "Object-space methods compare polygons geometrically (painter’s algorithm); image-space methods decide per pixel.",
+        "Back-face detection hides a face if N·V > 0, roughly half the faces of a closed solid.",
+        "N = (0,0,−1) and V = (0,0,−1) give N·V = 1 > 0, so the face is culled."
       ]
     },
     {
@@ -59,7 +65,7 @@
       "locator": "5.2",
       "title": "The Z-buffer",
       "eyebrow": "Image space",
-      "body": "<p>The <em class=\"term\">Z-buffer</em> keeps, for every pixel, the depth of the nearest surface drawn so far. Start with depth = ∞. For each polygon and each pixel it covers, compute the depth z; if z is smaller (nearer) than the stored value, write the colour and the new depth. Polygons can arrive in any order — no sorting, simple in hardware, cost O(pixels × overlapping surfaces) and one depth value per pixel. The A-buffer adds transparency; scan-line methods handle one row at a time.</p>",
+      "body": "<p>Here is one of the most elegant ideas in graphics, and it fits in one sentence: remember, for every pixel, how close the nearest thing you have drawn there is. That memory is the <em class=\"term\">Z-buffer</em>.</p><p>Start with depth = ∞. For each polygon and each pixel it covers, compute the depth z; if z is smaller (nearer) than the stored value, write the colour and the new depth. Otherwise skip it. Polygons can arrive in any order, so there is no sorting, and it is simple in hardware. The cost is O(pixels × overlapping surfaces), plus one depth value per pixel. The A-buffer adds transparency; scan-line methods handle one row at a time. Follow the test-and-write loop in the figure. And what does a Z-buffer store, per pixel? The depth of the nearest surface so far.</p>",
       "questions": [
         {
           "id": "zq",
@@ -99,6 +105,11 @@
           "note": "The test-and-write loop of the Z-buffer.",
           "script": "diagram(\"direction: down\\n(Start: depth buffer = infinity) as s\\n[Take the next polygon, next pixel] as a #blue\\n<z nearer than stored depth?> as c #amber\\n[Write colour, store z] as w #mint\\n[Keep the old pixel] as k #grey\\ns -> a\\na -> c\\nc -> w : yes\\nc -> k : no\\nw -> a\\nk -> a\");"
         }
+      ],
+      "keynotes": [
+        "The Z-buffer keeps, for every pixel, the depth of the nearest surface drawn so far, starting at ∞.",
+        "A fragment is written only if its z is nearer than the stored value, so polygons can arrive in any order.",
+        "The cost is O(pixels × overlapping surfaces) and one depth value per pixel; the A-buffer adds transparency."
       ]
     },
     {
@@ -106,7 +117,7 @@
       "locator": "6.1",
       "title": "Illumination models",
       "eyebrow": "Brightness",
-      "body": "<p>The Phong model sums three terms: <em class=\"term\">ambient</em> I = kₐ (light from everywhere), <em class=\"term\">diffuse</em> kd·cos θ (Lambert: proportional to the angle between the normal and the light — matte surfaces) and <em class=\"term\">specular</em> ks·cosⁿ α (a highlight where the reflection points at the eye; larger n = tighter, shinier). With ka = 0.1, kd = 0.5, ks = 0.4, n = 10, a surface lit head-on has I = <b>1</b>; at 60° it drops to <b>0.35</b>.</p>",
+      "body": "<p>Now that we know what is visible, how bright should it be? Think of a ball in a sunlit room: it has a general glow from the room, a matte brightness that fades as the surface turns away from the lamp, and a shiny spot where the lamp is reflected. That is the Phong model, adding three terms.</p><p><em class=\"term\">Ambient</em> I = kₐ is light from everywhere. <em class=\"term\">Diffuse</em> kd·cos θ (Lambert) is proportional to the angle between the normal and the light, which is what makes matte surfaces. <em class=\"term\">Specular</em> ks·cosⁿ α is the highlight where the reflection points at the eye, and a larger n means a tighter, shinier spot. With ka = 0.1, kd = 0.5, ks = 0.4, n = 10, a surface lit head-on has I = 0.1 + 0.5·1 + 0.4·1 = <b>1</b>; at 60° it drops to <b>0.35</b>. Increasing the exponent n makes the highlight smaller. The three frames add the terms one at a time.</p>",
       "worked": [
         {
           "toc": "Intensity",
@@ -160,6 +171,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "The Phong model sums ambient (kₐ), diffuse (kd·cos θ) and specular (ks·cosⁿ α) terms.",
+        "A larger exponent n gives a tighter, shinier highlight.",
+        "With ka = 0.1, kd = 0.5, ks = 0.4, n = 10, head-on I = 1 and at 60° it drops to 0.35."
       ]
     },
     {
@@ -167,7 +183,7 @@
       "locator": "6.2",
       "title": "Shading methods",
       "eyebrow": "Per polygon or per pixel",
-      "body": "<p>Computing the illumination model at every pixel is expensive, so surfaces are shaded by interpolation. <em class=\"term\">Constant (flat)</em> shading: one intensity per polygon — faceted look. <em class=\"term\">Gouraud</em>: compute intensity at the vertices and interpolate across the polygon — smooth, but can miss highlights that fall inside a polygon. <em class=\"term\">Phong shading</em>: interpolate the <em>normals</em> and apply the illumination model per pixel — accurate highlights, more expensive.</p>",
+      "body": "<p>Running the full lighting formula at every pixel would be slow, so cheaper ways were invented, each trading speed for quality. <em class=\"term\">Constant (flat)</em> shading gives one intensity per polygon, so the surface looks faceted like a cut gem. <em class=\"term\">Gouraud</em> computes intensity at the vertices and interpolates across the polygon, which looks smooth but can miss highlights that fall inside a polygon. <em class=\"term\">Phong shading</em> interpolates the <em>normals</em> and applies the illumination model per pixel, which gives accurate highlights at a higher cost.</p><p>As the figure says, cost and quality both rise left to right. So Gouraud shading interpolates intensities (colours); Phong interpolates normals. Keep that difference straight and you will not mix the two up in an exam.</p>",
       "questions": [
         {
           "id": "gour",
@@ -214,6 +230,11 @@
           "prompt": "<p>Why can Gouraud shading miss a specular highlight that lies in the middle of a large polygon?</p>",
           "answer": "It evaluates lighting only at the vertices; if the bright spot is between them the interpolated colour never reaches it. Phong shading evaluates lighting per pixel so the highlight appears."
         }
+      ],
+      "keynotes": [
+        "Constant (flat) shading gives one intensity per polygon and a faceted look.",
+        "Gouraud computes intensity at the vertices and interpolates, which is smooth but can miss highlights inside a polygon.",
+        "Phong shading interpolates the normals and applies the illumination model per pixel: accurate but more expensive."
       ]
     },
     {
@@ -221,7 +242,11 @@
       "locator": "6.3",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Back-face: N·V &gt; 0 → cull. Z-buffer: keep the nearest fragment per pixel.</li><li>Phong model = ambient + diffuse + specular; flat &lt; Gouraud &lt; Phong shading.</li></ul>"
+      "body": "<p>Here is your pocket summary.</p><ul><li>Back-face: N·V &gt; 0 → cull. Z-buffer: keep the nearest fragment per pixel.</li><li>Phong model = ambient + diffuse + specular; flat &lt; Gouraud &lt; Phong shading.</li></ul><p>If these two lines make sense to you, so does the rest of the chapter.</p>",
+      "keynotes": [
+        "Back-face culling removes faces with N·V > 0, and the Z-buffer keeps the nearest fragment per pixel.",
+        "The Phong model is ambient + diffuse + specular, and flat < Gouraud < Phong shading."
+      ]
     },
     {
       "id": "try",
@@ -272,6 +297,11 @@
             }
           }
         }
+      ],
+      "body": "<p>Experiment time. Set the shininess to 80 in the figure and look at the highlight: it becomes much narrower. Now ask what happens at 60° from the normal. For a very shiny surface, the specular term has almost died away, because cosⁿ of a big angle collapses quickly when n is large. Predict first, then check it.</p>",
+      "keynotes": [
+        "Shininess 80 gives a much narrower highlight.",
+        "For very shiny surfaces the specular term at 60° from the normal is almost zero, because cosⁿ collapses quickly for large n."
       ]
     }
   ]

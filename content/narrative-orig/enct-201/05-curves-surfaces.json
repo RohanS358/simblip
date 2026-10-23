@@ -1,0 +1,42 @@
+{
+  "title": "Bézier curves and polygon surfaces",
+  "subtitle": "How fonts, paths and car bodies are drawn with a handful of control points.",
+  "sections": {
+    "why": {
+      "title": "Curves from control points",
+      "body": "<p>Storing a smooth curve as thousands of tiny lines is wasteful and awkward to edit. A <em class=\"term\">parametric curve</em> is a point Q(t) = (x(t), y(t)) as t runs from 0 to 1, defined by a few <em class=\"term\">control points</em>. A <em class=\"term\">spline</em> joins cubic pieces smoothly. Designers drag control points; the curve follows.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "bez": {
+      "title": "Bézier curves",
+      "body": "<p>A cubic <em class=\"term\">Bézier curve</em> has four control points P₀…P₃ and Q(t) = (1−t)³P₀ + 3t(1−t)²P₁ + 3t²(1−t)P₂ + t³P₃. It starts at P₀ tangent to P₀P₁ and ends at P₃ tangent to P₂P₃, and always lies inside the convex hull of its control points. The <em class=\"term\">de Casteljau</em> construction finds the point at t by repeated linear interpolation: join neighbouring control points, take the point a fraction t along each segment, and repeat until one point remains. At t = 0.5 for P = (0,0), (1,3), (4,3), (5,0) the point is <b>2.5,2.25</b>, which matches (P₀ + 3P₁ + 3P₂ + P₃)/8 = <b>2.5,2.25</b>.</p>",
+      "after": "",
+      "steps": "Cubic, P = (0,0), (1,3), (4,3), (5,0), t = ½. At t = ½ the weights are (1, 3, 3, 1)/8. x = (0 + 3·1 + 3·4 + 5)/8 = 20/8 = 2.5; y = (0 + 9 + 9 + 0)/8 = 2.25."
+    },
+    "spline": {
+      "title": "Splines and continuity",
+      "body": "<p>Long curves are built from several low-degree pieces. <em class=\"term\">C⁰</em> continuity: the pieces meet. <em class=\"term\">C¹</em>: same tangent direction and speed at the join. <em class=\"term\">C²</em>: same curvature too. For two Bézier segments to join with C¹ the last two points of one and the first two of the next must be collinear and evenly spaced. B-splines and NURBS give local control and exact circles.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "surf": {
+      "title": "Polygon surfaces",
+      "body": "<p>A 3-D object is stored as a polygon mesh: a <em class=\"term\">vertex table</em> (coordinates), an <em class=\"term\">edge table</em> (vertex pairs) and a <em class=\"term\">polygon table</em> (edges of each face). Each face has a surface <em class=\"term\">normal</em> N = (V₂ − V₁) × (V₃ − V₁), needed for lighting and for deciding which side faces the viewer. Smooth surfaces use Bézier patches, revolution and sweeps.</p>",
+      "after": "",
+      "steps": "Triangle V₁ = (0,0,0), V₂ = (1,0,0), V₃ = (0,1,0). Edges: (1,0,0) and (0,1,0). Normal = (1,0,0) × (0,1,0)."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Bézier: Q(t) from control points; de Casteljau by repeated interpolation.</li><li>Joins: C⁰, C¹, C²; meshes = vertex, edge, polygon tables.</li></ul>",
+      "after": "",
+      "steps": ""
+    },
+    "try": {
+      "title": "Try it",
+      "body": "",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "subtitle": "Moving, turning and scaling are just matrices. Combine them by multiplying, and watch the order.",
+  "sections": {
+    "basic": {
+      "body": "<p>Everything a graphics program does to a shape comes down to five moves. You can slide it: translate (x + tx, y + ty). You can stretch it: scale (sx·x, sy·y). You can spin it: rotate by θ about the origin (x cos θ − y sin θ, x sin θ + y cos θ). You can flip it: reflect (negate a coordinate). And you can lean it: shear (x + shx·y).</p><p>Each of these is a matrix, except translation in ordinary 2×2 form, and that awkward exception is exactly why graphics uses homogeneous coordinates (next section). First, try one: rotate the point (1, 0) by 90° about the origin. With cos 90° = 0 and sin 90° = 1, the answer is (0,1). The point has swung a quarter-turn counter-clockwise from the x-axis to the y-axis. Does that match your mental picture?</p>",
+      "keynotes": [
+        "The five basic 2-D moves are translate, scale, rotate about the origin, reflect and shear.",
+        "Rotation by θ gives (x cos θ − y sin θ, x sin θ + y cos θ).",
+        "Rotating (1, 0) by 90° about the origin gives (0,1)."
+      ]
+    },
+    "homog": {
+      "body": "<p>Here is a beautiful trick to fix the awkward translation. Write a point as (x, y, 1), one extra coordinate, and suddenly every transformation, including translation, becomes a 3×3 matrix. One kind of object, one operation: multiply.</p><p>A sequence of transformations is then just the product of their matrices, applied right to left: M = Mₙ⋯M₂M₁ applies M₁ first. But matrix multiplication is not commutative, so order matters, and this trips up everyone once, so you should watch it closely. Test it: translate (2,3) then rotate 90° sends (1,0) to <b>(-3,3)</b>, yet rotate first and then translate sends it to <b>(2,4)</b>. Same two moves, different destinations. In the figure, the matrix on the right is the running product. Same result either way? No, certainly not.</p>",
+      "keynotes": [
+        "Writing a point as (x, y, 1) makes every transformation, including translation, a 3×3 matrix.",
+        "A sequence is the product of matrices applied right to left: M = Mₙ⋯M₂M₁ applies M₁ first.",
+        "Order matters: translate (2,3) then rotate 90° sends (1,0) to (-3,3), but rotate then translate sends it to (2,4)."
+      ]
+    },
+    "pivot": {
+      "body": "<p>Rotation about the origin is easy. But what if you want to spin a shape about its own centre, or any point you choose? There is a lovely sandwich recipe: translate the pivot to the origin, rotate, translate back. In matrices, T(px,py)·R(θ)·T(−px,−py).</p><p>Walk through it. Rotate (2,1) by 90° about (1,1). Translate so the pivot (1,1) is the origin: (2,1) → (1,0). Rotate 90°: (1,0) → (0,1). Translate back: (0,1) + (1,1) = <b>(1,2)</b>. Scaling about a fixed point uses the very same sandwich. To rotate about a point other than the origin, you wrap the rotation between two translations.</p>",
+      "keynotes": [
+        "Rotation about a pivot (px, py) is T(px,py)·R(θ)·T(−px,−py): translate the pivot to the origin, rotate, translate back.",
+        "Rotating (2,1) by 90° about (1,1) gives (1,2).",
+        "Scaling about a fixed point uses the same sandwich."
+      ]
+    },
+    "proj": {
+      "body": "<p>How do you squash a 3-D world onto a flat screen? There are two famous ways. In <em class='term'>parallel projection</em> the lines of projection are parallel: just drop z (orthographic). Sizes are preserved, which is why engineers use it in technical drawings. In <em class='term'>perspective projection</em> the lines converge at the eye: x′ = x·d/(d − z), so nearer things look bigger, just as railway lines meet at the horizon.</p><p>Try the maths. A cube vertex at z = −1 with eye distance d = 4 is scaled by 4/5, so (−1,−1) becomes <b>-0.8,-0.8</b>. Step through the figure to see the model, the rotated cube, the parallel and the perspective versions side by side. In perspective, distant objects appear smaller.</p>",
+      "keynotes": [
+        "Parallel projection drops z (orthographic): sizes are preserved, as in engineering drawing.",
+        "Perspective projection converges at the eye: x′ = x·d/(d − z), so nearer things look bigger.",
+        "A vertex at z = −1 with d = 4 is scaled by 4/5: (−1,−1) becomes (-0.8,-0.8)."
+      ]
+    },
+    "t3d": {
+      "body": "<p>Add one more dimension and the story continues almost unchanged. You use 4×4 homogeneous matrices. Translation and scaling extend directly, and rotation is about an axis: Rz(θ) rotates x–y, Rx(θ) y–z, Ry(θ) z–x. Composite 3-D transformations are again products.</p><p>Try one: rotate (1,0,0) by 90° about the z-axis, giving (cos θ, sin θ, 0) = (0,1,0). One warning worth tattooing: rotations about different axes do not commute. Hold a book and turn it a quarter-turn about two different axes in both orders if you want to see this with your own hands.</p>",
+      "keynotes": [
+        "3-D uses 4×4 homogeneous matrices; rotation is about an axis: Rz(θ) rotates x–y, Rx(θ) y–z, Ry(θ) z–x.",
+        "Rotating (1,0,0) by 90° about the z-axis moves it to (0,1,0).",
+        "Rotations about different axes do not commute."
+      ]
+    },
+    "summary": {
+      "body": "<p>Three lines to carry out of this chapter.</p><ul><li>Homogeneous matrices turn every transformation into a product.</li><li>M = Mₙ⋯M₁; order matters; pivot rotation = T·R·T⁻¹.</li><li>Parallel keeps size; perspective divides by depth.</li></ul><p>If you can explain why order matters using the (1,0) example, you have understood the heart of it.</p>",
+      "keynotes": [
+        "Homogeneous matrices turn every transformation into a product.",
+        "M = Mₙ⋯M₁, order matters, and pivot rotation is T·R·T⁻¹.",
+        "Parallel projection keeps size; perspective divides by depth."
+      ]
+    }
+  }
+}

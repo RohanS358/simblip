@@ -1,0 +1,42 @@
+{
+  "title": "Clipping",
+  "subtitle": "Do not draw what you cannot see: find the part of each line that lies inside the window.",
+  "sections": {
+    "why": {
+      "title": "Why clip",
+      "body": "<p>Anything outside the window is wasted effort (and could overflow the frame buffer). <em class=\"term\">Clipping</em> removes it before rasterising. The design goal: decide most cases — fully inside, fully outside — very cheaply, and compute intersections only when needed.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "cohen": {
+      "title": "Cohen–Sutherland",
+      "body": "<p>Give each endpoint a 4-bit <em class=\"term\">outcode</em> (Top, Bottom, Right, Left): a bit is 1 if the point lies beyond that edge. If both codes are 0000 — <em class=\"term\">trivially accept</em>. If the AND of the codes is non-zero — both ends are beyond the same edge — <em class=\"term\">trivially reject</em>. Otherwise clip the outside endpoint to one window edge by intersection and repeat. For the window (10,10)–(50,50) the line (0,20)–(60,40) clips to <b>10,23.33 50,36.67</b>.</p>",
+      "after": "",
+      "steps": "P1 = (0,20) is left of x = 10: outcode 0001. P2 = (60,40) is right of x = 50: outcode 0010. AND = 0000, OR ≠ 0000: undecided, so clip. Intersection with x = 10: y = 20 + (40−20)·(10−0)/(60−0)."
+    },
+    "liang": {
+      "title": "Liang–Barsky",
+      "body": "<p>Write the line as P(t) = P₁ + t·(P₂ − P₁), 0 ≤ t ≤ 1. Each window edge gives an inequality t·p ≤ q with p = −Δx, Δx, −Δy, Δy and q = x₁ − xmin, xmax − x₁, …. Where p &lt; 0 the line enters: raise t₀ to max(q/p); where p &gt; 0 it leaves: lower t₁ to min(q/p). If t₀ &gt; t₁ the line is outside. Faster than Cohen–Sutherland because it computes at most one intersection per end. Same example: <b>10,23.33 50,36.67</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "poly": {
+      "title": "Polygon and text clipping",
+      "body": "<p>Clipping a polygon must produce a polygon, not loose lines. Sutherland–Hodgman clips against one window edge at a time, keeping inside vertices and adding intersection points; it is right for convex polygons and can leave extra edges for concave ones, which Weiler–Atherton handles by walking the boundaries. Text is clipped per character (all-or-none), per string, or per pixel (most exact).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "point": {
+      "title": "Point clipping",
+      "body": "<p>A point (x, y) is inside the window iff xmin ≤ x ≤ xmax and ymin ≤ y ≤ ymax. Everything else builds on this test.</p>",
+      "after": "",
+      "steps": "Window [10, 50] × [10, 50]. Is (30, 55) inside? y = 55 > 50: outside (outcode 1000, above)."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Cohen–Sutherland: outcodes, accept/reject fast, else clip an edge at a time.</li><li>Liang–Barsky: parametric t₀…t₁ interval, fewer intersections.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

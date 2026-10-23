@@ -8,7 +8,7 @@
       "locator": "2.1",
       "title": "The DDA line algorithm",
       "eyebrow": "Incremental",
-      "body": "<p>The <em class=\"term\">DDA</em> (digital differential analyser) steps along the longer axis one pixel at a time and adds the slope to the other coordinate, rounding each point: steps = max(|Δx|, |Δy|), x increment = Δx/steps, y increment = Δy/steps. It uses floating point and rounding in the loop. From (0,0) to (4,2) it lights <b>0,0 1,1 2,1 3,2 4,2</b>.</p>",
+      "body": "<p>Draw a straight line from one point to another on graph paper, using only whole squares. Which squares do you colour? You walk along the line and, at each step, pick the nearest square. The <em class=\"term\">DDA</em> (digital differential analyser) does precisely this.</p><p>It steps along the longer axis one pixel at a time and adds the slope to the other coordinate, rounding each point: steps = max(|Δx|, |Δy|), x increment = Δx/steps, y increment = Δy/steps. Why the longer axis? So that no gaps are left in the line. Run it from (0,0) to (4,2): Δx = 4 and Δy = 2, so steps = 4, with x += 1 and y += 0.5. The points are (0,0), (1,0.5→1), (2,1), (3,1.5→2), (4,2), and it lights <b>0,0 1,1 2,1 3,2 4,2</b>. The catch is that it uses floating point and rounding inside the loop, which is slow.</p>",
       "worked": [
         {
           "toc": "Steps",
@@ -66,6 +66,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "DDA steps along the longer axis one pixel at a time and adds the slope to the other coordinate, rounding each point.",
+        "steps = max(|Δx|, |Δy|), with x increment Δx/steps and y increment Δy/steps.",
+        "From (0,0) to (4,2) it lights 0,0 1,1 2,1 3,2 4,2; it uses floating point and rounding in the loop."
       ]
     },
     {
@@ -73,7 +78,7 @@
       "locator": "2.2",
       "title": "Bresenham’s line algorithm",
       "eyebrow": "Integers only",
-      "body": "<p><em class=\"term\">Bresenham</em> keeps an integer <em class=\"term\">decision (error) term</em> saying whether the ideal line is closer to the pixel straight ahead or the one diagonally above. No multiplication or rounding: only additions and sign tests, hence its use in hardware. From (0,0) to (5,2): <b>0,0 1,0 2,1 3,1 4,2 5,2</b>.</p>",
+      "body": "<p>Can we draw the same line without any fractions at all? Yes, and that was Bresenham’s clever insight. <em class=\"term\">Bresenham</em> keeps an integer <em class=\"term\">decision (error) term</em> that says whether the ideal line is closer to the pixel straight ahead or the one diagonally above. Each step, you look at the sign of the term and move accordingly.</p><p>No multiplication, no rounding: only additions and sign tests, which is why it lives inside hardware. From (0,0) to (5,2) it lights <b>0,0 1,0 2,1 3,1 4,2 5,2</b>. The main advantage over DDA? Integer arithmetic only. The error term decides each step, as the figure shows.</p>",
       "questions": [
         {
           "id": "bresq",
@@ -136,6 +141,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Bresenham keeps an integer decision (error) term saying whether the ideal line is closer to the pixel straight ahead or the one diagonally above.",
+        "It uses only additions and sign tests, no multiplication or rounding, hence its use in hardware.",
+        "From (0,0) to (5,2) it lights 0,0 1,0 2,1 3,1 4,2 5,2."
       ]
     },
     {
@@ -143,7 +153,7 @@
       "locator": "2.3",
       "title": "The mid-point circle algorithm",
       "eyebrow": "Eight-way symmetry",
-      "body": "<p>A circle is symmetric about both axes and the diagonals, so compute one octant (x from 0 to y) and reflect each point 8 ways. The <em class=\"term\">mid-point</em> method tests whether the midpoint between the two candidate pixels is inside the circle using a decision parameter p: start p₀ = 1 − r; if p &lt; 0 keep y and p += 2x + 1, else y−− and p += 2(x − y) + 1. For r = 5 the first octant is <b>0,5 1,5 2,5 3,4</b>.</p>",
+      "body": "<p>A circle is the most symmetrical shape there is, so why compute all of it? Because it is symmetric about both axes and the diagonals, you only need one octant (x from 0 to y), then reflect each point 8 ways. That is an eight-fold saving for free.</p><p>The <em class=\"term\">mid-point</em> method decides each step by testing whether the midpoint between the two candidate pixels is inside the circle, using a decision parameter p. Start p₀ = 1 − r; if p &lt; 0 keep y and p += 2x + 1, else y−− and p += 2(x − y) + 1. Try radius 5: p₀ = 1 − 5 = −4. Start (0,5). p &lt; 0, so x = 1, y = 5, p = −4 + 2(1) + 1 = −1. Again p &lt; 0, so x = 2, p = −1 + 5 = 4. Now p ≥ 0, so y = 4 at x = 3. The first octant is <b>0,5 1,5 2,5 3,4</b>. Each frame of the figure plots eight points at once.</p>",
       "worked": [
         {
           "toc": "Start",
@@ -201,6 +211,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A circle is symmetric, so compute one octant (x from 0 to y) and reflect each point 8 ways.",
+        "The mid-point method uses a decision parameter: p₀ = 1 − r; if p < 0 keep y and p += 2x + 1, else y−− and p += 2(x − y) + 1.",
+        "For r = 5 the first octant is 0,5 1,5 2,5 3,4."
       ]
     },
     {
@@ -208,7 +223,7 @@
       "locator": "2.4",
       "title": "Filling: scan-line, boundary and flood fill",
       "eyebrow": "Colouring regions",
-      "body": "<p><em class=\"term\">Scan-line fill</em> intersects each row with the polygon edges and fills between pairs of crossings (odd–even rule). <em class=\"term\">Boundary fill</em> starts inside and spreads until it meets a boundary colour; <em class=\"term\">flood fill</em> spreads through all pixels of the old colour. Both can use 4-connected neighbours (up, down, left, right) or 8-connected (plus diagonals); 8-connected fill can leak through a diagonal gap in a boundary drawn with 4-connected lines. The default pentagon fills <b>61</b> pixels.</p>",
+      "body": "<p>Outlines are only half the job; you also want to colour the inside. There are two families of approach. <em class=\"term\">Scan-line fill</em> walks down the picture row by row, intersects each row with the polygon edges, and fills between pairs of crossings (the odd–even rule). <em class=\"term\">Boundary fill</em> starts inside and spreads like spilled paint until it meets a boundary colour; <em class=\"term\">flood fill</em> spreads through all pixels of the old colour.</p><p>Spreading needs a notion of neighbour. You can use 4-connected neighbours (up, down, left, right) or 8-connected (plus diagonals). Beware: 8-connected fill can leak through a diagonal gap in a boundary drawn with 4-connected lines, like water finding a crack. The default pentagon fills <b>61</b> pixels. Watch the fill spread from the seed to the boundary in the figure.</p>",
       "questions": [
         {
           "id": "conn",
@@ -253,6 +268,12 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Scan-line fill intersects each row with the polygon edges and fills between pairs of crossings (odd–even rule).",
+        "Boundary fill spreads until it meets a boundary colour; flood fill spreads through all pixels of the old colour.",
+        "4-connected uses up, down, left and right; 8-connected adds diagonals and can leak through a diagonal gap.",
+        "The default pentagon fills 61 pixels."
       ]
     },
     {
@@ -260,7 +281,7 @@
       "locator": "2.5",
       "title": "Aliasing and antialiasing",
       "eyebrow": "Jaggies",
-      "body": "<p>Because pixels are discrete, slanted lines look stepped (<em class=\"term\">aliasing</em>). <em class=\"term\">Antialiasing</em> reduces it: supersample (compute at higher resolution and average), or shade edge pixels in proportion to how much of the pixel the line covers. The cost is more computation.</p>",
+      "body": "<p>Draw a gently slanted line and, when you zoom in, you will see it looks like a staircase. Those jagged steps (“jaggies”) are <em class=\"term\">aliasing</em>, the price of using discrete pixels for a continuous world.</p><p><em class=\"term\">Antialiasing</em> softens them. One way is to supersample: compute at a higher resolution and average. Another is to shade edge pixels in proportion to how much of the pixel the line covers. The cost, as ever, is more computation. Supersampling works by averaging several samples per pixel.</p>",
       "questions": [
         {
           "id": "alias",
@@ -299,6 +320,11 @@
           "prompt": "<p>A line has slope 0.3. Does Bresenham step mostly in x or in y?</p>",
           "answer": "|slope| < 1, so x is the major axis: x advances every step and y increases by 1 about 3 times in 10 steps."
         }
+      ],
+      "keynotes": [
+        "Aliasing is the stepped look of slanted lines caused by discrete pixels.",
+        "Antialiasing supersamples (compute at higher resolution and average) or shades edge pixels in proportion to the coverage.",
+        "The cost is more computation."
       ]
     },
     {
@@ -306,7 +332,11 @@
       "locator": "2.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>DDA: float increments; Bresenham: integers; circle: one octant + symmetry.</li><li>Fill by scan line, boundary or flood (4 vs 8 connectivity).</li></ul>"
+      "body": "<p>A quick recap before you move on.</p><ul><li>DDA: float increments; Bresenham: integers; circle: one octant + symmetry.</li><li>Fill by scan line, boundary or flood (4 vs 8 connectivity).</li></ul><p>Notice the theme: each algorithm is a way of getting the same picture with less work. That is graphics in a sentence.</p>",
+      "keynotes": [
+        "DDA uses float increments, Bresenham uses integers, and a circle needs only one octant plus symmetry.",
+        "Fill by scan line, boundary or flood, with 4- or 8-connectivity."
+      ]
     }
   ]
 }

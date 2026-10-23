@@ -1,0 +1,42 @@
+{
+  "title": "2-D and 3-D transformations and projection",
+  "subtitle": "Moving, turning and scaling are just matrices. Combine them by multiplying — and watch the order.",
+  "sections": {
+    "basic": {
+      "title": "The basic 2-D transformations",
+      "body": "<p>Translate (x + tx, y + ty); scale (sx·x, sy·y); rotate by θ about the origin (x cos θ − y sin θ, x sin θ + y cos θ); reflect (negate a coordinate); shear (x + shx·y). Each is a matrix, except translation in ordinary 2×2 form — which is why graphics uses homogeneous coordinates.</p>",
+      "after": "",
+      "steps": "Rotate the point (1, 0) by 90° about the origin. cos 90° = 0 and sin 90° = 1."
+    },
+    "homog": {
+      "title": "Homogeneous coordinates and composition",
+      "body": "<p>Write a point as (x, y, 1) and every transformation — including translation — becomes a 3×3 matrix. A sequence of transformations is then the product of their matrices, applied right to left: M = Mₙ⋯M₂M₁ applies M₁ first. Matrix multiplication is not commutative, so order matters: translate (2,3) then rotate 90° sends (1,0) to <b>(-3,3)</b>, but rotate then translate sends it to <b>(2,4)</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "pivot": {
+      "title": "Rotation about an arbitrary point",
+      "body": "<p>To rotate about a pivot (px, py): translate the pivot to the origin, rotate, translate back: T(px,py)·R(θ)·T(−px,−py). Rotating (2,1) by 90° about (1,1) gives <b>(1,2)</b>. Scaling about a fixed point uses the same sandwich.</p>",
+      "after": "",
+      "steps": "Translate so the pivot (1,1) is the origin: (2,1) → (1,0). Rotate 90°: (1,0) → (0,1). Translate back: (0,1) + (1,1)."
+    },
+    "proj": {
+      "title": "Parallel and perspective projection",
+      "body": "<p>In <em class=\"term\">parallel projection</em> lines of projection are parallel: drop z (orthographic) — sizes are preserved, so it is used in engineering drawing. In <em class=\"term\">perspective projection</em> they converge at the eye: x′ = x·d/(d − z), so nearer things look bigger. A cube vertex at z = −1 with eye distance d = 4 is scaled by 4/5: (−1,−1) becomes <b>-0.8,-0.8</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "t3d": {
+      "title": "3-D transformations",
+      "body": "<p>Use 4×4 homogeneous matrices. Translation and scaling extend directly; rotation is about an axis: Rz(θ) rotates x–y, Rx(θ) y–z, Ry(θ) z–x. Composite 3-D transformations are again products; rotations about different axes do not commute.</p>",
+      "after": "",
+      "steps": "Rotate (1,0,0) by 90° about the z-axis. The point moves to (0,1,0)."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Homogeneous matrices turn every transformation into a product.</li><li>M = Mₙ⋯M₁; order matters; pivot rotation = T·R·T⁻¹.</li><li>Parallel keeps size; perspective divides by depth.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

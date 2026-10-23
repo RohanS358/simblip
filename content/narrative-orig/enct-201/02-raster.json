@@ -1,0 +1,42 @@
+{
+  "title": "Drawing lines, circles and filling regions",
+  "subtitle": "A screen has only whole pixels. These are the classic ways to choose which ones to light.",
+  "sections": {
+    "dda": {
+      "title": "The DDA line algorithm",
+      "body": "<p>The <em class=\"term\">DDA</em> (digital differential analyser) steps along the longer axis one pixel at a time and adds the slope to the other coordinate, rounding each point: steps = max(|Δx|, |Δy|), x increment = Δx/steps, y increment = Δy/steps. It uses floating point and rounding in the loop. From (0,0) to (4,2) it lights <b>0,0 1,1 2,1 3,2 4,2</b>.</p>",
+      "after": "",
+      "steps": "Line from (0,0) to (4,2): Δx = 4, Δy = 2, so steps = 4. Increments: x += 1, y += 0.5. Points: (0,0), (1,0.5→1), (2,1), (3,1.5→2), (4,2)."
+    },
+    "bres": {
+      "title": "Bresenham’s line algorithm",
+      "body": "<p><em class=\"term\">Bresenham</em> keeps an integer <em class=\"term\">decision (error) term</em> saying whether the ideal line is closer to the pixel straight ahead or the one diagonally above. No multiplication or rounding: only additions and sign tests, hence its use in hardware. From (0,0) to (5,2): <b>0,0 1,0 2,1 3,1 4,2 5,2</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "circle": {
+      "title": "The mid-point circle algorithm",
+      "body": "<p>A circle is symmetric about both axes and the diagonals, so compute one octant (x from 0 to y) and reflect each point 8 ways. The <em class=\"term\">mid-point</em> method tests whether the midpoint between the two candidate pixels is inside the circle using a decision parameter p: start p₀ = 1 − r; if p &lt; 0 keep y and p += 2x + 1, else y−− and p += 2(x − y) + 1. For r = 5 the first octant is <b>0,5 1,5 2,5 3,4</b>.</p>",
+      "after": "",
+      "steps": "Radius 5: p₀ = 1 − 5 = −4. Start (0,5). p < 0 → x=1, y=5, p = −4 + 2(1) + 1 = −1. Again p<0 → x=2, p = −1 + 5 = 4. Now p ≥ 0 → y=4 at x=3."
+    },
+    "fill": {
+      "title": "Filling: scan-line, boundary and flood fill",
+      "body": "<p><em class=\"term\">Scan-line fill</em> intersects each row with the polygon edges and fills between pairs of crossings (odd–even rule). <em class=\"term\">Boundary fill</em> starts inside and spreads until it meets a boundary colour; <em class=\"term\">flood fill</em> spreads through all pixels of the old colour. Both can use 4-connected neighbours (up, down, left, right) or 8-connected (plus diagonals); 8-connected fill can leak through a diagonal gap in a boundary drawn with 4-connected lines. The default pentagon fills <b>61</b> pixels.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "attr": {
+      "title": "Aliasing and antialiasing",
+      "body": "<p>Because pixels are discrete, slanted lines look stepped (<em class=\"term\">aliasing</em>). <em class=\"term\">Antialiasing</em> reduces it: supersample (compute at higher resolution and average), or shade edge pixels in proportion to how much of the pixel the line covers. The cost is more computation.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>DDA: float increments; Bresenham: integers; circle: one octant + symmetry.</li><li>Fill by scan line, boundary or flood (4 vs 8 connectivity).</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

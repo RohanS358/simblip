@@ -1,14 +1,14 @@
 {
   "title": "Display devices and the graphics pipeline",
   "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapter 1",
-  "subtitle": "How a description of a scene becomes a grid of coloured dots.",
+  "subtitle": "How a description of a scene becomes a grid of coloured dots, and why your screen is really just a very fast, very patient painter.",
   "sections": [
     {
       "id": "display",
       "locator": "1.1",
       "title": "Raster and random-scan displays",
       "eyebrow": "Hardware",
-      "body": "<p>A <em class=\"term\">raster-scan</em> display refreshes a grid of pixels row by row, 60+ times a second, from a <em class=\"term\">frame buffer</em> in memory; its memory need is resolution × bits per pixel. A <em class=\"term\">random-scan</em> (vector) display draws lines directly and only what is needed — sharp lines, poor fills. Flat panels (LCD, LED, OLED) are raster devices.</p>",
+      "body": "<p>Look closely at your screen and you will see no pictures at all, only a grid of tiny coloured dots. How does a grid of dots become a movie? By being repainted so quickly that your eye cannot catch it.</p><p>A <em class=\"term\">raster-scan</em> display refreshes a grid of pixels row by row, 60+ times a second, from a <em class=\"term\">frame buffer</em> in memory; its memory need is resolution × bits per pixel. A <em class=\"term\">random-scan</em> (vector) display takes the other road: it draws lines directly and only what is needed, giving sharp lines but poor fills. Today’s flat panels (LCD, LED, OLED) are all raster devices.</p><p>Do the sum for a Full-HD screen: 1920 × 1080 pixels at 24 bits (3 bytes) each is about 6.2 MB for the frame buffer. And because that buffer is read 60 times a second, the bandwidth is ≈ 373 MB/s. Your screen is an exceptionally busy bit of memory! So what does the frame buffer store? One colour for every pixel.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -58,6 +58,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A raster-scan display refreshes a pixel grid row by row, 60+ times a second, from a frame buffer; memory = resolution × bits per pixel.",
+        "A random-scan (vector) display draws lines directly: sharp lines, poor fills; flat panels are raster devices.",
+        "A 1920 × 1080 display at 3 bytes per pixel needs about 6.2 MB, and at 60 Hz about 373 MB/s of bandwidth."
       ]
     },
     {
@@ -65,7 +70,7 @@
       "locator": "1.2",
       "title": "The graphics pipeline",
       "eyebrow": "From model to pixels",
-      "body": "<p>Every renderer applies the same stages: a <em class=\"term\">model</em> (vertices and faces) is transformed into world space, then into the camera’s view, <em class=\"term\">clipped</em> against the view volume, <em class=\"term\">projected</em> to 2-D, mapped to the viewport, and finally <em class=\"term\">rasterised</em> — converted to pixels, where visibility and shading are resolved. OpenGL, DirectX, WebGL and game engines are implementations of it.</p>",
+      "body": "<p>Here is the idea that organises the whole subject: every renderer is an assembly line. Raw material goes in one end (a model made of vertices and faces) and pixels come out the other. Between them lie stations, and a triangle is carried down the belt, and you will follow it.</p><p>First the model is transformed into world space, then into the camera’s view. It is <em class=\"term\">clipped</em> against the view volume (throw away what the camera cannot see), <em class=\"term\">projected</em> to 2-D, mapped to the viewport, and finally <em class=\"term\">rasterised</em>, which means converted to pixels, where visibility and shading are resolved. OpenGL, DirectX, WebGL and game engines are all implementations of this same line.</p><p>Press Simulate and you can ride one triangle along the whole pipeline. At which stage do pixels first appear? Only at the very end, at rasterisation, and that is the answer to the question below.</p>",
       "questions": [
         {
           "id": "order",
@@ -105,6 +110,11 @@
           "note": "Press Simulate: one triangle travels the whole pipeline.",
           "script": "diagram(\"direction: right\\n[Model: vertices, faces] as m #blue\\n[Model → world transform] as w #violet\\n[View transform] as v #violet\\n[Clipping] as c #amber\\n[Projection] as p #mint\\n[Viewport + rasterise] as r #rose\\n(Pixels) as px\\nm -> w\\nw -> v\\nv -> c\\nc -> p\\np -> r\\nr -> px\\n@0 m -> w : triangle\\n@1 w -> v : in the world\\n@2 v -> c : from the camera\\n@3 c -> p : visible part\\n@4 p -> r : 2-D\\n@5 r -> px : pixels\\nloop 7\");"
         }
+      ],
+      "keynotes": [
+        "A model (vertices and faces) is transformed to world space, then the camera’s view, clipped, projected to 2-D and mapped to the viewport.",
+        "Rasterisation converts to pixels, where visibility and shading are resolved.",
+        "OpenGL, DirectX, WebGL and game engines implement this pipeline."
       ]
     },
     {
@@ -112,7 +122,7 @@
       "locator": "1.3",
       "title": "Graphics software and standards",
       "eyebrow": "Tools",
-      "body": "<p>Low-level graphics APIs: OpenGL (and its web form <em class=\"term\">WebGL</em>), DirectX, Vulkan, Metal. PHIGS and GKS were early standards. On top sit engines and tools: Unity, Unreal, Blender and Maya for modelling and animation. Coordinates are usually Cartesian; graphics functions cover output primitives, attributes, transformations and input.</p>",
+      "body": "<p>Nobody draws a pixel by hand any more, you will be glad to hear. Between your code and the screen sit layers of tools. At the bottom are the low-level graphics APIs: OpenGL (and its web form <em class=\"term\">WebGL</em>), DirectX, Vulkan and Metal. PHIGS and GKS were early standards, the ancestors of today’s libraries.</p><p>On top sit the engines and tools: Unity, Unreal, Blender and Maya for modelling and animation. Coordinates are usually Cartesian, and graphics functions cover output primitives, attributes, transformations and input. In this course you will look under the hood at what these tools do for you. What is WebGL, in one phrase? OpenGL for the web browser.</p>",
       "questions": [
         {
           "id": "webgl",
@@ -144,6 +154,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Low-level graphics APIs include OpenGL (and its web form WebGL), DirectX, Vulkan and Metal.",
+        "PHIGS and GKS were early standards.",
+        "Unity, Unreal, Blender and Maya sit on top for modelling and animation."
       ]
     },
     {
@@ -151,7 +166,7 @@
       "locator": "1.4",
       "title": "Applications",
       "eyebrow": "Where it is used",
-      "body": "<p>Computer-aided design, medical imaging (CT/MRI volumes), scientific visualisation, games and film, user interfaces, simulation and training, virtual and augmented reality, and data visualisation. The same pipeline underlies all of them; what differs is the model and the speed requirement.</p>",
+      "body": "<p>Where do all these ideas end up? Almost everywhere you look. Computer-aided design, medical imaging (CT/MRI volumes), scientific visualisation, games and film, user interfaces, simulation and training, virtual and augmented reality, and data visualisation. A surgeon rehearsing on a 3-D scan and a gamer chasing a dragon are using the same pipeline.</p><p>What differs is the model and the speed requirement. At 60 frames per second, each frame has about 16.7 ms to be produced, and that tiny budget shapes every decision a graphics programmer makes.</p>",
       "questions": [
         {
           "id": "fps",
@@ -190,6 +205,11 @@
           "prompt": "<p>Why must a game renderer finish a frame in under about 16 ms?</p>",
           "answer": "To keep 60 frames per second: 1 s / 60 ≈ 16.7 ms per frame for everything — transformation, clipping and shading of millions of triangles — which is why the work is done by parallel GPU hardware."
         }
+      ],
+      "keynotes": [
+        "Applications include CAD, medical imaging (CT/MRI), scientific visualisation, games and film, user interfaces, simulation, VR/AR and data visualisation.",
+        "The same pipeline underlies all of them; what differs is the model and the speed requirement.",
+        "At 60 frames per second each frame has about 16.7 ms."
       ]
     },
     {
@@ -197,7 +217,7 @@
       "locator": "1.5",
       "title": "2-D and 3-D viewing pipelines",
       "eyebrow": "Windows and viewports",
-      "body": "<p>In 2-D, a rectangular <em class=\"term\">window</em> in world coordinates selects what to show; the <em class=\"term\">viewport</em> is where it appears on screen; the window-to-viewport mapping scales and translates. In 3-D, a camera (position, direction, up) defines the view; a view volume (a box for parallel, a frustum for perspective) is clipped and projected onto a view plane.</p>",
+      "body": "<p>Think of looking at a street through a window. The window picks what you see; where you hold the picture on your wall is another matter. Graphics splits it in exactly the same way. In 2-D, a rectangular <em class=\"term\">window</em> in world coordinates selects what to show, the <em class=\"term\">viewport</em> is where it appears on screen, and the window-to-viewport mapping scales and translates.</p><p>Try it. A window with x from 0 to 100 is mapped to a viewport x from 200 to 600. Where does x = 25 land? The scale is 400/100 = 4, then shift: 200 + 4 × 25 = 300. In 3-D the idea grows up: a camera (position, direction, up) defines the view, and a view volume (a box for parallel, a frustum for perspective) is clipped and projected onto a view plane. What does the window-to-viewport transformation consist of? A scaling and a translation.</p>",
       "worked": [
         {
           "toc": "Question",
@@ -241,6 +261,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "In 2-D a window in world coordinates selects what to show; the viewport is where it appears; the mapping scales and translates.",
+        "A window x from 0 to 100 mapped to a viewport x from 200 to 600 sends x = 25 to 200 + 4 × 25 = 300.",
+        "In 3-D a camera (position, direction, up) defines the view; the view volume is a box for parallel and a frustum for perspective."
       ]
     },
     {
@@ -248,7 +273,11 @@
       "locator": "1.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Frame buffer = width × height × bytes per pixel.</li><li>Pipeline: model → world → view → clip → project → viewport → raster.</li></ul>"
+      "body": "<p>Two lines to remember, and you have the whole chapter.</p><ul><li>Frame buffer = width × height × bytes per pixel.</li><li>Pipeline: model → world → view → clip → project → viewport → raster.</li></ul><p>If you can recite that pipeline and explain what each station does, you are ready for the rest of the course.</p>",
+      "keynotes": [
+        "Frame buffer = width × height × bytes per pixel.",
+        "Pipeline: model → world → view → clip → project → viewport → raster."
+      ]
     }
   ]
 }

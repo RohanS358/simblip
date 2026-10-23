@@ -8,7 +8,7 @@
       "locator": "4.1",
       "title": "Curves from control points",
       "eyebrow": "The idea",
-      "body": "<p>Storing a smooth curve as thousands of tiny lines is wasteful and awkward to edit. A <em class=\"term\">parametric curve</em> is a point Q(t) = (x(t), y(t)) as t runs from 0 to 1, defined by a few <em class=\"term\">control points</em>. A <em class=\"term\">spline</em> joins cubic pieces smoothly. Designers drag control points; the curve follows.</p>",
+      "body": "<p>How would you store the curve of a letter “S”? As thousands of tiny straight lines? That is wasteful, and a nightmare to edit. There is a much smarter way, and it is behind every font on your computer.</p><p>A <em class=\"term\">parametric curve</em> is a point Q(t) = (x(t), y(t)) as t runs from 0 to 1, defined by just a few <em class=\"term\">control points</em>. A <em class=\"term\">spline</em> joins cubic pieces smoothly. Designers drag the control points, and the curve follows like a rope being pulled. What do control points do? They steer the curve.</p>",
       "questions": [
         {
           "id": "cp",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A parametric curve is a point Q(t) = (x(t), y(t)) as t runs from 0 to 1, defined by a few control points.",
+        "A spline joins cubic pieces smoothly.",
+        "Designers drag control points and the curve follows."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "4.2",
       "title": "Bézier curves",
       "eyebrow": "Cubic Bézier",
-      "body": "<p>A cubic <em class=\"term\">Bézier curve</em> has four control points P₀…P₃ and Q(t) = (1−t)³P₀ + 3t(1−t)²P₁ + 3t²(1−t)P₂ + t³P₃. It starts at P₀ tangent to P₀P₁ and ends at P₃ tangent to P₂P₃, and always lies inside the convex hull of its control points. The <em class=\"term\">de Casteljau</em> construction finds the point at t by repeated linear interpolation: join neighbouring control points, take the point a fraction t along each segment, and repeat until one point remains. At t = 0.5 for P = (0,0), (1,3), (4,3), (5,0) the point is <b>2.5,2.25</b>, which matches (P₀ + 3P₁ + 3P₂ + P₃)/8 = <b>2.5,2.25</b>.</p>",
+      "body": "<p>Meet the most popular curve in all of design software. A cubic <em class=\"term\">Bézier curve</em> has four control points P₀…P₃ and Q(t) = (1−t)³P₀ + 3t(1−t)²P₁ + 3t²(1−t)P₂ + t³P₃. It starts at P₀ heading towards P₁, ends at P₃ arriving from P₂, and always lies inside the convex hull of its control points.</p><p>You do not even need the formula. The <em class=\"term\">de Casteljau</em> construction finds the point at t by repeated linear interpolation: join neighbouring control points, take the point a fraction t along each segment, and repeat until one point remains. Each frame of the figure shows the triangles for one t.</p><p>Try P = (0,0), (1,3), (4,3), (5,0) at t = ½ (that is, t = 0.5). The weights are (1, 3, 3, 1)/8, so x = (0 + 3·1 + 3·4 + 5)/8 = 20/8 = 2.5 and y = (0 + 9 + 9 + 0)/8 = 2.25. The point is <b>2.5,2.25</b>, which matches (P₀ + 3P₁ + 3P₂ + P₃)/8 = <b>2.5,2.25</b>. A Bézier curve always lies within the convex hull of its control points.</p>",
       "worked": [
         {
           "toc": "Weights",
@@ -123,6 +128,12 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A cubic Bézier has four control points and Q(t) = (1−t)³P₀ + 3t(1−t)²P₁ + 3t²(1−t)P₂ + t³P₃.",
+        "It starts at P₀ tangent to P₀P₁, ends at P₃ tangent to P₂P₃, and lies inside the convex hull of its control points.",
+        "de Casteljau finds the point at t by repeated linear interpolation.",
+        "For P = (0,0), (1,3), (4,3), (5,0) at t = 0.5 the point is (2.5, 2.25)."
       ]
     },
     {
@@ -130,7 +141,7 @@
       "locator": "4.3",
       "title": "Splines and continuity",
       "eyebrow": "Joining pieces",
-      "body": "<p>Long curves are built from several low-degree pieces. <em class=\"term\">C⁰</em> continuity: the pieces meet. <em class=\"term\">C¹</em>: same tangent direction and speed at the join. <em class=\"term\">C²</em>: same curvature too. For two Bézier segments to join with C¹ the last two points of one and the first two of the next must be collinear and evenly spaced. B-splines and NURBS give local control and exact circles.</p>",
+      "body": "<p>One Bézier piece can only bend so much. For a long, winding curve you chain several low-degree pieces, and the question is how smoothly they join. Think of a train track: the rails must at least meet, and for a comfortable ride they should also curve alike.</p><p><em class=\"term\">C⁰</em> continuity means the pieces meet. <em class=\"term\">C¹</em> means the same tangent direction and speed at the join. <em class=\"term\">C²</em> means the same curvature too. For two Bézier segments to join with C¹, the last two points of one and the first two of the next must be collinear and evenly spaced. B-splines and NURBS give local control and exact circles. If two pieces meet at a point with different tangents, the continuity is only C⁰.</p>",
       "questions": [
         {
           "id": "c1",
@@ -162,6 +173,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "C⁰ continuity means the pieces meet; C¹ means the same tangent direction and speed; C² means the same curvature too.",
+        "Two Bézier segments join with C¹ if the last two points of one and the first two of the next are collinear and evenly spaced.",
+        "B-splines and NURBS give local control and exact circles."
       ]
     },
     {
@@ -169,7 +185,7 @@
       "locator": "4.4",
       "title": "Polygon surfaces",
       "eyebrow": "Solid objects",
-      "body": "<p>A 3-D object is stored as a polygon mesh: a <em class=\"term\">vertex table</em> (coordinates), an <em class=\"term\">edge table</em> (vertex pairs) and a <em class=\"term\">polygon table</em> (edges of each face). Each face has a surface <em class=\"term\">normal</em> N = (V₂ − V₁) × (V₃ − V₁), needed for lighting and for deciding which side faces the viewer. Smooth surfaces use Bézier patches, revolution and sweeps.</p>",
+      "body": "<p>A solid 3-D object in a computer is a hollow shell of flat faces, like a paper model. Three linked tables describe it: a <em class=\"term\">vertex table</em> (coordinates), an <em class=\"term\">edge table</em> (vertex pairs) and a <em class=\"term\">polygon table</em> (the edges of each face).</p><p>Each face also has a surface <em class=\"term\">normal</em> N = (V₂ − V₁) × (V₃ − V₁), a little arrow pointing straight out of the face. Why do we care? It is needed for lighting and for deciding which side faces the viewer. Try a triangle V₁ = (0,0,0), V₂ = (1,0,0), V₃ = (0,1,0). The edges are (1,0,0) and (0,1,0), and the normal is (1,0,0) × (0,1,0) = (0,0,1), pointing straight up. Smooth surfaces use Bézier patches, revolution and sweeps. (Three linked tables: that is all a mesh is.)</p>",
       "worked": [
         {
           "toc": "Edges",
@@ -221,6 +237,11 @@
           "note": "Three linked tables describe a mesh.",
           "script": "diagram(\"direction: right\\n[Vertex table: V1 V2 V3 V4] as v #blue\\n[Edge table: E1 = V1V2 …] as e #mint\\n[Polygon table: F1 = E1 E2 E3] as p #amber\\nv -> e\\ne -> p\");"
         }
+      ],
+      "keynotes": [
+        "A polygon mesh is stored as a vertex table, an edge table and a polygon table.",
+        "The surface normal N = (V₂ − V₁) × (V₃ − V₁) is needed for lighting and for deciding which side faces the viewer.",
+        "For V₁ = (0,0,0), V₂ = (1,0,0), V₃ = (0,1,0) the normal is (0,0,1)."
       ]
     },
     {
@@ -228,7 +249,11 @@
       "locator": "4.5",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Bézier: Q(t) from control points; de Casteljau by repeated interpolation.</li><li>Joins: C⁰, C¹, C²; meshes = vertex, edge, polygon tables.</li></ul>"
+      "body": "<p>A tiny recap.</p><ul><li>Bézier: Q(t) from control points; de Casteljau by repeated interpolation.</li><li>Joins: C⁰, C¹, C²; meshes = vertex, edge, polygon tables.</li></ul><p>You now know how a font and a car body are really stored.</p>",
+      "keynotes": [
+        "A Bézier curve Q(t) comes from control points and de Casteljau uses repeated interpolation.",
+        "Joins are C⁰, C¹ or C²; meshes use vertex, edge and polygon tables."
+      ]
     },
     {
       "id": "try",
@@ -279,6 +304,12 @@
             }
           }
         }
+      ],
+      "body": "<p>Time for you to experiment. The figure has five control points, which defines a degree-4 Bézier curve, one more level of the construction than the cubic. Drag the points and watch how the curve is pulled but never quite touches the middle ones. Five control points define a curve of degree 4: always one fewer than the number of points. Does that match what you saw?</p>",
+      "keynotes": [
+        "Five control points define a Bézier curve of degree 4.",
+        "A degree-4 Bézier needs one more level of the de Casteljau construction.",
+        "Dragging a control point pulls the curve without the curve passing through the middle points."
       ]
     }
   ]
