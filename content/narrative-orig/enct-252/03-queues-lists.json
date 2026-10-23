@@ -1,0 +1,66 @@
+{
+  "title": "Queues and linked lists",
+  "subtitle": "First in, first out; and a chain of nodes that grows one link at a time. The chapter builds queues (linear, circular, deque, priority) and the linked list family, then compares them with arrays.",
+  "sections": {
+    "queue": {
+      "title": "The queue ADT",
+      "body": "<p>People wait in a line at a ticket counter: the first to arrive is the first to be served. A <em class=\"term\">queue</em> models that. Items are added at one end, the <em class=\"term\">rear</em> (or tail), by <b>enqueue</b>, and removed from the other end, the <em class=\"term\">front</em> (or head), by <b>dequeue</b>: first in, first out, <em class=\"term\">FIFO</em>. You may also read the front item (<b>peek</b>/<b>front</b>) and test for <b>isEmpty</b> and <b>isFull</b>. Where the stack reverses order, the queue preserves it.</p><p>Queues are everywhere that work must be handled fairly in arrival order: the OS ready queue and printer spooler, network routers buffering packets, keyboard input buffers, call-centre systems, and the breadth-first search algorithm we meet in the graphs chapter. Their cost model is the same as the stack’s: with a good implementation both enqueue and dequeue are O(1). The program below enqueues 10, 20, 30, 40 and drains them — the same numbers as in the stack chapter, now coming out in arrival order.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "impl": {
+      "title": "Array implementations and the circular queue",
+      "body": "<p>Implement a queue on an array with two indices, <code>front</code> and <code>rear</code>. Enqueue stores at <code>rear</code> and increments it; dequeue reads <code>front</code> and increments it. There is a flaw: both indices only move forward, so after N enqueues and dequeues <code>rear</code> reaches the end even though the array may be nearly empty — the front slots are wasted. Shifting every element down on each dequeue fixes it but makes dequeue O(n).</p><p>The elegant fix is the <em class=\"term\">circular queue</em>: treat the array as a ring by advancing indices with modulo arithmetic, <code>i = (i + 1) % N</code>. When rear reaches the last slot the next enqueue wraps to slot 0, reusing the space freed by dequeues. One subtlety: if front == rear means empty, then a completely full queue would look the same. The usual remedy is to leave <b>one slot unused</b>: the queue is empty when front == rear and full when (rear + 1) % N == front. Alternatively keep a separate count. Both enqueue and dequeue are then O(1) with a fixed capacity.</p><p>The program simulates a ring of N = 5 slots (capacity 4 because one slot stays empty) receiving 1…7 and, when full, discarding the oldest — as a log buffer does. After seven insertions the ring holds 4, 5, 6, 7.</p>",
+      "after": "",
+      "steps": "N = 5, front = 3, rear = 4. Enqueue one item. rear becomes (4 + 1) mod 5 = 0 — it wrapped. Full check: (rear + 1) mod N = 1 ≠ front = 3, so there is still room. The number of items is (rear − front + N) mod N."
+    },
+    "variants": {
+      "title": "Deque and priority queue",
+      "body": "<p>Two relatives of the queue deserve their own names. A <em class=\"term\">deque</em> (double-ended queue, “deck”) allows insertion and removal at <em>both</em> ends — push_front, push_back, pop_front, pop_back. It generalises both stack and queue and is used for sliding-window algorithms and work-stealing schedulers. Variants restrict one end: an <em>input-restricted</em> deque inserts at one end only, an <em>output-restricted</em> one removes from one end only.</p><p>A <em class=\"term\">priority queue</em> abandons FIFO: every item carries a priority and <b>dequeue removes the item with the highest priority</b>, whatever its arrival order. It models hospital triage, CPU priority scheduling, event simulation and Dijkstra’s algorithm. The naive implementation — an unsorted list (O(1) insert, O(n) remove-max) or a sorted list (O(n) insert, O(1) remove-max) — is improved to O(log n) for both by a <b>heap</b>, which the trees chapter builds. The programs show both: a deque pushed at both ends, and a priority queue returning the largest first even though 50 arrived third.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "qapps": {
+      "title": "Using queues: buffering, scheduling and simulation",
+      "body": "<p>A queue decouples a producer from a consumer that run at different speeds. A keyboard driver enqueues keystrokes as they happen; the program dequeues them when it is ready. A router enqueues arriving packets and forwards them at the link speed — when the queue is full, packets are dropped. The OS ready queue and I/O device queues are FIFO lists of process control blocks. Breadth-first search uses a queue to visit vertices level by level. And a queue is the core of a <b>simulation</b>: customers arrive, wait in line, and are served one per tick; the queue length tells you whether the system is overloaded.</p><p>The program simulates six time steps with arrivals of 1, 0, 2, 0, 1 and 1 customers; one customer is served per step. Five are served and the queue ends empty, so the server kept up. If one more customer had arrived at the start, a backlog would have remained.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "list": {
+      "title": "The linked list",
+      "body": "<p>An array keeps its items side by side in one block of memory, which is why indexing is instant — and why inserting in the middle means shifting everything after it, and growing means copying. A <em class=\"term\">linked list</em> makes the opposite trade. Each item lives in its own <em class=\"term\">node</em> that holds the value and a <code>next</code> pointer to the following node; nodes can be anywhere in memory. You keep a single pointer, the <em class=\"term\">head</em>, to the first node; the last node’s next is <code>null</code>. To reach the k-th item you must follow k pointers — O(k) — so there is no index access; in exchange, once you stand at a position, insertion and deletion there are O(1) because only pointers change, and the list grows one node at a time with no copying and no pre-declared size.</p><p>In C++ a node is a struct: <code>struct Node { int val; Node* next; };</code> and a node is created with <code>new</code> and destroyed with <code>delete</code>. The program inserts 10, 20, 30 at the head, one after another: each new node points to the old head and becomes the head, so the list reads 30 20 10 — reversed. Step through it in the DSA Lab and watch the pointer arrows.</p><p>Three variants matter. A <em class=\"term\">doubly linked</em> list adds a <code>prev</code> pointer, so you can walk both ways and delete a node given only the node itself (O(1)), at the cost of an extra pointer per node. A <em class=\"term\">circular</em> list links the last node back to the first, useful for round-robin scheduling. A <b>header node</b> (sentinel) before the first item removes the special case for the empty list.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ops": {
+      "title": "Insert, delete, search",
+      "body": "<p>Every list operation is a careful rearrangement of pointers, and every bug is a pointer set in the wrong order. <b>Insert at the head</b>: <code>n->next = head; head = n;</code>. <b>Insert after node p</b>: <code>n->next = p->next; p->next = n;</code> — set the new node’s pointer <em>first</em>, or you lose the rest of the list. <b>Insert at the tail</b>: walk to the last node (O(n)) unless you keep a tail pointer. <b>Delete the node after p</b>: <code>q = p->next; p->next = q->next; delete q;</code>. <b>Delete the head</b>: <code>t = head; head = head->next; delete t;</code>. <b>Search</b>: walk from the head until the value matches or you reach null — O(n). Always ask the four questions: what if the list is empty? what if there is one node? what if the target is the head? the tail?</p><p>Deleting the node after the one holding 2 in the list 1 2 3 4 5 re-links 2 to 4 and frees 3, leaving 1 2 4 5. To delete a node you must first have its <em>predecessor</em>, which is why a singly linked deletion by value needs a trailing pointer, and why a doubly linked list (which stores the predecessor in the node) deletes in O(1).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "reverse": {
+      "title": "Reversing a list and finding the middle",
+      "body": "<p>Two exercises appear in almost every exam. <b>Reverse a list in place</b> with three pointers: <code>prev</code> (initially null), <code>cur</code> (the head) and <code>nxt</code>. For each node: save <code>nxt = cur->next</code>, flip the link <code>cur->next = prev</code>, then advance <code>prev = cur; cur = nxt</code>. When <code>cur</code> is null, <code>prev</code> is the new head. It takes O(n) time and O(1) extra space. Run the program: the list 40 30 20 10 becomes 10 20 30 40.</p><p><b>Find the middle</b> in a single pass with two pointers moving at different speeds: <code>slow</code> advances one node per step and <code>fast</code> two. When fast reaches the end, slow is at the middle — no need to count the length first. The same “tortoise and hare” idea detects a cycle (Floyd’s algorithm): if the list loops back on itself, fast eventually laps slow and they meet; if it has an end, fast reaches null. For 1…7 the middle is the 4th node, value 4.</p>",
+      "after": "",
+      "steps": "Reverse 1 → 2 → 3 by hand. Start: prev = null, cur = 1. Node 1: nxt = 2; 1.next = null; prev = 1; cur = 2. Node 2: nxt = 3; 2.next = 1; prev = 2; cur = 3. Node 3: nxt = null; 3.next = 2; prev = 3; cur = null."
+    },
+    "apps": {
+      "title": "Applications: stack, queue and polynomials",
+      "body": "<p>A linked list makes a stack with no size limit: push and pop both work at the head in O(1). It makes a queue too if you keep both a head pointer (dequeue here) and a tail pointer (enqueue here), both O(1). Many other structures are lists in disguise: the chains in a hash table, the adjacency lists of a graph, the free-block list of a memory manager, the undo history of an editor.</p><p>A classic example is polynomial arithmetic. A polynomial such as 5x¹⁰⁰ + 3x² + 1 has a huge degree but only three non-zero terms. Stored in an array it would need 101 slots; stored as a list of (coefficient, exponent) nodes in decreasing exponent it needs three. Adding two polynomials is exactly the merge of two sorted lists: compare the exponents of the current terms; if equal add the coefficients, otherwise copy the term with the larger exponent and advance that list. Adding 3x² + 2x + 1 and x² + 5 gives 4x² + 2x + 6 in one pass of cost O(m + n).</p>",
+      "after": "",
+      "steps": "Add 3x² + 2x + 1 and x² + 5. Merge by exponent: x² terms add; x term alone; constants add."
+    },
+    "choose": {
+      "title": "Arrays versus linked lists: how to choose",
+      "body": "<p>The comparison table in section 4.1 is worth learning, but the choice is usually decided by one question: <em>what do you do most?</em> If you index by position, scan sequentially or keep the data sorted for binary search, use an array — and note that arrays are very friendly to the CPU cache because neighbouring elements are loaded together, a real-world advantage that Big-O hides. If you insert and delete often at known positions, if the size is unpredictable and you cannot afford the occasional O(n) resize, or if you need to splice lists together in O(1), use a linked list. Memory matters too: a singly linked list spends a pointer (8 bytes) per item on top of the value, so a list of ints uses three times the memory of an array of ints.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Queue = FIFO; enqueue at the rear, dequeue at the front, O(1). Circular arrays reuse space with modulo arithmetic and one spare slot.</li><li>Deque: both ends; priority queue: highest priority out first (heap gives O(log n)).</li><li>Linked list: nodes joined by pointers; O(1) insert/delete at a known place, O(n) access and search; doubly and circular variants.</li><li>Pointer surgery rules: set the new node’s pointer first; handle empty, single-node, head and tail cases.</li><li>Reverse with prev/cur/next; find the middle and detect cycles with slow/fast pointers.</li><li>Choose arrays for indexing and cache-friendly scans, lists for frequent insertion and unpredictable size.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

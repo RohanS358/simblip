@@ -8,7 +8,7 @@
       "locator": "7.1",
       "title": "Why sort, and what to ask of a sort",
       "eyebrow": "Vocabulary",
-      "body": "<p>Sorting is the most studied problem in computing because order makes everything else cheap: binary search needs sorted data, duplicates become adjacent, merging two sorted lists is linear, and a person can scan a sorted list at a glance. Formally, given records with keys k₁ … kₙ, produce a permutation in which the keys are non-decreasing.</p><p>Algorithms differ in properties beyond speed. A sort is <b>internal</b> if all data fits in memory and <b>external</b> if it must stream from disk (merge-based). It is <em class=\"term\">in place</em> if it needs only O(1) extra memory beyond the array. It is <em class=\"term\">stable</em> if records with equal keys keep their original relative order — vital when you sort by several keys in turn: sort a class list by name, then stably by grade, and students within each grade stay alphabetical; with an unstable sort the alphabetical order is scrambled. It is <em class=\"term\">adaptive</em> if it runs faster on nearly sorted input. And it is a <b>comparison sort</b> if it learns the order only by asking “is a &lt; b?” — all of the algorithms except radix and counting sort.</p><p>We compare algorithms by counting comparisons and moves, using the same seven numbers throughout: 5 1 4 2 8 9 3. The C++ programs are real implementations that count their comparisons, and the cards show the same counts, so you can check each by hand.</p>",
+      "body": "<p>Why spend a whole chapter on putting things in order? Because order makes everything else cheap, as you will see in the next chapter. Sorting is the most studied problem in computing because order makes everything else cheap: binary search needs sorted data, duplicates become adjacent, merging two sorted lists is linear, and a person can scan a sorted list at a glance. Formally, given records with keys k₁ … kₙ, produce a permutation in which the keys are non-decreasing.</p><p>Algorithms differ in properties beyond speed. A sort is <b>internal</b> if all data fits in memory and <b>external</b> if it must stream from disk (merge-based). It is <em class=\"term\">in place</em> if it needs only O(1) extra memory beyond the array. It is <em class=\"term\">stable</em> if records with equal keys keep their original relative order — vital when you sort by several keys in turn: sort a class list by name, then stably by grade, and students within each grade stay alphabetical; with an unstable sort the alphabetical order is scrambled. It is <em class=\"term\">adaptive</em> if it runs faster on nearly sorted input. And it is a <b>comparison sort</b> if it learns the order only by asking “is a &lt; b?” — all of the algorithms except radix and counting sort.</p><p>We compare algorithms by counting comparisons and moves, using the same seven numbers throughout: 5 1 4 2 8 9 3. The C++ programs are real implementations that count their comparisons, and the cards show the same counts, so you can check each by hand.</p><p>Which properties of a sort matter most for sorting a list of student records by marks? Decide before you read on.</p>",
       "questions": [
         {
           "id": "stable",
@@ -70,6 +70,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Order makes everything else cheap: binary search needs sorted data, duplicates become adjacent and merging two sorted lists is linear.",
+        "Given keys k₁ … kₙ, sorting produces a permutation in which the keys are non-decreasing.",
+        "Sorts differ in properties beyond speed: internal or external, in place, stable and adaptive."
       ]
     },
     {
@@ -77,7 +82,7 @@
       "locator": "7.2",
       "title": "How fast can comparison sorting be? The n log n barrier",
       "eyebrow": "A lower bound",
-      "body": "<p>Before building algorithms it helps to know the target. Is O(n log n) merely the best we have found, or a hard limit? For algorithms that only <em>compare</em> keys it is a hard limit, and the proof is a lovely counting argument. Picture a sorting algorithm as a <b>decision tree</b>: each internal node is a comparison “is aᵢ &lt; aⱼ?”, with two outgoing branches for yes and no; each leaf is the final answer — a particular ordering of the input. For the algorithm to be correct, <em>every</em> one of the n! possible orderings of n distinct keys must appear at some leaf. A binary tree of height h has at most 2ʰ leaves, so 2ʰ ≥ n!, and the worst-case number of comparisons — the height — is at least log₂(n!).</p><p>How big is log₂(n!)? Using Stirling’s approximation, n! ≈ (n/e)ⁿ, so log₂ n! ≈ n log₂ n − 1.44 n = Θ(n log n). A cruder bound is enough: n! has at least n/2 factors each ≥ n/2, so n! ≥ (n/2)^{n/2} and log₂ n! ≥ (n/2) log₂(n/2). The table shows the exact minimum for small n: sorting 5 items needs at least 7 comparisons, sorting 10 at least 22. Merge sort and heap sort <em>meet</em> this bound up to constants — they are asymptotically optimal. To beat n log n you must stop comparing and exploit the structure of the keys, as counting sort and radix sort do (section 7.10).</p>",
+      "body": "<p>Before building any algorithm it helps to know the target, and here is a lovely counting argument that shows how fast a comparison sort can possibly be. Before building algorithms it helps to know the target. Is O(n log n) merely the best we have found, or a hard limit? For algorithms that only <em>compare</em> keys it is a hard limit, and the proof is a lovely counting argument. Picture a sorting algorithm as a <b>decision tree</b>: each internal node is a comparison “is aᵢ &lt; aⱼ?”, with two outgoing branches for yes and no; each leaf is the final answer — a particular ordering of the input. For the algorithm to be correct, <em>every</em> one of the n! possible orderings of n distinct keys must appear at some leaf. A binary tree of height h has at most 2ʰ leaves, so 2ʰ ≥ n!, and the worst-case number of comparisons — the height — is at least log₂(n!).</p><p>How big is log₂(n!)? Using Stirling’s approximation, n! ≈ (n/e)ⁿ, so log₂ n! ≈ n log₂ n − 1.44 n = Θ(n log n). A cruder bound is enough: n! has at least n/2 factors each ≥ n/2, so n! ≥ (n/2)^{n/2} and log₂ n! ≥ (n/2) log₂(n/2). The table shows the exact minimum for small n: sorting 5 items needs at least 7 comparisons, sorting 10 at least 22. Merge sort and heap sort <em>meet</em> this bound up to constants — they are asymptotically optimal. To beat n log n you must stop comparing and exploit the structure of the keys, as counting sort and radix sort do (section 7.10).</p><p>Try the idea with three items: how many orderings are there, and how many yes-or-no questions are needed to tell them apart?</p>",
       "derivation": [
         {
           "toc": "Leaves",
@@ -177,6 +182,11 @@
           "prompt": "<p>What is the minimum number of comparisons in the worst case needed to sort 4 distinct numbers?</p>",
           "answer": "4! = 24 orderings, ⌈log₂ 24⌉ = <b>5</b> comparisons are necessary (and 5 are sufficient with a clever algorithm)."
         }
+      ],
+      "keynotes": [
+        "A comparison sort is a decision tree: each internal node is a comparison and each leaf is a final ordering.",
+        "The tree needs at least n! leaves, so its height is at least log₂ n!.",
+        "So comparison sorting needs Ω(n log n) comparisons in the worst case: a hard limit, not merely the best we have found."
       ]
     },
     {
@@ -184,7 +194,7 @@
       "locator": "7.3",
       "title": "Bubble sort",
       "eyebrow": "The simplest idea",
-      "body": "<p>Walk along the array comparing neighbouring pairs and swap any pair that is out of order. After one pass the largest element has “bubbled” to the end, like a bubble rising in water. Repeat for the unsorted part: n − 1 passes, the i-th scanning n − i pairs, so n(n − 1)/2 comparisons in total — O(n²). Adding an <em>early exit</em> (stop if a whole pass made no swap) makes the best case — an already sorted array — a single pass of n − 1 comparisons, so O(n). It is stable (equal elements are never swapped) and in place. The number of swaps equals the number of <em>inversions</em> (out-of-order pairs) in the input, which is why a reversed array is the worst case with n(n − 1)/2 swaps.</p><p>For 5 1 4 2 8 9 3 it makes <b>20</b> comparisons and <b>8</b> swaps (the program’s output agrees). Bubble sort is almost never used in practice; it is taught because it is easy to analyse and a good first example of an invariant: after pass i the last i elements are in their final positions.</p>",
+      "body": "<p>Imagine bubbles rising in a glass: the biggest ones reach the top first, and bubble sort works the same way on an array. Walk along the array comparing neighbouring pairs and swap any pair that is out of order. After one pass the largest element has “bubbled” to the end, like a bubble rising in water. Repeat for the unsorted part: n − 1 passes, the i-th scanning n − i pairs, so n(n − 1)/2 comparisons in total — O(n²). Adding an <em>early exit</em> (stop if a whole pass made no swap) makes the best case — an already sorted array — a single pass of n − 1 comparisons, so O(n). It is stable (equal elements are never swapped) and in place. The number of swaps equals the number of <em>inversions</em> (out-of-order pairs) in the input, which is why a reversed array is the worst case with n(n − 1)/2 swaps.</p><p>For 5 1 4 2 8 9 3 it makes <b>20</b> comparisons and <b>8</b> swaps (the program’s output agrees). Bubble sort is almost never used in practice; it is taught because it is easy to analyse and a good first example of an invariant: after pass i the last i elements are in their final positions.</p><p>How many passes does bubble sort need on an array that is already sorted if you add the early exit?</p>",
       "worked": [
         {
           "toc": "Pass 1",
@@ -295,6 +305,11 @@
           "prompt": "<p>Count the inversions in 3 1 2. How many swaps will bubble sort make?</p>",
           "answer": "Inversions (pairs out of order): (3,1), (3,2) = <b>2</b>. Bubble sort makes exactly <b>2</b> swaps."
         }
+      ],
+      "keynotes": [
+        "Bubble sort compares neighbouring pairs and swaps any pair that is out of order, so the largest element bubbles to the end each pass.",
+        "It makes n(n − 1)/2 comparisons in total, O(n²); with an early exit the best case is a single pass of n − 1 comparisons, O(n).",
+        "It is stable and in place."
       ]
     },
     {
@@ -302,7 +317,7 @@
       "locator": "7.4",
       "title": "Selection sort",
       "eyebrow": "Find the minimum",
-      "body": "<p>Divide the array into a sorted prefix (initially empty) and an unsorted rest. Repeatedly <em>select</em> the smallest element of the unsorted part and swap it into the first unsorted position. After i rounds the first i elements are the i smallest, in order. It always makes n(n − 1)/2 comparisons whatever the input (<b>21</b> here) — it is not adaptive — but it makes at most n − 1 swaps (<b>6</b> here), which matters when writing is expensive (flash memory, or moving big records). It is in place; the long-distance swap makes it <em>unstable</em> (swapping the 5 of 5 5′ 2 with the 2 places 5′ before 5).</p>",
+      "body": "<p>Think of picking the smallest card from your hand again and again, and putting it at the front: that is selection sort, and you can do it yourself. Divide the array into a sorted prefix (initially empty) and an unsorted rest. Repeatedly <em>select</em> the smallest element of the unsorted part and swap it into the first unsorted position. After i rounds the first i elements are the i smallest, in order. It always makes n(n − 1)/2 comparisons whatever the input (<b>21</b> here) — it is not adaptive — but it makes at most n − 1 swaps (<b>6</b> here), which matters when writing is expensive (flash memory, or moving big records). It is in place; the long-distance swap makes it <em>unstable</em> (swapping the 5 of 5 5′ 2 with the 2 places 5′ before 5).</p><p>When would few swaps matter more than few comparisons? Think of flash memory or very large records.</p>",
       "questions": [
         {
           "id": "selswap",
@@ -366,6 +381,11 @@
           "prompt": "<p>How many comparisons does selection sort make on an array of 10 elements, whatever the order?</p>",
           "answer": "9 + 8 + … + 1 = 10·9/2 = <b>45</b>."
         }
+      ],
+      "keynotes": [
+        "Selection sort repeatedly selects the smallest element of the unsorted part and swaps it into the first unsorted position.",
+        "It always makes n(n − 1)/2 comparisons (21 for the example) but at most n − 1 swaps (6 here).",
+        "It is in place but the long-distance swap makes it unstable."
       ]
     },
     {
@@ -373,7 +393,7 @@
       "locator": "7.5",
       "title": "Insertion sort",
       "eyebrow": "Like sorting cards in your hand",
-      "body": "<p>Pick up playing cards one at a time and slide each into the right place among those already in your hand. <em class=\"term\">Insertion sort</em> does just that: the prefix a[0..i−1] is sorted; take the next element as <em>key</em>, shift every larger element of the prefix one place right, and drop the key into the gap. For random data it makes about n²/4 comparisons and shifts — still O(n²) — but its virtues are real: it is <b>stable</b>, <b>in place</b>, <b>adaptive</b> (an already-sorted array costs only n − 1 comparisons, O(n)), and its inner loop is tiny. For these reasons it is the algorithm real libraries use for small arrays (typically fewer than 10–20 elements) inside faster recursive sorts. The count of shifts equals the number of inversions: for 5 1 4 2 8 9 3 that is <b>8</b> shifts and <b>13</b> comparisons.</p>",
+      "body": "<p>You sort playing cards like this without thinking, one card at a time into the right place, and that is insertion sort. Pick up playing cards one at a time and slide each into the right place among those already in your hand. <em class=\"term\">Insertion sort</em> does just that: the prefix a[0..i−1] is sorted; take the next element as <em>key</em>, shift every larger element of the prefix one place right, and drop the key into the gap. For random data it makes about n²/4 comparisons and shifts — still O(n²) — but its virtues are real: it is <b>stable</b>, <b>in place</b>, <b>adaptive</b> (an already-sorted array costs only n − 1 comparisons, O(n)), and its inner loop is tiny. For these reasons it is the algorithm real libraries use for small arrays (typically fewer than 10–20 elements) inside faster recursive sorts. The count of shifts equals the number of inversions: for 5 1 4 2 8 9 3 that is <b>8</b> shifts and <b>13</b> comparisons.</p><p>Which input makes insertion sort run in about n steps, and which makes it run in about n² steps?</p>",
       "worked": [
         {
           "toc": "One insertion",
@@ -480,6 +500,11 @@
           "prompt": "<p>Insertion sort an array that is already sorted of length n, and a reversed array of length n: how many comparisons for each?</p>",
           "answer": "Sorted: <b>n − 1</b> comparisons, 0 shifts. Reversed: 1 + 2 + … + (n − 1) = <b>n(n − 1)/2</b> comparisons and the same number of shifts."
         }
+      ],
+      "keynotes": [
+        "Insertion sort takes the next element as key, shifts every larger element of the sorted prefix one place right, and drops the key into the gap.",
+        "For random data it makes about n²/4 comparisons and shifts, still O(n²).",
+        "It is stable, in place, adaptive (an already-sorted array costs only n − 1 comparisons) and has a tiny inner loop."
       ]
     },
     {
@@ -487,7 +512,7 @@
       "locator": "7.6",
       "title": "Shell sort",
       "eyebrow": "Insertion sort with long strides",
-      "body": "<p>Insertion sort is slow because an element that is far from its place moves one position at a time. Donald Shell (1959) noticed that if we first sort elements that are far apart, large elements jump close to their destinations quickly. <em class=\"term\">Shell sort</em> performs insertion sort on the elements spaced <em>h</em> apart, for a decreasing sequence of gaps h (for example n/2, n/4, …, 1). Each pass leaves the array “h-sorted”; the final pass with h = 1 is plain insertion sort, but by then the array is nearly sorted, so it is fast. The running time depends entirely on the gap sequence: the halving sequence gives O(n²) in the worst case, Knuth’s sequence (1, 4, 13, 40, …) O(n^{3/2}), and cleverer sequences about O(n^{4/3}) — far better than quadratic and with no extra memory or recursion. It is not stable. For our seven numbers it needs <b>14</b> comparisons.</p>",
+      "body": "<p>Insertion sort is slow because things move one step at a time, and Donald Shell had a neat idea to let them jump. Insertion sort is slow because an element that is far from its place moves one position at a time. Donald Shell (1959) noticed that if we first sort elements that are far apart, large elements jump close to their destinations quickly. <em class=\"term\">Shell sort</em> performs insertion sort on the elements spaced <em>h</em> apart, for a decreasing sequence of gaps h (for example n/2, n/4, …, 1). Each pass leaves the array “h-sorted”; the final pass with h = 1 is plain insertion sort, but by then the array is nearly sorted, so it is fast. The running time depends entirely on the gap sequence: the halving sequence gives O(n²) in the worst case, Knuth’s sequence (1, 4, 13, 40, …) O(n^{3/2}), and cleverer sequences about O(n^{4/3}) — far better than quadratic and with no extra memory or recursion. It is not stable. For our seven numbers it needs <b>14</b> comparisons.</p><p>What must the last gap be in the shrinking sequence, and why does that make the final pass quick?</p>",
       "questions": [
         {
           "id": "shellq",
@@ -532,6 +557,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Shell sort (1959) performs insertion sort on elements spaced h apart, for a decreasing sequence of gaps such as n/2, n/4, …, 1.",
+        "Each pass leaves the array h-sorted; the final pass with h = 1 is plain insertion sort on a nearly sorted array.",
+        "Its running time is about O(n^{4/3}) to O(n²), depending on the gaps."
       ]
     },
     {
@@ -539,7 +569,7 @@
       "locator": "7.7",
       "title": "Merge sort",
       "eyebrow": "Divide and conquer",
-      "body": "<p>Two sorted lists can be merged into one in linear time by repeatedly taking the smaller of the two front elements. <em class=\"term\">Merge sort</em> turns this into a sorting algorithm: split the array in half, sort each half <em>recursively</em>, and merge the two sorted halves. The base case is an array of one element, already sorted. The recurrence is T(n) = 2T(n/2) + n: the recursion tree has log₂ n levels and each level does n work in merging, so T(n) = Θ(n log n) <em>in every case</em> — best, average and worst — which makes it dependable. It is <b>stable</b> (take from the left half on ties) but needs O(n) extra space for the merge buffer. It is the natural choice for linked lists (merging needs no extra space) and for <b>external sorting</b>, where data too large for memory is sorted in chunks and merged from disk. Our run takes <b>12</b> comparisons.</p>",
+      "body": "<p>Merging two sorted lists is easy, and you can build an entire sorting algorithm out of that one easy step. Two sorted lists can be merged into one in linear time by repeatedly taking the smaller of the two front elements. <em class=\"term\">Merge sort</em> turns this into a sorting algorithm: split the array in half, sort each half <em>recursively</em>, and merge the two sorted halves. The base case is an array of one element, already sorted. The recurrence is T(n) = 2T(n/2) + n: the recursion tree has log₂ n levels and each level does n work in merging, so T(n) = Θ(n log n) <em>in every case</em> — best, average and worst — which makes it dependable. It is <b>stable</b> (take from the left half on ties) but needs O(n) extra space for the merge buffer. It is the natural choice for linked lists (merging needs no extra space) and for <b>external sorting</b>, where data too large for memory is sorted in chunks and merged from disk. Our run takes <b>12</b> comparisons.</p><p>Draw the recursion tree for eight items and count the levels. Why does each level do n work?</p>",
       "worked": [
         {
           "toc": "Levels",
@@ -650,6 +680,11 @@
           "prompt": "<p>Merge sort 8 elements: how many levels of recursion (splitting down to single elements), and what is the maximum number of comparisons in total?</p>",
           "answer": "Levels: log₂ 8 = <b>3</b>. Each level merges n = 8 elements with at most 7, then 6 (2×3), then 4 (4×1) comparisons, so ≤ 7 + 6 + 4 = <b>17</b> in total (the classic bound n log₂ n − n + 1 = 24 − 8 + 1 = 17)."
         }
+      ],
+      "keynotes": [
+        "Merge sort splits the array in half, sorts each half recursively, and merges the two sorted halves.",
+        "The recurrence is T(n) = 2T(n/2) + n, so T(n) = Θ(n log n) in every case.",
+        "It is stable but needs O(n) extra space for the merge buffer."
       ]
     },
     {
@@ -657,7 +692,7 @@
       "locator": "7.8",
       "title": "Quick sort",
       "eyebrow": "Partition and recurse",
-      "body": "<p>Tony Hoare’s <em class=\"term\">quick sort</em> (1960) does its work <em>before</em> the recursive calls rather than after. Choose a <b>pivot</b> element; <b>partition</b> the array so everything smaller than the pivot is to its left and everything larger to its right — the pivot is then in its final place — and recursively sort the two sides. There is no merge step and no extra array: partitioning is done in place by one scan. In the common Lomuto scheme the last element is the pivot, an index i marks the end of the “smaller” region, and each element smaller than the pivot is swapped into that region.</p><p>Performance depends on how balanced the partitions are. If each splits the array roughly in half, the recurrence is T(n) = 2T(n/2) + n — O(n log n), and in practice quick sort is the fastest general-purpose sort because its inner loop is tight and cache-friendly. If the pivot is always the smallest or largest element, one side has n − 1 elements and T(n) = T(n − 1) + n = O(n²): this happens on <b>already-sorted input when the first or last element is the pivot</b>. The run below sorts 1..8 and makes 28 = 8·7/2 comparisons, exactly the quadratic worst case. Remedies: choose the pivot <b>at random</b>, or as the <b>median of three</b> (first, middle, last), which makes the bad case astronomically unlikely and gives O(n log n) expected time. Quick sort is in place but needs O(log n) stack on average (O(n) worst case) and is not stable. For our seven numbers it takes <b>13</b> comparisons.</p>",
+      "body": "<p>Tony Hoare’s quick sort does its clever work before the recursive calls, and you can see how by following one pivot. Tony Hoare’s <em class=\"term\">quick sort</em> (1960) does its work <em>before</em> the recursive calls rather than after. Choose a <b>pivot</b> element; <b>partition</b> the array so everything smaller than the pivot is to its left and everything larger to its right — the pivot is then in its final place — and recursively sort the two sides. There is no merge step and no extra array: partitioning is done in place by one scan. In the common Lomuto scheme the last element is the pivot, an index i marks the end of the “smaller” region, and each element smaller than the pivot is swapped into that region.</p><p>Performance depends on how balanced the partitions are. If each splits the array roughly in half, the recurrence is T(n) = 2T(n/2) + n — O(n log n), and in practice quick sort is the fastest general-purpose sort because its inner loop is tight and cache-friendly. If the pivot is always the smallest or largest element, one side has n − 1 elements and T(n) = T(n − 1) + n = O(n²): this happens on <b>already-sorted input when the first or last element is the pivot</b>. The run below sorts 1..8 and makes 28 = 8·7/2 comparisons, exactly the quadratic worst case. Remedies: choose the pivot <b>at random</b>, or as the <b>median of three</b> (first, middle, last), which makes the bad case astronomically unlikely and gives O(n log n) expected time. Quick sort is in place but needs O(log n) stack on average (O(n) worst case) and is not stable. For our seven numbers it takes <b>13</b> comparisons.</p><p>What happens to quick sort if you always pick the last element as pivot and the input is already sorted?</p>",
       "derivation": [
         {
           "toc": "Best case",
@@ -810,6 +845,11 @@
           "prompt": "<p>Partition 5 1 4 2 8 9 3 with the last element (3) as pivot using the Lomuto scheme. Give the array after the partition and the pivot’s final index.</p>",
           "answer": "Scan j = 0…5 with i = −1. j = 0: 5 is not &lt; 3. j = 1: 1 &lt; 3 → i = 0, swap a[0] and a[1] → 1 5 4 2 8 9 3. j = 2: 4 no. j = 3: 2 &lt; 3 → i = 1, swap a[1] and a[3] → 1 2 4 5 8 9 3. j = 4, 5: no. Finally swap the pivot with a[i + 1] = a[2]: <b>1 2 3 5 8 9 4</b>. The pivot’s final index is <b>2</b>."
         }
+      ],
+      "keynotes": [
+        "Quick sort chooses a pivot and partitions the array so smaller elements are on its left and larger on its right, then sorts the two sides recursively.",
+        "There is no merge step and no extra array, because partitioning is done in place by one scan.",
+        "It is n log n on average but n² in the worst case."
       ]
     },
     {
@@ -817,7 +857,7 @@
       "locator": "7.9",
       "title": "Heap sort",
       "eyebrow": "Sorting with a priority queue",
-      "body": "<p>Last chapter’s heap makes a sort almost for free. <b>Phase 1</b>: arrange the array into a <em>max-heap</em> (parent ≥ children) with the O(n) bottom-up build. <b>Phase 2</b>: the largest element is at the root; swap it with the last element of the heap, shrink the heap by one — the largest is now in its final position — and sift the new root down to restore the heap property. Repeat n − 1 times. Each sift-down is O(log n), so heap sort is <b>O(n log n) in the worst case</b>, uses O(1) extra space, and has no bad inputs. It is <em>not stable</em>, and its scattered memory accesses make it slower than quick sort in practice; it is the choice when you need a guaranteed bound and no extra memory — in embedded systems, or as the fallback in <em>introsort</em> (quick sort that switches to heap sort if the recursion gets too deep). Our run needs <b>19</b> comparisons and <b>14</b> moves.</p>",
+      "body": "<p>Last chapter’s heap gives you a sort almost for free, and you already know every part of it. Last chapter’s heap makes a sort almost for free. <b>Phase 1</b>: arrange the array into a <em>max-heap</em> (parent ≥ children) with the O(n) bottom-up build. <b>Phase 2</b>: the largest element is at the root; swap it with the last element of the heap, shrink the heap by one — the largest is now in its final position — and sift the new root down to restore the heap property. Repeat n − 1 times. Each sift-down is O(log n), so heap sort is <b>O(n log n) in the worst case</b>, uses O(1) extra space, and has no bad inputs. It is <em>not stable</em>, and its scattered memory accesses make it slower than quick sort in practice; it is the choice when you need a guaranteed bound and no extra memory — in embedded systems, or as the fallback in <em>introsort</em> (quick sort that switches to heap sort if the recursion gets too deep). Our run needs <b>19</b> comparisons and <b>14</b> moves.</p><p>Why does each swap of the root with the last element leave the largest in its final place?</p>",
       "questions": [
         {
           "id": "heapz",
@@ -892,6 +932,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Phase 1 builds a max-heap with the O(n) bottom-up method; phase 2 swaps the root with the last element, shrinks the heap and sifts down.",
+        "Each sift-down is O(log n), so heap sort is O(n log n) in the worst case, uses O(1) extra space and has no bad inputs.",
+        "It is not stable."
       ]
     },
     {
@@ -899,7 +944,7 @@
       "locator": "7.10",
       "title": "Sorting without comparing: counting and radix sort",
       "eyebrow": "Beating n log n",
-      "body": "<p>The n log n barrier holds only for comparison sorts. If the keys are small integers we can sort in <em>linear</em> time by using them as array indices. <b>Counting sort</b> for keys in 0…k: make a count array of size k + 1, count how many times each key occurs, then write the keys back in order (or, for records, turn the counts into starting positions by a prefix sum and place each record, which makes the sort stable). Time O(n + k), space O(k). It is superb when k is not much larger than n — sorting ages, exam marks, or the digits inside radix sort — and hopeless when k is huge (32-bit integers would need a 4-billion-entry array). The program sorts ten numbers in 0…8 by counting.</p><p><em class=\"term\">Radix sort</em> extends the idea to larger keys by processing one digit at a time: distribute the numbers into ten buckets by the <em>least significant</em> digit, collect them in bucket order, then repeat on the next digit, up to the most significant. Each pass is a counting sort, and it <b>must be stable</b> so the order from earlier digits survives within each later bucket. With d digits and base k the cost is O(d·(n + k)). The card sorts 170 45 75 90 802 24 2 66 into <b>2 24 45 66 75 90 170 802</b> in three passes (units, tens, hundreds). <b>Bucket sort</b> spreads keys uniformly distributed over an interval into n buckets, sorts each with insertion sort, and concatenates: O(n) expected.</p>",
+      "body": "<p>The n log n barrier holds only for sorts that compare keys, and when the keys are small integers there is a way round it. The n log n barrier holds only for comparison sorts. If the keys are small integers we can sort in <em>linear</em> time by using them as array indices. <b>Counting sort</b> for keys in 0…k: make a count array of size k + 1, count how many times each key occurs, then write the keys back in order (or, for records, turn the counts into starting positions by a prefix sum and place each record, which makes the sort stable). Time O(n + k), space O(k). It is superb when k is not much larger than n — sorting ages, exam marks, or the digits inside radix sort — and hopeless when k is huge (32-bit integers would need a 4-billion-entry array). The program sorts ten numbers in 0…8 by counting.</p><p><em class=\"term\">Radix sort</em> extends the idea to larger keys by processing one digit at a time: distribute the numbers into ten buckets by the <em>least significant</em> digit, collect them in bucket order, then repeat on the next digit, up to the most significant. Each pass is a counting sort, and it <b>must be stable</b> so the order from earlier digits survives within each later bucket. With d digits and base k the cost is O(d·(n + k)). The card sorts 170 45 75 90 802 24 2 66 into <b>2 24 45 66 75 90 170 802</b> in three passes (units, tens, hundreds). <b>Bucket sort</b> spreads keys uniformly distributed over an interval into n buckets, sorts each with insertion sort, and concatenates: O(n) expected.</p><p>Sort the marks 3, 1, 2, 3, 0 by counting. Write out the count array before you read the answer.</p>",
       "worked": [
         {
           "toc": "Units",
@@ -1014,6 +1059,11 @@
           "prompt": "<p>Counting sort the keys 3 0 2 3 1 0 2 (range 0…3). Give the count array and the sorted output.</p>",
           "answer": "Counts for keys 0,1,2,3: <b>[2, 1, 2, 2]</b>. Output: <b>0 0 1 2 2 3 3</b>."
         }
+      ],
+      "keynotes": [
+        "Counting sort for keys in 0…k counts how many times each key occurs and writes them back in order.",
+        "Its time is O(n + k) and space O(k), superb when k is not much larger than n.",
+        "Prefix sums make it stable, and radix sort applies it digit by digit."
       ]
     },
     {
@@ -1021,7 +1071,7 @@
       "locator": "7.11",
       "title": "Choosing a sort",
       "eyebrow": "Decision table",
-      "body": "<p>No algorithm wins every contest, so the choice follows from the constraints. <b>Small arrays</b> (under ~20 elements): insertion sort. <b>General purpose, in memory</b>: quick sort (with a good pivot) or the library’s introsort/Timsort. <b>Need a worst-case guarantee and little memory</b>: heap sort. <b>Need stability or sorting linked lists or external files</b>: merge sort (Python’s and Java’s object sorts are Timsort, a merge/insertion hybrid that exploits existing runs). <b>Data nearly sorted</b>: insertion sort or Timsort. <b>Small integer keys</b>: counting or radix sort. <b>Writes are expensive</b>: selection sort minimises swaps. The table collects the facts; everything in it follows from the analysis above.</p>",
+      "body": "<p>No algorithm wins every contest, so the choice depends on the constraints you are working under. No algorithm wins every contest, so the choice follows from the constraints. <b>Small arrays</b> (under ~20 elements): insertion sort. <b>General purpose, in memory</b>: quick sort (with a good pivot) or the library’s introsort/Timsort. <b>Need a worst-case guarantee and little memory</b>: heap sort. <b>Need stability or sorting linked lists or external files</b>: merge sort (Python’s and Java’s object sorts are Timsort, a merge/insertion hybrid that exploits existing runs). <b>Data nearly sorted</b>: insertion sort or Timsort. <b>Small integer keys</b>: counting or radix sort. <b>Writes are expensive</b>: selection sort minimises swaps. The table collects the facts; everything in it follows from the analysis above.</p><p>Pick three real tasks from your own work and decide which sort fits each, and why.</p>",
       "questions": [
         {
           "id": "choose1",
@@ -1098,6 +1148,11 @@
           "prompt": "<p>Fill the blank: the only sort in the table that is both stable and O(n log n) in every case is ______; the one that is O(n log n) in every case and in place is ______.</p>",
           "answer": "Merge sort; heap sort."
         }
+      ],
+      "keynotes": [
+        "For small arrays under about 20 elements use insertion sort; for general purpose in memory use quick sort or the library’s introsort or Timsort.",
+        "For a worst-case guarantee with little memory use heap sort; for stability, linked lists or external files use merge sort.",
+        "For nearly sorted data use insertion sort or Timsort, and for small integer keys use counting or radix sort."
       ]
     },
     {
@@ -1105,7 +1160,12 @@
       "locator": "7.12",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Properties: stable, in place, adaptive, internal/external; comparison sorts need ≥ log₂ n! = Ω(n log n) comparisons in the worst case.</li><li>O(n²): bubble (adjacent swaps; n with early exit), selection (min each round; n − 1 swaps), insertion (shift into prefix; best for small or nearly sorted).</li><li>Shell sort: insertion sort with shrinking gaps, about O(n^{4/3})–O(n²) depending on gaps.</li><li>Merge sort: always n log n, stable, O(n) space; quick sort: n log n average, n² worst (sorted input with a fixed pivot), in place; heap sort: n log n worst case, in place, unstable.</li><li>Counting and radix sort beat n log n by not comparing: O(n + k) and O(d(n + k)), stable, for small integer keys.</li></ul>"
+      "body": "<p>Here is the whole chapter in a few lines, to help you choose the right sort when it matters.</p><ul><li>Properties: stable, in place, adaptive, internal/external; comparison sorts need ≥ log₂ n! = Ω(n log n) comparisons in the worst case.</li><li>O(n²): bubble (adjacent swaps; n with early exit), selection (min each round; n − 1 swaps), insertion (shift into prefix; best for small or nearly sorted).</li><li>Shell sort: insertion sort with shrinking gaps, about O(n^{4/3})–O(n²) depending on gaps.</li><li>Merge sort: always n log n, stable, O(n) space; quick sort: n log n average, n² worst (sorted input with a fixed pivot), in place; heap sort: n log n worst case, in place, unstable.</li><li>Counting and radix sort beat n log n by not comparing: O(n + k) and O(d(n + k)), stable, for small integer keys.</li></ul><p>For each sort, say its worst case, its space and whether it is stable. Gaps are a sign to revisit.</p>",
+      "keynotes": [
+        "Comparison sorts need at least log₂ n! = Ω(n log n) comparisons in the worst case.",
+        "Bubble, selection and insertion are O(n²), and merge sort is always n log n, stable, O(n) space.",
+        "Quick sort is n log n on average and n² in the worst case; heap sort is n log n with O(1) space."
+      ]
     }
   ]
 }

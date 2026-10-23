@@ -8,7 +8,7 @@
       "locator": "5.1",
       "title": "Trees and their vocabulary",
       "eyebrow": "Hierarchies",
-      "body": "<p>Arrays and lists are linear: every element has a predecessor and a successor. Many things are not — a family tree, a file system, an organisation chart, the nesting of an arithmetic expression. A <em class=\"term\">tree</em> captures hierarchy: one special node, the <em class=\"term\">root</em>, and below it zero or more subtrees, each itself a tree. Formally a tree with n nodes has exactly n − 1 edges and exactly one path between any two nodes; add another edge and you create a cycle (a graph, the next chapter).</p><p>The vocabulary is used in every question. A node’s <em class=\"term\">children</em> are the nodes directly below it; its <b>parent</b> is the one above; nodes with the same parent are <b>siblings</b>. A node with no children is a <em class=\"term\">leaf</em>; the others are <b>internal</b>. The <b>degree</b> of a node is its number of children and the degree of a tree is the largest node degree. The <b>depth</b> (level) of a node is the number of edges from the root to it, root at 0; the <em class=\"term\">height</em> of a node is the longest downward path to a leaf, and the height of the tree is the height of the root. A <b>subtree</b> is a node together with all its descendants.</p><p>A <em class=\"term\">binary tree</em> restricts every node to at most two children, called left and right — and order matters, so a node with only a left child is different from one with only a right child. Special shapes have names: a <b>full</b> binary tree has 0 or 2 children everywhere; a <b>perfect</b> tree is full with all leaves at the same depth; a <b>complete</b> tree is filled level by level, left to right, with only the last level possibly short — the shape of a heap.</p>",
+      "body": "<p>Lists are a single line of items, but the world is full of hierarchies, like your family or your folders, and a tree is how we store them. Arrays and lists are linear: every element has a predecessor and a successor. Many things are not — a family tree, a file system, an organisation chart, the nesting of an arithmetic expression. A <em class=\"term\">tree</em> captures hierarchy: one special node, the <em class=\"term\">root</em>, and below it zero or more subtrees, each itself a tree. Formally a tree with n nodes has exactly n − 1 edges and exactly one path between any two nodes; add another edge and you create a cycle (a graph, the next chapter).</p><p>The vocabulary is used in every question. A node’s <em class=\"term\">children</em> are the nodes directly below it; its <b>parent</b> is the one above; nodes with the same parent are <b>siblings</b>. A node with no children is a <em class=\"term\">leaf</em>; the others are <b>internal</b>. The <b>degree</b> of a node is its number of children and the degree of a tree is the largest node degree. The <b>depth</b> (level) of a node is the number of edges from the root to it, root at 0; the <em class=\"term\">height</em> of a node is the longest downward path to a leaf, and the height of the tree is the height of the root. A <b>subtree</b> is a node together with all its descendants.</p><p>A <em class=\"term\">binary tree</em> restricts every node to at most two children, called left and right — and order matters, so a node with only a left child is different from one with only a right child. Special shapes have names: a <b>full</b> binary tree has 0 or 2 children everywhere; a <b>perfect</b> tree is full with all leaves at the same depth; a <b>complete</b> tree is filled level by level, left to right, with only the last level possibly short — the shape of a heap.</p><p>Draw your own family tree and label the root, a leaf and a parent. You are already using the vocabulary.</p>",
       "worked": [
         {
           "toc": "Level sum",
@@ -95,6 +95,11 @@
           "prompt": "<p>What is the minimum possible height of a binary tree with 100 nodes? The maximum?</p>",
           "answer": "Minimum: ⌈log₂ 101⌉ − 1 = 7 − 1 = <b>6</b> (a complete tree). Maximum: <b>99</b> (a chain, each node with one child)."
         }
+      ],
+      "keynotes": [
+        "A tree has one special node, the root, with zero or more subtrees below it, each itself a tree.",
+        "A tree with n nodes has exactly n − 1 edges and exactly one path between any two nodes.",
+        "Adding another edge creates a cycle, which makes it a graph."
       ]
     },
     {
@@ -102,7 +107,7 @@
       "locator": "5.2",
       "title": "Binary tree properties and representations",
       "eyebrow": "Counting",
-      "body": "<p>Two facts about binary trees are proved in every exam. First, at level i there are at most 2^i nodes, and a tree of height h has at most 2^{h+1} − 1 nodes. Second, if n₀ is the number of leaves and n₂ the number of nodes with two children, then n₀ = n₂ + 1. The proof counts edges two ways: edges = n − 1, and also edges = n₁ + 2n₂ (each node contributes its number of children); with n = n₀ + n₁ + n₂ we get n₀ + n₁ + n₂ − 1 = n₁ + 2n₂, hence n₀ = n₂ + 1.</p><p>How is a tree stored? The <b>linked representation</b> gives each node a value and two pointers, <code>left</code> and <code>right</code> — flexible, any shape. The <b>array representation</b> stores a complete tree level by level: the root at index 1, and for the node at index i the left child at 2i, the right child at 2i + 1 and the parent at ⌊i/2⌋. No pointers are needed; it wastes space for sparse trees but is perfect for heaps. The program below builds a five-node tree with pointers and prints it three ways, which is the next section’s topic.</p>",
+      "body": "<p>Two small facts about binary trees are proved in nearly every exam, and you can prove them both by counting. Two facts about binary trees are proved in every exam. First, at level i there are at most 2^i nodes, and a tree of height h has at most 2^{h+1} − 1 nodes. Second, if n₀ is the number of leaves and n₂ the number of nodes with two children, then n₀ = n₂ + 1. The proof counts edges two ways: edges = n − 1, and also edges = n₁ + 2n₂ (each node contributes its number of children); with n = n₀ + n₁ + n₂ we get n₀ + n₁ + n₂ − 1 = n₁ + 2n₂, hence n₀ = n₂ + 1.</p><p>How is a tree stored? The <b>linked representation</b> gives each node a value and two pointers, <code>left</code> and <code>right</code> — flexible, any shape. The <b>array representation</b> stores a complete tree level by level: the root at index 1, and for the node at index i the left child at 2i, the right child at 2i + 1 and the parent at ⌊i/2⌋. No pointers are needed; it wastes space for sparse trees but is perfect for heaps. The program below builds a five-node tree with pointers and prints it three ways, which is the next section’s topic.</p><p>Try the proof of n₀ = n₂ + 1 yourself, counting edges in two different ways.</p>",
       "derivation": [
         {
           "toc": "Nodes",
@@ -194,6 +199,11 @@
           "prompt": "<p>A binary tree has 7 leaves and no node with exactly one child. How many nodes does it have in total?</p>",
           "answer": "n₂ = n₀ − 1 = 6 and n₁ = 0, so n = 7 + 0 + 6 = <b>13</b>."
         }
+      ],
+      "keynotes": [
+        "At level i a binary tree has at most 2^i nodes, and a tree of height h has at most 2^{h+1} − 1 nodes.",
+        "If n₀ is the number of leaves and n₂ the number of nodes with two children, then n₀ = n₂ + 1.",
+        "The proof counts edges two ways: n − 1, and n₁ + 2n₂."
       ]
     },
     {
@@ -201,7 +211,7 @@
       "locator": "5.3",
       "title": "Traversals",
       "eyebrow": "Visiting every node",
-      "body": "<p>To process every node of a tree, we need a systematic order. The three <b>depth-first</b> traversals visit the root <em>pre</em>, <em>in</em> or <em>post</em> the subtrees: <b>preorder</b> is root, left, right; <b>inorder</b> is left, root, right; <b>postorder</b> is left, right, root. Each is a three-line recursive function — the recursion stack is the stack ADT of Chapter 2. <b>Level-order</b> (breadth-first) visits nodes level by level using a <em>queue</em>: dequeue a node, visit it, enqueue its children.</p><p>Each has its use. Preorder copies a tree (parents before children). Postorder deletes a tree or evaluates an expression tree (children before parents). Inorder on a binary <em>search</em> tree yields the keys in sorted order. And a deep fact: a binary tree is determined uniquely by its inorder sequence together with its preorder (or postorder) sequence, but not by preorder and postorder alone. For the tree below — 1 with children 2 and 3, and 2 with children 4 and 5 — the lab prints 1 2 4 5 3 (pre), 4 2 5 1 3 (in) and 4 5 2 3 1 (post). Every traversal visits every node once: O(n) time, O(h) stack space.</p>",
+      "body": "<p>To process every node you need a fixed order, and there are only a handful, so you can learn them all today. To process every node of a tree, we need a systematic order. The three <b>depth-first</b> traversals visit the root <em>pre</em>, <em>in</em> or <em>post</em> the subtrees: <b>preorder</b> is root, left, right; <b>inorder</b> is left, root, right; <b>postorder</b> is left, right, root. Each is a three-line recursive function — the recursion stack is the stack ADT of Chapter 2. <b>Level-order</b> (breadth-first) visits nodes level by level using a <em>queue</em>: dequeue a node, visit it, enqueue its children.</p><p>Each has its use. Preorder copies a tree (parents before children). Postorder deletes a tree or evaluates an expression tree (children before parents). Inorder on a binary <em>search</em> tree yields the keys in sorted order. And a deep fact: a binary tree is determined uniquely by its inorder sequence together with its preorder (or postorder) sequence, but not by preorder and postorder alone. For the tree below — 1 with children 2 and 3, and 2 with children 4 and 5 — the lab prints 1 2 4 5 3 (pre), 4 2 5 1 3 (in) and 4 5 2 3 1 (post). Every traversal visits every node once: O(n) time, O(h) stack space.</p><p>Write the three orders for a tree with a root and two children. Which order would give you a sorted list from a binary search tree?</p>",
       "worked": [
         {
           "toc": "Root",
@@ -334,6 +344,11 @@
           "prompt": "<p>Give the level-order sequence of the same tree.</p>",
           "answer": "Level by level: <b>A B C D E F</b> (queue order)."
         }
+      ],
+      "keynotes": [
+        "Preorder is root, left, right; inorder is left, root, right; postorder is left, right, root.",
+        "Level-order visits nodes level by level using a queue.",
+        "Preorder copies a tree and postorder deletes one; each depth-first traversal is a three-line recursive function."
       ]
     },
     {
@@ -341,7 +356,7 @@
       "locator": "5.4",
       "title": "Binary search trees",
       "eyebrow": "Ordered for fast search",
-      "body": "<p>Searching a sorted array by halving is fast, but inserting into one is slow. A <em class=\"term\">binary search tree</em> (BST) gets both. The rule: for every node, all keys in its left subtree are <em>smaller</em> and all keys in its right subtree <em>larger</em>. To search for k, compare with the root: if equal, done; if smaller, go left; if larger, go right; an empty subtree means “not found”. Each comparison discards a whole subtree, just like halving, so the cost is O(height). Insertion is a search that ends at an empty spot, where the new node is attached. The program builds the tree from 50 30 70 20 40 60 80 (height 3, perfectly balanced) and prints the keys in order; searching for 60 takes 3 comparisons.</p><p><b>Deletion</b> has three cases. A <em>leaf</em>: just remove it. A node with <em>one child</em>: splice it out by linking its parent to that child. A node with <em>two children</em>: replace its key by its <b>inorder successor</b> (the smallest key in the right subtree — go right once, then left as far as possible; or the predecessor), then delete that successor node, which has at most one child. The deletion program removes 20 (a leaf), 70 (it now has one child) and 50 (the root, two children): the keys left are 30 40 60 80 and the new root is 60, the old root’s successor.</p><p>The catch is the shape. The cost O(height) is only O(log n) if the tree is balanced, and a BST does nothing to ensure it. Insert the keys in sorted order — 10, 20, 30, 40, 50 — and every key goes to the right of the previous: the tree degenerates into a chain of height <b>5</b> and search becomes O(n), no better than a linked list. The card shows exactly that.</p>",
+      "body": "<p>A sorted array is fast to search but slow to update, and a binary search tree gives you both speeds. Watch how the rule that left is smaller and right is larger lets every single comparison throw away half the remaining tree, just as you would halve a dictionary. Searching a sorted array by halving is fast, but inserting into one is slow. A <em class=\"term\">binary search tree</em> (BST) gets both. The rule: for every node, all keys in its left subtree are <em>smaller</em> and all keys in its right subtree <em>larger</em>. To search for k, compare with the root: if equal, done; if smaller, go left; if larger, go right; an empty subtree means “not found”. Each comparison discards a whole subtree, just like halving, so the cost is O(height). Insertion is a search that ends at an empty spot, where the new node is attached. The program builds the tree from 50 30 70 20 40 60 80 (height 3, perfectly balanced) and prints the keys in order; searching for 60 takes 3 comparisons.</p><p><b>Deletion</b> has three cases. A <em>leaf</em>: just remove it. A node with <em>one child</em>: splice it out by linking its parent to that child. A node with <em>two children</em>: replace its key by its <b>inorder successor</b> (the smallest key in the right subtree — go right once, then left as far as possible; or the predecessor), then delete that successor node, which has at most one child. The deletion program removes 20 (a leaf), 70 (it now has one child) and 50 (the root, two children): the keys left are 30 40 60 80 and the new root is 60, the old root’s successor.</p><p>The catch is the shape. The cost O(height) is only O(log n) if the tree is balanced, and a BST does nothing to ensure it. Insert the keys in sorted order — 10, 20, 30, 40, 50 — and every key goes to the right of the previous: the tree degenerates into a chain of height <b>5</b> and search becomes O(n), no better than a linked list. The card shows exactly that.</p><p>Insert 50, 30, 70, 20 and 40 into an empty BST by hand. What shape do you get? Then delete a leaf, a node with one child and a node with two children, and notice that only the last one is tricky.</p>",
       "questions": [
         {
           "id": "skew",
@@ -481,6 +496,11 @@
           "prompt": "<p>In that tree delete 20 (two children). What replaces it, and what is the new left subtree of 45?</p>",
           "answer": "Inorder successor of 20 is the smallest key in its right subtree {30, 25}: <b>25</b>. 20’s key becomes 25 and the old node 25 is removed, leaving 25 with children 10 and 30."
         }
+      ],
+      "keynotes": [
+        "For every node all keys in its left subtree are smaller and all keys in its right subtree larger.",
+        "Each comparison discards a whole subtree, so search costs O(height).",
+        "Insertion is a search that ends at an empty spot, where the new node is attached."
       ]
     },
     {
@@ -488,7 +508,7 @@
       "locator": "5.5",
       "title": "AVL trees: staying balanced",
       "eyebrow": "Rotations",
-      "body": "<p>The BST’s weakness is that its shape depends on insertion order. An <em class=\"term\">AVL tree</em> (Adelson-Velsky and Landis, 1962, the first self-balancing tree) repairs the shape after every update. It stores at each node the <b>balance factor</b> BF = height(left) − height(right) and insists that it is −1, 0 or +1 everywhere. Search stays O(height) and the height is now guaranteed O(log n); insertion and deletion cost O(log n) including the repairs.</p><p>How tall can an AVL tree get? Let N(h) be the fewest nodes an AVL tree of height h can have. The sparsest such tree has a root, one subtree of height h − 1 (also sparsest) and one of height h − 2: N(h) = N(h − 1) + N(h − 2) + 1 — a Fibonacci-like recurrence. It grows like φʰ with φ ≈ 1.618, so n ≥ φʰ and therefore h ≤ 1.44 log₂ n: at most 44 % taller than perfect. The table shows how few nodes each height needs.</p><p>When an insertion makes some node’s balance factor ±2, the lowest such node is repaired by a <b>rotation</b>, one of four cases named by where the extra height lies. <b>Left-left</b> (a chain leaning left): one <em>right</em> rotation about the unbalanced node. <b>Right-right</b>: one <em>left</em> rotation — in a rotation the middle node becomes the new subtree root, its former parent becomes its child, and one subtree changes parent so the BST order is preserved. <b>Left-right</b> (a bend): a left rotation on the child, then a right rotation on the node. <b>Right-left</b>: the mirror image. Rotations are O(1) and do not change the inorder sequence. Inserting 10, 20, 30, 40, 50, 25 in order, which made a chain in a plain BST, now yields root <b>30</b> and height <b>3</b>. Step through the card: each frame names the imbalance and the rotation.</p>",
+      "body": "<p>The weakness of the BST is that it can lean badly, and you can fix that with a small amount of repair after each update. You will find the repair itself is only a few pointer changes, and the real insight is the guarantee it buys you for the whole tree. The BST’s weakness is that its shape depends on insertion order. An <em class=\"term\">AVL tree</em> (Adelson-Velsky and Landis, 1962, the first self-balancing tree) repairs the shape after every update. It stores at each node the <b>balance factor</b> BF = height(left) − height(right) and insists that it is −1, 0 or +1 everywhere. Search stays O(height) and the height is now guaranteed O(log n); insertion and deletion cost O(log n) including the repairs.</p><p>How tall can an AVL tree get? Let N(h) be the fewest nodes an AVL tree of height h can have. The sparsest such tree has a root, one subtree of height h − 1 (also sparsest) and one of height h − 2: N(h) = N(h − 1) + N(h − 2) + 1 — a Fibonacci-like recurrence. It grows like φʰ with φ ≈ 1.618, so n ≥ φʰ and therefore h ≤ 1.44 log₂ n: at most 44 % taller than perfect. The table shows how few nodes each height needs.</p><p>When an insertion makes some node’s balance factor ±2, the lowest such node is repaired by a <b>rotation</b>, one of four cases named by where the extra height lies. <b>Left-left</b> (a chain leaning left): one <em>right</em> rotation about the unbalanced node. <b>Right-right</b>: one <em>left</em> rotation — in a rotation the middle node becomes the new subtree root, its former parent becomes its child, and one subtree changes parent so the BST order is preserved. <b>Left-right</b> (a bend): a left rotation on the child, then a right rotation on the node. <b>Right-left</b>: the mirror image. Rotations are O(1) and do not change the inorder sequence. Inserting 10, 20, 30, 40, 50, 25 in order, which made a chain in a plain BST, now yields root <b>30</b> and height <b>3</b>. Step through the card: each frame names the imbalance and the rotation.</p><p>Why is an insertion that leaves the balance factor at 2 a problem? Think about what it does to the height. Then ask what a tree of 1000 nodes would look like if it were a chain, and why that never happens in an AVL tree.</p>",
       "derivation": [
         {
           "toc": "Recurrence",
@@ -642,6 +662,11 @@
           "prompt": "<p>What is the minimum number of nodes in an AVL tree of height 5 (using N(1) = 1, N(2) = 2)? What is the maximum height of an AVL tree with 100 nodes (approximately)?</p>",
           "answer": "N(3) = 4, N(4) = 7, N(5) = <b>12</b>. For n = 100: h ≤ 1.44 · log₂ 100 ≈ 1.44 × 6.64 ≈ <b>9.6</b>, i.e. height at most about 9 — against 99 for a bad BST."
         }
+      ],
+      "keynotes": [
+        "An AVL tree keeps the balance factor BF = height(left) − height(right) at −1, 0 or +1 everywhere.",
+        "Search stays O(height) and the height is guaranteed O(log n); insertion and deletion cost O(log n) including the repairs.",
+        "Repairs use single and double rotations, giving h ≤ 1.44 log₂ n."
       ]
     },
     {
@@ -649,7 +674,7 @@
       "locator": "5.6",
       "title": "Heaps and priority queues",
       "eyebrow": "Top priority",
-      "body": "<p>A priority queue repeatedly needs “the smallest (or largest) item”. Searching an array each time is O(n). A <em class=\"term\">heap</em> gets it in O(1) and keeps insertion and removal at O(log n) with a simple trick: demand <em>less</em> order than a BST. A binary <b>min-heap</b> is a <em>complete</em> binary tree in which every node’s key is ≤ its children’s keys (the <b>heap property</b>). There is no left/right ordering between siblings, so the minimum is always at the root. Because the tree is complete it is stored in a plain array with no pointers: with a 1-based array the children of index i are 2i and 2i + 1 and the parent is ⌊i/2⌋ (with 0-based indexing, 2i + 1, 2i + 2 and ⌊(i − 1)/2⌋). The height is ⌊log₂ n⌋.</p><p><b>Insert</b> places the new key at the first free position (the end of the array) and <em class=\"term\">sifts up</em>: while it is smaller than its parent, swap them — at most height swaps, O(log n). <b>Extract-min</b> returns the root, moves the <em>last</em> element to the root and <em class=\"term\">sifts down</em>: swap with the smaller child until the order is restored — O(log n). <b>Building</b> a heap from n arbitrary keys by sifting down every internal node from the last to the first is O(n), not n log n, because most nodes are near the bottom and sift only a short way (the sum of heights is Σ h·n/2^{h+1} = O(n)). <b>Heap sort</b> builds a max-heap and repeatedly swaps the root to the end and shrinks the heap: O(n log n) time, in place, O(1) extra space.</p>",
+      "body": "<p>Sometimes you do not need everything sorted, only the smallest item, again and again, and a heap is built for exactly that. A priority queue repeatedly needs “the smallest (or largest) item”. Searching an array each time is O(n). A <em class=\"term\">heap</em> gets it in O(1) and keeps insertion and removal at O(log n) with a simple trick: demand <em>less</em> order than a BST. A binary <b>min-heap</b> is a <em>complete</em> binary tree in which every node’s key is ≤ its children’s keys (the <b>heap property</b>). There is no left/right ordering between siblings, so the minimum is always at the root. Because the tree is complete it is stored in a plain array with no pointers: with a 1-based array the children of index i are 2i and 2i + 1 and the parent is ⌊i/2⌋ (with 0-based indexing, 2i + 1, 2i + 2 and ⌊(i − 1)/2⌋). The height is ⌊log₂ n⌋.</p><p><b>Insert</b> places the new key at the first free position (the end of the array) and <em class=\"term\">sifts up</em>: while it is smaller than its parent, swap them — at most height swaps, O(log n). <b>Extract-min</b> returns the root, moves the <em>last</em> element to the root and <em class=\"term\">sifts down</em>: swap with the smaller child until the order is restored — O(log n). <b>Building</b> a heap from n arbitrary keys by sifting down every internal node from the last to the first is O(n), not n log n, because most nodes are near the bottom and sift only a short way (the sum of heights is Σ h·n/2^{h+1} = O(n)). <b>Heap sort</b> builds a max-heap and repeatedly swaps the root to the end and shrinks the heap: O(n log n) time, in place, O(1) extra space.</p><p>Draw a small min-heap in an array and check that every parent is at most its children.</p>",
       "worked": [
         {
           "toc": "Index rule",
@@ -784,6 +809,11 @@
           "prompt": "<p>Do one extract-min on [1, 4, 7, 10, 8].</p>",
           "answer": "Return 1. Move the last element 8 to the root: [8, 4, 7, 10]. Sift down: smaller child is 4 &lt; 8 → swap → [4, 8, 7, 10]; 8’s child 10 is larger → stop. Result <b>[4, 8, 7, 10]</b>."
         }
+      ],
+      "keynotes": [
+        "A binary min-heap is a complete binary tree in which every node’s key is ≤ its children’s keys.",
+        "The minimum is always at the root, found in O(1), and insertion and removal cost O(log n).",
+        "Because the tree is complete it is stored in a plain array with no pointers."
       ]
     },
     {
@@ -791,7 +821,7 @@
       "locator": "5.7",
       "title": "Huffman coding",
       "eyebrow": "Greedy compression",
-      "body": "<p>Text is normally stored with a fixed number of bits per character (8 in ASCII). But letters are not equally common: in English, E appears far more often than Z. If the common letters get <em>short</em> codes and the rare ones <em>long</em> codes, the average length drops. The problem is decoding: if A = 0 and B = 01, then “001” could be AAB or AB… A <b>prefix code</b> forbids ambiguity: no codeword is a prefix of another, so a bit stream can be decoded greedily. A prefix code is exactly a binary tree with the symbols at the <em>leaves</em>, the code being the path (left 0, right 1).</p><p><em class=\"term\">Huffman’s algorithm</em> (1952) builds the optimal prefix code greedily: make a leaf for each symbol, weighted by its frequency; repeatedly remove the <em>two lightest</em> trees, merge them under a new node whose weight is their sum, and put it back (a priority queue, so O(n log n)); when one tree remains, read the codes from the paths. It is optimal because the two rarest symbols can always be siblings at the deepest level. For <code>aaaabbc</code> the three symbols need <b>10</b> bits instead of the 56 bits of ASCII. For the classic frequencies f:5 e:9 c:12 b:13 d:16 a:45 the total cost is <b>224</b> bits over 100 characters (2.24 bits per character against 3 for a fixed code of six symbols). Step through the card: it merges the two smallest each time.</p>",
+      "body": "<p>If you could give common letters short codes and rare letters long ones, you would save space, and the trick is to do it without ambiguity. Text is normally stored with a fixed number of bits per character (8 in ASCII). But letters are not equally common: in English, E appears far more often than Z. If the common letters get <em>short</em> codes and the rare ones <em>long</em> codes, the average length drops. The problem is decoding: if A = 0 and B = 01, then “001” could be AAB or AB… A <b>prefix code</b> forbids ambiguity: no codeword is a prefix of another, so a bit stream can be decoded greedily. A prefix code is exactly a binary tree with the symbols at the <em>leaves</em>, the code being the path (left 0, right 1).</p><p><em class=\"term\">Huffman’s algorithm</em> (1952) builds the optimal prefix code greedily: make a leaf for each symbol, weighted by its frequency; repeatedly remove the <em>two lightest</em> trees, merge them under a new node whose weight is their sum, and put it back (a priority queue, so O(n log n)); when one tree remains, read the codes from the paths. It is optimal because the two rarest symbols can always be siblings at the deepest level. For <code>aaaabbc</code> the three symbols need <b>10</b> bits instead of the 56 bits of ASCII. For the classic frequencies f:5 e:9 c:12 b:13 d:16 a:45 the total cost is <b>224</b> bits over 100 characters (2.24 bits per character against 3 for a fixed code of six symbols). Step through the card: it merges the two smallest each time.</p><p>Why can A = 0 and B = 01 not both be codewords? Think about decoding the bit string 001.</p>",
       "worked": [
         {
           "toc": "Merge 1",
@@ -903,6 +933,11 @@
           "prompt": "<p>Symbols with frequencies A:40, B:30, C:15, D:10, E:5. Build the Huffman tree, give the code lengths and the average bits per symbol.</p>",
           "answer": "Merge E+D = 15; then C + 15 = 30; then B + 30 = 60 (or A first; ties allowed); then A + 60 = 100. Depths: A 1, B 2, C 3, D 4, E 4 → average = 0.40·1 + 0.30·2 + 0.15·3 + 0.10·4 + 0.05·4 = <b>2.05 bits</b> per symbol."
         }
+      ],
+      "keynotes": [
+        "Text normally uses a fixed number of bits per character, 8 in ASCII, but letters are not equally common.",
+        "A prefix code, where no codeword is a prefix of another, can be decoded greedily and is exactly a binary tree with the symbols at the leaves.",
+        "Huffman coding gives frequent symbols short codes, so the average length drops."
       ]
     },
     {
@@ -910,7 +945,7 @@
       "locator": "5.8",
       "title": "B-trees",
       "eyebrow": "Wide trees for disks",
-      "body": "<p>Binary trees are tall: a million keys need at least 20 levels, and if each level means a disk read at 10 ms, a search costs 200 ms. A disk reads a whole block (4 KB) at once, so the cure is to make each node as wide as a block. A <em class=\"term\">B-tree</em> of order <i>m</i> is a balanced multiway search tree: every node has at most m children and m − 1 keys, every internal node except the root has at least ⌈m/2⌉ children, a node with k children holds k − 1 keys in sorted order, and <b>all leaves are at the same depth</b>. Because every node is at least half full the height is at most log_{⌈m/2⌉} of about n/2 — tiny when m is in the hundreds.</p><p><b>Search</b> binary-searches the keys inside a node, then follows the child pointer between the two surrounding keys. <b>Insertion</b> always goes into a leaf. If the leaf now holds m keys it overflows: <b>split</b> it around the median — the median key moves up to the parent, the two halves become separate nodes — and if that makes the parent overflow, split it too; if the root splits, a new root is created and the tree grows by one level, <em>from the top</em>, which is how all leaves stay at the same depth. Inserting 1…7 into an order-3 B-tree gives root key <b>4</b> and height <b>3</b>. A <b>B⁺-tree</b> stores all records in the leaves, chained left to right for range scans, with internal nodes holding only separator keys; it is the structure behind nearly every database index and file system.</p>",
+      "body": "<p>Binary trees are tall, and a disk is slow, so you can guess what database designers did about it. Binary trees are tall: a million keys need at least 20 levels, and if each level means a disk read at 10 ms, a search costs 200 ms. A disk reads a whole block (4 KB) at once, so the cure is to make each node as wide as a block. A <em class=\"term\">B-tree</em> of order <i>m</i> is a balanced multiway search tree: every node has at most m children and m − 1 keys, every internal node except the root has at least ⌈m/2⌉ children, a node with k children holds k − 1 keys in sorted order, and <b>all leaves are at the same depth</b>. Because every node is at least half full the height is at most log_{⌈m/2⌉} of about n/2 — tiny when m is in the hundreds.</p><p><b>Search</b> binary-searches the keys inside a node, then follows the child pointer between the two surrounding keys. <b>Insertion</b> always goes into a leaf. If the leaf now holds m keys it overflows: <b>split</b> it around the median — the median key moves up to the parent, the two halves become separate nodes — and if that makes the parent overflow, split it too; if the root splits, a new root is created and the tree grows by one level, <em>from the top</em>, which is how all leaves stay at the same depth. Inserting 1…7 into an order-3 B-tree gives root key <b>4</b> and height <b>3</b>. A <b>B⁺-tree</b> stores all records in the leaves, chained left to right for range scans, with internal nodes holding only separator keys; it is the structure behind nearly every database index and file system.</p><p>Compute roughly how many levels a B-tree of order 100 needs for a million keys, and compare with the 20 levels of a binary tree.</p>",
       "worked": [
         {
           "toc": "Order",
@@ -1041,6 +1076,11 @@
           "prompt": "<p>Insert 5, 3, 8, 1 into an empty B-tree of order 3 (max 2 keys per node). Show the tree after each overflow.</p>",
           "answer": "5 → [5]; 3 → [3 5]; 8 → [3 5 8] overflows, split: median 5 rises: root [5] with children [3] and [8]. Insert 1 → goes to the left leaf: [1 3]. Final: root <b>[5]</b>, leaves <b>[1 3]</b> and <b>[8]</b>."
         }
+      ],
+      "keynotes": [
+        "A million keys need at least 20 levels in a binary tree, and a search of 200 ms if each level is a 10 ms disk read.",
+        "A B-tree of order m is a balanced multiway search tree: every node has at most m children and m − 1 keys, and all leaves are at the same depth.",
+        "Every internal node except the root has at least ⌈m/2⌉ children, so each node is as wide as a disk block."
       ]
     },
     {
@@ -1048,7 +1088,12 @@
       "locator": "5.9",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>A tree has n − 1 edges; binary-tree facts: ≤ 2^i nodes at level i, n₀ = n₂ + 1; array form uses 2i / 2i + 1.</li><li>Traversals: pre (root first), in (sorted for a BST), post (children first), level (queue); inorder plus pre- or postorder fixes the tree.</li><li>BST: search, insert and delete in O(height); deletion with two children uses the inorder successor; sorted input degenerates to a chain.</li><li>AVL keeps |balance factor| ≤ 1 with single and double rotations, giving h ≤ 1.44 log₂ n.</li><li>Heap = complete tree with the heap property, stored in an array; insert/extract O(log n), build O(n), heap sort O(n log n) in place.</li><li>Huffman builds an optimal prefix code by greedily merging the two lightest trees.</li><li>B-tree: wide, balanced, all leaves at one depth, splits propagate upward; B⁺-trees power database indexes.</li></ul>"
+      "body": "<p>Let’s gather the main facts about trees before you move on to graphs.</p><ul><li>A tree has n − 1 edges; binary-tree facts: ≤ 2^i nodes at level i, n₀ = n₂ + 1; array form uses 2i / 2i + 1.</li><li>Traversals: pre (root first), in (sorted for a BST), post (children first), level (queue); inorder plus pre- or postorder fixes the tree.</li><li>BST: search, insert and delete in O(height); deletion with two children uses the inorder successor; sorted input degenerates to a chain.</li><li>AVL keeps |balance factor| ≤ 1 with single and double rotations, giving h ≤ 1.44 log₂ n.</li><li>Heap = complete tree with the heap property, stored in an array; insert/extract O(log n), build O(n), heap sort O(n log n) in place.</li><li>Huffman builds an optimal prefix code by greedily merging the two lightest trees.</li><li>B-tree: wide, balanced, all leaves at one depth, splits propagate upward; B⁺-trees power database indexes.</li></ul><p>Cover the summary and try to rebuild it from memory. The gaps show you where to review.</p>",
+      "keynotes": [
+        "A tree has n − 1 edges; a binary tree has at most 2^i nodes at level i and n₀ = n₂ + 1.",
+        "Traversals are pre, in (sorted for a BST), post and level; a BST gives O(height) operations.",
+        "AVL keeps |balance factor| ≤ 1 giving h ≤ 1.44 log₂ n, and a heap is a complete tree stored in an array."
+      ]
     }
   ]
 }
