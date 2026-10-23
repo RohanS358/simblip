@@ -300,7 +300,7 @@ var gt = create("gridtable", { rows: 2, cols: 3, cells: [["Name", "Mass", "Speed
 
   S('Add a slider that controls the mass of a block in real time.', `
 var block = create("block", { x: 0, y: 0, mass: 20 });
-var sl = create("slider", { x: 0, y: 220, min: 1, max: 50, step: 1, value: 20, label: "Mass", targetParamName: "mass" });`),
+var sl = create("slider", { x: 0, y: 220, min: 1, max: 50, step: 1, value: 20, label: "Mass", targetParamName: "mass", targetObjectId: block });`),
 
   S('Add a button that toggles a value and a trigger that fires when speed passes 30.', `
 var btn = create("button", { label: "Pulse", actionType: "toggle" });
