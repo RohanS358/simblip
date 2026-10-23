@@ -39,6 +39,8 @@ export const aiRequestSchema = z.object({
   pageContext: z
     .object({
       variables: z.array(z.object({ name: z.string(), expr: z.string() })),
+      /** Variables owned by one system box (they beat the page's inside it). */
+      systemVariables: z.array(z.object({ system: z.string(), vars: z.array(z.object({ name: z.string(), expr: z.string() })) })).optional(),
       objectCount: z.number(),
     })
     .optional(),
@@ -149,6 +151,9 @@ export function systemPrompt(pageContext?: AiRequest['pageContext'], surface?: s
         .map((v) => `${v.name}=${v.expr}`)
         .join(', ')}.`
     )
+  }
+  for (const sv of pageContext?.systemVariables ?? []) {
+    if (sv.vars.length > 0) extra.push(`System "${sv.system}" has its own variables (they beat the page's inside it): ${sv.vars.map((v) => `${v.name}=${v.expr}`).join(', ')}.`)
   }
   if (pageContext && pageContext.objectCount > 0) {
     extra.push(`The page already has ${pageContext.objectCount} object(s); give new components explicit x/y so they don't overlap.`)

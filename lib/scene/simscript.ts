@@ -184,6 +184,14 @@ class ScriptObject {
   get pe()  { return { objectId: this.id, property: 'pe'  } }
   get speed(){ return { objectId: this.id, property: 'speed' } }
 
+  /** Give THIS system box its own variable: `sys.setvar("g", 1.62)` is moon gravity inside it only. Beats the page's
+   *  same-named variable there; g / drag / timeScale override the engine. Only a system box has variables of its own. */
+  setvar(name: string, expr: string | number) {
+    const o = store().pages[this.pageId]?.objects?.[this.id]
+    if (o?.metadata.render !== 'system') throw new Error('setvar() works on a system box — use setvar("name", value) for a page-wide variable')
+    store().upsertSystemVariable(this.pageId, this.id, name, String(expr))
+  }
+
   /** Update params / position / size on this object. Keys that belong to an
    *  attached behavior (mass, friction, stiffness, q, f…) are routed into
    *  that behavior's params — the ones the solvers actually read — so
@@ -1030,7 +1038,10 @@ export function executeSimScript(
   }
 
   // ── Sandbox ───────────────────────────────────────────────────────────────────
-  const builtins: Record<string, any> = { create, connect, addproperty, graph, ref, diagram, console, Math }
+  // setvar(name, value): an explicit PAGE-wide variable (value may be a number or an expression like "k*2"); a script
+  // can also use sys.setvar(name, value) for one system box only.
+  const setvar = (name: string, expr: string | number) => { sandboxVars[name] = typeof expr === 'number' ? expr : String(expr) }
+  const builtins: Record<string, any> = { setvar, create, connect, addproperty, graph, ref, diagram, console, Math }
   const sandboxVars: Record<string, any> = {}
   const sandbox = new Proxy(builtins, {
     has() { return true },

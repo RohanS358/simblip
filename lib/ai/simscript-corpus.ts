@@ -197,6 +197,14 @@ addproperty(obj, behavior, params?)   // e.g. addproperty(shape, "rigidBody", { 
 obj.set({ ... })                      // update params later (mass, R, V, x, y, ...)
 graph.plot(obj.channel)               // plot vs time; graph.plot(y, x) for y-vs-x; styles "line"|"bar"|"scatter"
 var k = 25;                           // bare numbers become page variables
+setvar("g", 3.7);                     // explicit PAGE-wide variable (number or expression string); g/drag/timeScale change the engine everywhere
+sys.setvar("g", 1.62);                // variable for ONE system box only (sys = create("system",…)); beats the page's same-named one inside it
+
+VARIABLES (named values any parameter can use by name, e.g. mass: "k*2")
+- PAGE-wide: var k = 25; or setvar("k", "2*m") — every system and object on the page sees it.
+- ONE system box only: sys.setvar("name", value) — inside that box it beats the page's same-named variable; other boxes are untouched.
+- g (gravity m/s², default 9.81), drag (air resistance, default 0.01) and timeScale (speed ×, default 1) are ENGINE variables: setvar("g", 1.62) = moon gravity on the whole page, sys.setvar("g", 1.62) = moon gravity inside that box only. Two boxes on one page can run different physics — "Earth vs Moon" is two systems with different sys.setvar("g", …).
+- Precedence: system variable > page variable > engine default. Reuse variables the page already lists; never redefine them.
 
 LAYOUT
 - CIRCUITS: do NOT pass x/y — the auto-layout engine draws the schematic (series loops, parallel banks, amplifiers). Just create and connect.

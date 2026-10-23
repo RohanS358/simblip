@@ -74,3 +74,9 @@ export function findSystem(objects: Record<string, SceneObject>, ref: string): S
   const want = ref.trim().toLowerCase()
   return Object.values(objects).find((o) => isSystem(o) && o.name.trim().toLowerCase() === want)
 }
+
+/** Every system box that owns variables, shaped for the AI's pageContext. */
+export const systemVariablesOf = (objects: Record<string, SceneObject>) =>
+  Object.values(objects)
+    .filter((o) => systemVarsOf(o).length > 0)
+    .map((o) => ({ system: o.name, vars: systemVarsOf(o).map((v) => ({ name: v.name, expr: v.expr })) }))

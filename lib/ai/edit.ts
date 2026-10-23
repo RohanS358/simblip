@@ -42,7 +42,7 @@ OPS
 - {"op":"add","component":"<id>","position":{"x":0,"y":0},"name":"…","params":{"text":"…"}} — add something new. Set its content in "params" HERE; you cannot setParam on an object this plan is still creating.
 - {"op":"remove","ids":["<id>"]}
 - {"op":"addBehavior","id":"<id>","type":"<behavior>"}
-- {"op":"setVariable","name":"<name>","expr":"<expression>"} — a page-wide variable.
+- {"op":"setVariable","name":"<name>","expr":"<expression>"} — a page-wide variable. Setting a name that already exists REPLACES it (never add a second copy). g / drag / timeScale set page-wide change the engine for every system box that has no override of its own — "make gravity 3.7" with no box named is this form.
 - {"op":"setVariable","name":"<name>","expr":"<expression>","system":"<system id or name>"} — a variable for ONE system box only; inside it, it beats the page's same-named one. Names g (gravity m/s²), drag (air resistance) and timeScale (speed ×) override the engine for that system alone — "moon gravity in the left box" is {"op":"setVariable","name":"g","expr":"1.62","system":"<id>"}.
 - {"op":"removeVariable","name":"<name>","system":"<optional system id or name>"} — delete a variable (a system's engine override reverts to the page's value).
 
@@ -53,6 +53,7 @@ RULES
 - You write the CONTENT, not a placeholder. Put the actual definition, answer or summary in "value" — never "…" or "your text here".
 - Text lives in the "text" parameter for note/text objects and "latex" for a formula. The page listing shows which parameters each object has.
 - Positions are page pixels, x right, y down. Place a new object clear of the ones already listed.
+- VARIABLES: the page listing shows the page's variables and, per system box, that box's own. Scope by the request: "the page"/"everything"/no box named → page-wide; "in the left box"/"this system" → system-scoped (a SELECTED object inside a box means that box). Precedence: system variable > page variable > engine default. To make an object follow a variable, setParam its value to the variable's NAME or an expression using it.
 - Do not restate the page. Only emit ops that change something.
 
 WIDGETS & SHAPES (use these for notes, labels, graphs, tables and controls)

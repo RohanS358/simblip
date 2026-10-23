@@ -68,6 +68,7 @@ import {
 } from '@/lib/store/ai-sessions'
 import { cn } from '@/lib/utils'
 import { PanelHeader, segmentedTab, segmentedTrack } from './panel-header'
+import { systemVariablesOf } from '@/lib/formula/system-scope'
 
 /** Same palette the Code IDE uses (components/objects/code.tsx), so a script
  *  looks identical whether it is read here or edited there. */
@@ -486,6 +487,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           pageContext: page
             ? {
                 variables: page.variables.map((v) => ({ name: v.name, expr: v.expr })),
+                systemVariables: systemVariablesOf(page.objects),
                 objectCount: Object.keys(page.objects).length,
               }
             : undefined,

@@ -18,6 +18,7 @@ import { useDocStore } from '@/lib/store/document'
 import { executeSimScript } from '@/lib/scene/simscript'
 import type { AiResponse } from '@/lib/ai/schema'
 import { cn } from '@/lib/utils'
+import { systemVariablesOf } from '@/lib/formula/system-scope'
 
 export function AiBubble({ pageId }: { pageId: string }) {
   const [open, setOpen] = useState(false)
@@ -45,6 +46,7 @@ export function AiBubble({ pageId }: { pageId: string }) {
           pageContext: page
             ? {
                 variables: page.variables.map((v) => ({ name: v.name, expr: v.expr })),
+                systemVariables: systemVariablesOf(page.objects),
                 objectCount: Object.keys(page.objects).length,
               }
             : undefined,
