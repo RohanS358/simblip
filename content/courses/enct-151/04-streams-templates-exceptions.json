@@ -8,7 +8,7 @@
       "locator": "7.1",
       "title": "Streams",
       "eyebrow": "Data as a flow",
-      "body": "<p>A stream is a sequence of characters flowing between a program and a device. <code>cin</code> (input), <code>cout</code> (output), <code>cerr</code> (errors). <code>&lt;&lt;</code> inserts, <code>&gt;&gt;</code> extracts, and both chain. The stream classes form a hierarchy: <code>ios</code> → <code>istream</code>/<code>ostream</code> → <code>ifstream</code>/<code>ofstream</code> (files) and <code>stringstream</code> (strings).</p>",
+      "body": "<p>Think of a stream as a river of characters between your program and the outside world. You stand on the bank and either drop things in or fish things out. <code>cin</code> is the input stream, <code>cout</code> the output, and <code>cerr</code> the one for errors. <code>&lt;&lt;</code> inserts, <code>&gt;&gt;</code> extracts, and both chain.</p><p>The stream classes form a family tree: <code>ios</code> → <code>istream</code>/<code>ostream</code> → <code>ifstream</code>/<code>ofstream</code> (files) and <code>stringstream</code> (strings). In the figure, file streams specialise the console streams, which is inheritance from the last chapter doing real work. So ifstream is derived from which class? Read the tree.</p>",
       "questions": [
         {
           "id": "ifs",
@@ -48,6 +48,11 @@
           "note": "File streams specialise the console streams.",
           "script": "diagram(\"direction: down\\n{ios | state flags} as i\\n{istream | cin | operator>>} as is\\n{ostream | cout | operator<<} as os\\n{ifstream | file in} as ifs\\n{ofstream | file out} as ofs\\nis -> i\\nos -> i\\nifs -> is\\nofs -> os\");"
         }
+      ],
+      "keynotes": [
+        "A stream is a sequence of characters flowing between a program and a device: cin (input), cout (output), cerr (errors).",
+        "<< inserts and >> extracts, and both chain.",
+        "The hierarchy is ios → istream/ostream → ifstream/ofstream (files) and stringstream (strings)."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "7.2",
       "title": "Formatting and file I/O",
       "eyebrow": "Manipulators",
-      "body": "<p>Manipulators format output: <code>setw(6)</code> width, <code>setprecision(2)</code> with <code>fixed</code>, <code>endl</code> newline-and-flush. Files: <code>ofstream f(\"a.txt\"); f &lt;&lt; 42;</code> — the destructor closes it (RAII). Check <code>if (!f)</code> after opening.</p>",
+      "body": "<p>Raw output is plain; manipulators dress it up. <code>setw(6)</code> sets the width, <code>setprecision(2)</code> with <code>fixed</code> sets decimals, and <code>endl</code> gives a newline and flushes.</p><p>Files work the same way: <code>ofstream f(\"a.txt\"); f &lt;&lt; 42;</code>. The destructor closes the file for you, which is RAII again, and you should check <code>if (!f)</code> after opening. As the figure shows, insertion operators chain left to right. Why can <code>cout &lt;&lt; a &lt;&lt; b</code> chain? Because each << returns the stream.</p>",
       "questions": [
         {
           "id": "chain",
@@ -100,6 +105,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Manipulators format output: setw(6) width, setprecision(2) with fixed, endl newline-and-flush.",
+        "ofstream f(\"a.txt\"); f << 42; writes to a file, and the destructor closes it (RAII).",
+        "Check if (!f) after opening."
       ]
     },
     {
@@ -107,7 +117,7 @@
       "locator": "8.1",
       "title": "Function templates",
       "eyebrow": "Generic code",
-      "body": "<p><code>template &lt;typename T&gt; T maxOf(T a, T b) { return a &gt; b ? a : b; }</code> is a recipe; when you call <code>maxOf(3, 9)</code> the compiler <b>instantiates</b> a version with T = int, and <code>maxOf(2.5, 1.5)</code> another with T = double. One source, many type-specific functions, all checked at compile time with no run-time cost. The type must support the operations used (here <code>&gt;</code>).</p>",
+      "body": "<p>Suppose you wrote a function to find the larger of two ints, then needed it for doubles, then strings. Copy and paste three times? No. A template is a recipe the compiler follows for you: <code>template &lt;typename T&gt; T maxOf(T a, T b) { return a &gt; b ? a : b; }</code>.</p><p>When you call <code>maxOf(3, 9)</code> the compiler <b>instantiates</b> a version with T = int, and <code>maxOf(2.5, 1.5)</code> another with T = double. One source, many type-specific functions, all checked at compile time with no run-time cost. The only requirement is that the type must support the operations used (here <code>&gt;</code>). Until it is used, the template is only a recipe, as the figure says.</p>",
       "questions": [
         {
           "id": "ti",
@@ -147,6 +157,11 @@
           "note": "The template is only a recipe until used.",
           "script": "diagram(\"mode: sequence\\n[Your code] as c\\n[Compiler] as k\\n[maxOf<int>] as i\\n[maxOf<double>] as d\\nc -> k : maxOf(3, 9)\\nk -> i : instantiate T = int\\nc -> k : maxOf(2.5, 1.5)\\nk -> d : instantiate T = double\\n@0 c -> k : maxOf(3, 9)\\n@1 k -> i : instantiate T = int\\n@2 c -> k : maxOf(2.5, 1.5)\\n@3 k -> d : instantiate T = double\");"
         }
+      ],
+      "keynotes": [
+        "A function template is a recipe: template <typename T> T maxOf(T a, T b).",
+        "The compiler instantiates a version for each type used: maxOf(3, 9) with T = int, maxOf(2.5, 1.5) with T = double.",
+        "It is checked at compile time with no run-time cost, and the type must support the operations used."
       ]
     },
     {
@@ -154,7 +169,7 @@
       "locator": "8.2",
       "title": "Class templates and the STL",
       "eyebrow": "Containers",
-      "body": "<p><code>template &lt;class T&gt; class Stack { T data[100]; int top; … };</code> gives <code>Stack&lt;int&gt;</code>, <code>Stack&lt;string&gt;</code>. The Standard Template Library supplies containers (<code>vector</code>, <code>list</code>, <code>map</code>, <code>set</code>), iterators and algorithms (<code>sort</code>, <code>find</code>) all built from templates.</p>",
+      "body": "<p>The same idea works for whole classes. <code>template &lt;class T&gt; class Stack { T data[100]; int top; … };</code> gives you <code>Stack&lt;int&gt;</code> and <code>Stack&lt;string&gt;</code> from one definition.</p><p>The Standard Template Library is this idea taken to its limit: containers (<code>vector</code>, <code>list</code>, <code>map</code>, <code>set</code>), iterators and algorithms (<code>sort</code>, <code>find</code>), all built from templates. Try it: <code>vector&lt;int&gt; v = {5, 2, 9}; sort(v.begin(), v.end());</code> leaves the order 2, 5, 9. Three lines, no loops written by you.</p>",
       "worked": [
         {
           "toc": "Sort",
@@ -205,6 +220,11 @@
           "prompt": "<p>Which container gives O(1) access by index: vector or list?</p>",
           "answer": "<b>vector</b> (contiguous memory); a list needs O(n) traversal."
         }
+      ],
+      "keynotes": [
+        "A class template such as Stack<T> gives Stack<int> and Stack<string> from one definition.",
+        "The STL supplies containers (vector, list, map, set), iterators and algorithms (sort, find), all built from templates.",
+        "sort on {5, 2, 9} gives the order 2, 5, 9."
       ]
     },
     {
@@ -212,7 +232,7 @@
       "locator": "9.1",
       "title": "Exceptions: throw, try, catch",
       "eyebrow": "Errors that unwind",
-      "body": "<p>When a function cannot continue, it <code>throw</code>s an object. The runtime unwinds the call stack, destroying locals on the way, until it finds a matching <code>catch</code>. If none is found the program terminates. <code>try { risky(); } catch (const runtime_error&amp; e) { … }</code>. Use exceptions for exceptional conditions, not ordinary control flow.</p>",
+      "body": "<p>What should a function do when it simply cannot go on, say it was asked to open a file that does not exist? Return a magic code and hope everyone checks it? Exceptions offer something better, and you will like it: the function <code>throw</code>s an object and the runtime unwinds the call stack, destroying locals on the way, until it finds a matching <code>catch</code>. If none is found the program terminates.</p><p>Look at the figure: control leaps straight to the handler, and the in-between functions never resume. The shape is <code>try { risky(); } catch (const runtime_error&amp; e) { … }</code>. One sensible rule: use exceptions for exceptional conditions, not ordinary control flow. And what happens to local objects while the exception propagates? They are properly destroyed.</p>",
       "questions": [
         {
           "id": "unw",
@@ -252,6 +272,11 @@
           "note": "Control leaps straight to the handler; f and g never resume.",
           "script": "diagram(\"mode: sequence\\n[main try] as m\\n[f()] as f\\n[g()] as g\\nm -> f : call f\\nf -> g : call g\\ng -> g : throw runtime_error\\ng -> f : unwind (locals destroyed)\\nf -> m : unwind\\nm -> m : catch handles error\\n@0 m -> f : call f\\n@1 f -> g : call g\\n@2 g -> g : throw runtime_error\\n@3 g -> f : unwind (locals destroyed)\\n@4 f -> m : unwind\\n@5 m -> m : catch handles error\");"
         }
+      ],
+      "keynotes": [
+        "A function that cannot continue throws an object; the runtime unwinds the call stack, destroying locals, until it finds a matching catch.",
+        "If no handler is found the program terminates.",
+        "Use exceptions for exceptional conditions, not ordinary control flow."
       ]
     },
     {
@@ -259,7 +284,7 @@
       "locator": "9.2",
       "title": "Exception safety",
       "eyebrow": "Writing code that survives errors",
-      "body": "<p>Acquire resources in objects whose destructors release them (RAII, smart pointers) and exceptions cannot leak. Catch by <code>const&amp;</code>, order handlers from most specific to most general, <code>catch (...)</code> catches anything, and never throw from a destructor. Levels of guarantee: basic (no leak), strong (all-or-nothing), no-throw.</p>",
+      "body": "<p>How do you write code that survives errors without turning every function into a minefield of cleanup? Let objects do the cleaning: acquire resources in objects whose destructors release them (RAII, smart pointers) and exceptions cannot leak.</p><p>A few habits to keep. Catch by <code>const&amp;</code>. Order handlers from most specific to most general, because <code>catch (...)</code> catches anything. And never throw from a destructor. There are three levels of guarantee: basic (no leak), strong (all-or-nothing), and no-throw.</p><p>Here is the classic mistake: put a <code>catch (const base&amp;)</code> first and it swallows every derived type, hiding the specific handlers you wrote below it. So the derived exception types go before their base. Would you have spotted that?</p>",
       "worked": [
         {
           "toc": "Rule",
@@ -302,6 +327,12 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Acquire resources in objects whose destructors release them (RAII, smart pointers) so exceptions cannot leak.",
+        "Catch by const&, order handlers from most specific to most general, and never throw from a destructor.",
+        "Guarantee levels: basic (no leak), strong (all-or-nothing), no-throw.",
+        "Put derived exception types before their base, or the base handler swallows them."
       ]
     }
   ]

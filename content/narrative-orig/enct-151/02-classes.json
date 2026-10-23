@@ -1,0 +1,42 @@
+{
+  "title": "Classes, constructors and operator overloading",
+  "subtitle": "Put the data behind a wall and let the methods guard it.",
+  "sections": {
+    "cls": {
+      "title": "Defining a class",
+      "body": "<p>Members are <code>private</code> by default in a <code>class</code> (public in a <code>struct</code>). Keep data private and offer public methods: the class can then enforce rules (balance never negative) that raw data cannot. Watch the guard in action — the negative deposit is ignored.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ctor": {
+      "title": "Constructors and destructors",
+      "body": "<p>A constructor has the class name, no return type, and runs when an object is created — use it (and the initialiser list) to put the object in a valid state. A destructor <code>~Name()</code> runs when it is destroyed: close files, free memory. A <b>copy constructor</b> builds a new object from an existing one; if the class owns a raw pointer, copy the pointed data (deep copy), not just the pointer.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "this": {
+      "title": "this, static and const",
+      "body": "<p><code>this</code> is a pointer to the current object. A <code>static</code> member belongs to the class, shared by all objects (an instance counter). A <code>const</code> method promises not to change the object, so it can be called on const objects.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ovl": {
+      "title": "Operator overloading",
+      "body": "<p>C++ lets a class define what <code>+ - == &lt;&lt; []</code> mean for it: <code>Vec operator+(const Vec&amp; o) const</code> makes <code>a + b</code> work on vectors. Rules: you cannot invent new operators or change precedence; <code>:: . .* ?:</code> cannot be overloaded; keep the meaning intuitive. The expression <code>a + b</code> is just sugar for <code>a.operator+(b)</code>.</p>",
+      "after": "",
+      "steps": "Vec(1,2) + Vec(3,4), component-wise. Result."
+    },
+    "friend": {
+      "title": "Friends and stream operators",
+      "body": "<p>A <code>friend</code> function may touch private members. It is how <code>operator&lt;&lt;(ostream&amp;, const T&amp;)</code> is usually written — the left operand is the stream, not your class, so it cannot be a member. Return the stream to allow chaining: <code>cout &lt;&lt; a &lt;&lt; b</code>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "conv": {
+      "title": "Conversions",
+      "body": "<p>A one-argument constructor is an implicit conversion (mark it <code>explicit</code> to stop surprises). A conversion operator <code>operator double()</code> converts out. Use them sparingly: hidden conversions make code harder to read.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "subtitle": "Model the problem as things that have data and can do things, then let those things talk to each other.",
+  "sections": {
+    "idea": {
+      "body": "<p>Look around your room. You do not see “data” and “procedures”; you see things. A phone that holds a battery level and can ring. A kettle that holds a temperature and can boil. Object-oriented programming says: write programs the same way you see the world.</p><p>An <em class='term'>object</em> bundles <b>state</b> (data members) with <b>behaviour</b> (member functions). A <em class='term'>class</em> is the blueprint; objects are instances made from it, like houses built from one architect’s plan. And a program runs by objects sending each other messages, which is just a fancy name for calling methods. Look at the figure: one class, many independent objects. Change one and the others do not notice.</p>",
+      "keynotes": [
+        "An object bundles state (data members) with behaviour (member functions).",
+        "A class is the blueprint; objects are instances made from it.",
+        "Programs run by objects sending each other messages (calling methods)."
+      ]
+    },
+    "pillars": {
+      "body": "<p>People talk about four pillars holding up the whole idea of OOP. Here they are in one place; you will meet each of them properly in the coming chapters, so for now just get a feel for the names.</p><table><thead><tr><th>Pillar</th><th>Meaning</th></tr></thead><tbody><tr><td>Encapsulation</td><td>hide data; expose a small interface</td></tr><tr><td>Abstraction</td><td>show what, hide how</td></tr><tr><td>Inheritance</td><td>a new class reuses and extends another</td></tr><tr><td>Polymorphism</td><td>one call, different behaviour by object type</td></tr></tbody></table><p>Think of a car. You steer, accelerate and brake (a small interface), without knowing how the engine works inside (encapsulation and abstraction). Is making a data member private an example of encapsulation? You are about to see why.</p>",
+      "keynotes": [
+        "Encapsulation hides data and exposes a small interface; abstraction shows what and hides how.",
+        "Inheritance lets a new class reuse and extend another.",
+        "Polymorphism gives one call different behaviour by object type."
+      ]
+    },
+    "refs": {
+      "body": "<p>Remember how C needed pointers to let a function change your variable? C++ offers a gentler way: a <b>reference</b>, which is simply another name for an existing variable, as in <code>int &amp;r = x;</code>. A nickname, not a copy. Changing r changes x.</p><p>As a parameter it lets a function modify the caller’s variable without any pointer syntax, which is how the figure’s <code>inc</code> changes the caller’s n. It also avoids copying large objects, and if you do not want the function to alter anything, write <code>const T&amp;</code> to forbid changes. So how does passing by reference differ from passing by value? You can answer that now.</p>",
+      "keynotes": [
+        "A reference is another name for an existing variable: int &r = x;.",
+        "As a parameter it lets a function modify the caller’s variable without pointer syntax and avoids copying large objects.",
+        "Use const T& to forbid changes."
+      ]
+    },
+    "ovl": {
+      "body": "<p>Here is a small pleasure of C++: you may reuse a name. Functions with the same name but different parameter lists are <b>overloads</b>, and the compiler picks the right one from the argument types and count, entirely at compile time. One catch: return type alone cannot tell two functions apart.</p><p>Default arguments are a close cousin: <code>int add(int a, int b = 10)</code> lets a caller leave out trailing arguments. (A note for the lab: the DSA Lab’s interpreter is a teaching subset and does not resolve overloads or defaults faithfully, so these are explained here rather than run.) Can two functions differ only by return type? Think about how the compiler would choose.</p>",
+      "keynotes": [
+        "Functions with the same name but different parameter lists are overloads, chosen at compile time from the argument types and count.",
+        "Return type alone cannot distinguish overloads.",
+        "Default arguments such as int add(int a, int b = 10) let a caller omit trailing arguments."
+      ]
+    },
+    "mem": {
+      "body": "<p>Sometimes an object must outlive the function that made it, or you only learn how many you need while the program runs. For that there is the heap. <code>new</code> creates an object on the heap and returns its address; <code>delete</code> destroys it.</p><p>The golden rule, which will save you from leaks: pair them. Every <code>new</code> needs one <code>delete</code> (and <code>new[]</code> goes with <code>delete[]</code>). To see how much memory you ask for, take <code>new int[100]</code>: 100 ints of 4 bytes is 100 × 4 = 400 bytes. In modern C++ you can sidestep the whole problem by preferring smart pointers (<code>unique_ptr</code>), which clean up after themselves. Watch the heap cell created, changed and released in the figure.</p>",
+      "keynotes": [
+        "new creates an object on the heap and returns its address; delete destroys it.",
+        "Pair them: every new needs one delete (new[] with delete[]) or memory leaks.",
+        "new int[100] allocates 100 × 4 = 400 bytes.",
+        "Prefer smart pointers such as unique_ptr in modern C++."
+      ]
+    },
+    "cppc": {
+      "body": "<p>If you already know C, what does C++ actually hand you on top? Quite a lot: classes, references, overloading, templates, exceptions, the STL containers (<code>vector</code>, <code>map</code>, <code>string</code>), and stream I/O with <code>cin</code> and <code>cout</code>.</p><p>And one small quiet hero: namespaces, such as <code>std::</code>, which prevent name clashes, so your <code>sort</code> and the library’s <code>sort</code> never fight over the same name. You will use all of these before the course is out.</p>",
+      "keynotes": [
+        "C++ adds classes, references, overloading, templates, exceptions, STL containers and stream I/O.",
+        "STL containers include vector, map and string; streams are cin and cout.",
+        "Namespaces (std::) prevent name clashes."
+      ]
+    }
+  }
+}

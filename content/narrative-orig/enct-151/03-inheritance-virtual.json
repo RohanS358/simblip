@@ -1,0 +1,42 @@
+{
+  "title": "Inheritance and polymorphism",
+  "subtitle": "Reuse a class, specialise it, and let one call do the right thing for every kind of object.",
+  "sections": {
+    "inh": {
+      "title": "Inheritance",
+      "body": "<p><code>class Dog : public Animal</code> makes Dog a specialisation of Animal: it <b>inherits</b> Animal’s members and may add or replace some. Use it for “is-a” relationships (a Dog is an Animal); use <b>composition</b> (a member object) for “has-a” (a Car has an Engine). Public inheritance is the usual form; private members of the base stay inaccessible to the derived class, <code>protected</code> ones are visible.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "order": {
+      "title": "Constructor and destructor order",
+      "body": "<p>Creating a derived object runs the <b>base</b> constructor first, then the derived one; destruction is the reverse (derived destructor first, then base). The base part must exist before the derived part can rely on it.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "over": {
+      "title": "Overriding and hiding",
+      "body": "<p>A derived class can redefine a base method. Without <code>virtual</code> the version chosen depends on the <b>declared</b> (static) type of the pointer or reference; with <code>virtual</code> it depends on the <b>actual</b> object type. Multiple inheritance (several bases) is allowed but can cause the diamond problem; <code>virtual</code> base classes solve it.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "virt": {
+      "title": "Virtual functions and dynamic dispatch",
+      "body": "<p>Declare the base method <code>virtual</code> and the call through a base pointer runs the override of the <i>actual</i> object. Internally each object with virtual functions carries a hidden pointer (vptr) to its class’s table (vtable) of function addresses; the call looks up the slot at run time.</p>",
+      "after": "",
+      "steps": "Three objects in an Animal* array: Dog, Cat, Cow, each overriding speak(). One loop calling p[i]->speak() produces three different outputs — no if/else on type."
+    },
+    "abs": {
+      "title": "Abstract classes and virtual destructors",
+      "body": "<p>A <b>pure virtual</b> function (<code>virtual double area() = 0;</code>) has no body and makes the class abstract — it cannot be instantiated and acts as an interface that derived classes must implement. Always give a polymorphic base a <b>virtual destructor</b>, or <code>delete</code> through a base pointer skips the derived destructor and leaks.</p>",
+      "after": "",
+      "steps": "Shapes: Circle r = 2 (π = 3.14), Rect 3 × 5. Areas via one loop over Shape*: 3.14·2² = 12.56 and 15; total 27.56."
+    },
+    "rtti": {
+      "title": "Late binding cost and design tips",
+      "body": "<p>A virtual call costs one extra indirection and prevents inlining; it is negligible except in tight loops. Prefer small interfaces, favour composition over deep hierarchies, and mark overrides with <code>override</code> so the compiler catches signature mismatches.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

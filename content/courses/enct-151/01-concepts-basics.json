@@ -8,7 +8,7 @@
       "locator": "1.1",
       "title": "Objects and classes",
       "eyebrow": "The core idea",
-      "body": "<p>An <em class=\"term\">object</em> bundles <b>state</b> (data members) with <b>behaviour</b> (member functions). A <em class=\"term\">class</em> is the blueprint; objects are instances made from it. Programs run by objects sending each other messages (calling methods).</p>",
+      "body": "<p>Look around your room. You do not see “data” and “procedures”; you see things. A phone that holds a battery level and can ring. A kettle that holds a temperature and can boil. Object-oriented programming says: write programs the same way you see the world.</p><p>An <em class=\"term\">object</em> bundles <b>state</b> (data members) with <b>behaviour</b> (member functions). A <em class=\"term\">class</em> is the blueprint; objects are instances made from it, like houses built from one architect’s plan. And a program runs by objects sending each other messages, which is just a fancy name for calling methods. Look at the figure: one class, many independent objects. Change one and the others do not notice.</p>",
       "questions": [
         {
           "id": "obj",
@@ -48,6 +48,11 @@
           "note": "One class, many independent objects.",
           "script": "diagram(\"direction: right\\n{Account | balance : int | deposit(x) ; withdraw(x) ; get()} as a\\n{a1 : Account | balance = 150} as o1\\n{a2 : Account | balance = 40} as o2\\na -> o1 : instance\\na -> o2 : instance\");"
         }
+      ],
+      "keynotes": [
+        "An object bundles state (data members) with behaviour (member functions).",
+        "A class is the blueprint; objects are instances made from it.",
+        "Programs run by objects sending each other messages (calling methods)."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "1.2",
       "title": "The four pillars",
       "eyebrow": "What OOP gives you",
-      "body": "<table><thead><tr><th>Pillar</th><th>Meaning</th></tr></thead><tbody><tr><td>Encapsulation</td><td>hide data; expose a small interface</td></tr><tr><td>Abstraction</td><td>show what, hide how</td></tr><tr><td>Inheritance</td><td>a new class reuses and extends another</td></tr><tr><td>Polymorphism</td><td>one call, different behaviour by object type</td></tr></tbody></table>",
+      "body": "<p>People talk about four pillars holding up the whole idea of OOP. Here they are in one place; you will meet each of them properly in the coming chapters, so for now just get a feel for the names.</p><table><thead><tr><th>Pillar</th><th>Meaning</th></tr></thead><tbody><tr><td>Encapsulation</td><td>hide data; expose a small interface</td></tr><tr><td>Abstraction</td><td>show what, hide how</td></tr><tr><td>Inheritance</td><td>a new class reuses and extends another</td></tr><tr><td>Polymorphism</td><td>one call, different behaviour by object type</td></tr></tbody></table><p>Think of a car. You steer, accelerate and brake (a small interface), without knowing how the engine works inside (encapsulation and abstraction). Is making a data member private an example of encapsulation? You are about to see why.</p>",
       "questions": [
         {
           "id": "pill",
@@ -87,6 +92,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Encapsulation hides data and exposes a small interface; abstraction shows what and hides how.",
+        "Inheritance lets a new class reuse and extend another.",
+        "Polymorphism gives one call different behaviour by object type."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "2.1",
       "title": "References and pass-by-reference",
       "eyebrow": "An alias",
-      "body": "<p>A reference is another name for an existing variable: <code>int &amp;r = x;</code>. As a parameter it lets a function modify the caller’s variable without pointer syntax, and avoids copying large objects (use <code>const T&amp;</code> to forbid changes).</p>",
+      "body": "<p>Remember how C needed pointers to let a function change your variable? C++ offers a gentler way: a <b>reference</b>, which is simply another name for an existing variable, as in <code>int &amp;r = x;</code>. A nickname, not a copy. Changing r changes x.</p><p>As a parameter it lets a function modify the caller’s variable without any pointer syntax, which is how the figure’s <code>inc</code> changes the caller’s n. It also avoids copying large objects, and if you do not want the function to alter anything, write <code>const T&amp;</code> to forbid changes. So how does passing by reference differ from passing by value? You can answer that now.</p>",
       "questions": [
         {
           "id": "ref",
@@ -139,6 +149,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A reference is another name for an existing variable: int &r = x;.",
+        "As a parameter it lets a function modify the caller’s variable without pointer syntax and avoids copying large objects.",
+        "Use const T& to forbid changes."
       ]
     },
     {
@@ -146,7 +161,7 @@
       "locator": "2.2",
       "title": "Overloading and default arguments",
       "eyebrow": "Same name, different parameters",
-      "body": "<p>Functions with the same name but different parameter lists are <b>overloads</b>; the compiler picks by the argument types and count. Return type alone cannot distinguish them. Default arguments (<code>int add(int a, int b = 10)</code>) let a caller omit trailing arguments. (The DSA Lab’s interpreter is a teaching subset and does not resolve overloads or defaults faithfully, so these are explained here rather than run.)</p>",
+      "body": "<p>Here is a small pleasure of C++: you may reuse a name. Functions with the same name but different parameter lists are <b>overloads</b>, and the compiler picks the right one from the argument types and count, entirely at compile time. One catch: return type alone cannot tell two functions apart.</p><p>Default arguments are a close cousin: <code>int add(int a, int b = 10)</code> lets a caller leave out trailing arguments. (A note for the lab: the DSA Lab’s interpreter is a teaching subset and does not resolve overloads or defaults faithfully, so these are explained here rather than run.) Can two functions differ only by return type? Think about how the compiler would choose.</p>",
       "questions": [
         {
           "id": "ov",
@@ -186,6 +201,11 @@
           "note": "Resolved at compile time from the argument list.",
           "script": "diagram(\"mode: sequence\\n[Caller] as c\\n[Compiler] as k\\n[area(int s)] as a\\n[area(int w, int h)] as b\\nc -> k : area(4)\\nk -> a : one int argument\\nc -> k : area(3, 5)\\nk -> b : two int arguments\\n@0 c -> k : area(4)\\n@1 k -> a : one int argument\\n@2 c -> k : area(3, 5)\\n@3 k -> b : two int arguments\");"
         }
+      ],
+      "keynotes": [
+        "Functions with the same name but different parameter lists are overloads, chosen at compile time from the argument types and count.",
+        "Return type alone cannot distinguish overloads.",
+        "Default arguments such as int add(int a, int b = 10) let a caller omit trailing arguments."
       ]
     },
     {
@@ -193,7 +213,7 @@
       "locator": "2.3",
       "title": "Dynamic memory: new and delete",
       "eyebrow": "Heap objects",
-      "body": "<p><code>new</code> creates an object on the heap and returns its address; <code>delete</code> destroys it. Pair them: every <code>new</code> needs one <code>delete</code> (<code>new[]</code> with <code>delete[]</code>) or memory leaks. Prefer smart pointers (<code>unique_ptr</code>) in modern C++.</p>",
+      "body": "<p>Sometimes an object must outlive the function that made it, or you only learn how many you need while the program runs. For that there is the heap. <code>new</code> creates an object on the heap and returns its address; <code>delete</code> destroys it.</p><p>The golden rule, which will save you from leaks: pair them. Every <code>new</code> needs one <code>delete</code> (and <code>new[]</code> goes with <code>delete[]</code>). To see how much memory you ask for, take <code>new int[100]</code>: 100 ints of 4 bytes is 100 × 4 = 400 bytes. In modern C++ you can sidestep the whole problem by preferring smart pointers (<code>unique_ptr</code>), which clean up after themselves. Watch the heap cell created, changed and released in the figure.</p>",
       "worked": [
         {
           "toc": "Size",
@@ -257,6 +277,12 @@
           "prompt": "<p>How many bytes does <code>new double[25]</code> request (8-byte doubles)?</p>",
           "answer": "25 × 8 = <b>200 bytes</b>."
         }
+      ],
+      "keynotes": [
+        "new creates an object on the heap and returns its address; delete destroys it.",
+        "Pair them: every new needs one delete (new[] with delete[]) or memory leaks.",
+        "new int[100] allocates 100 × 4 = 400 bytes.",
+        "Prefer smart pointers such as unique_ptr in modern C++."
       ]
     },
     {
@@ -264,7 +290,7 @@
       "locator": "2.4",
       "title": "C++ over C",
       "eyebrow": "What changed",
-      "body": "<p>C++ adds classes, references, overloading, templates, exceptions, the STL containers (<code>vector</code>, <code>map</code>, <code>string</code>), and stream I/O (<code>cin</code>, <code>cout</code>). Namespaces (<code>std::</code>) prevent name clashes.</p>",
+      "body": "<p>If you already know C, what does C++ actually hand you on top? Quite a lot: classes, references, overloading, templates, exceptions, the STL containers (<code>vector</code>, <code>map</code>, <code>string</code>), and stream I/O with <code>cin</code> and <code>cout</code>.</p><p>And one small quiet hero: namespaces, such as <code>std::</code>, which prevent name clashes, so your <code>sort</code> and the library’s <code>sort</code> never fight over the same name. You will use all of these before the course is out.</p>",
       "questions": [
         {
           "id": "ns",
@@ -296,6 +322,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "C++ adds classes, references, overloading, templates, exceptions, STL containers and stream I/O.",
+        "STL containers include vector, map and string; streams are cin and cout.",
+        "Namespaces (std::) prevent name clashes."
       ]
     }
   ]

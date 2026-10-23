@@ -1,0 +1,52 @@
+{
+  "subtitle": "Reuse a class, specialise it, and let one call do the right thing for every kind of object.",
+  "sections": {
+    "inh": {
+      "body": "<p>A dog is an animal. A circle is a shape. Whenever you can say “X is a Y” and mean it, inheritance is calling. <code>class Dog : public Animal</code> makes Dog a specialisation of Animal: it <b>inherits</b> Animal’s members and may add or replace some. In the figure the arrows point from the specialised class to the general one.</p><p>But a car is <i>not</i> an engine; a car <i>has</i> an engine. For “has-a” use <b>composition</b>, a member object. This distinction trips up many students, so try the test: say it aloud. “A Car is an Engine” sounds wrong, so it is composition. Last detail: public inheritance is the usual form; the base’s private members stay inaccessible to the derived class, while <code>protected</code> ones are visible.</p>",
+      "keynotes": [
+        "class Dog : public Animal makes Dog inherit Animal’s members and add or replace some.",
+        "Use inheritance for is-a (a Dog is an Animal) and composition, a member object, for has-a (a Car has an Engine).",
+        "Private base members stay inaccessible to the derived class; protected ones are visible."
+      ]
+    },
+    "order": {
+      "body": "<p>Think about building a house: the foundation goes in before the walls, and when you demolish it, the walls come down before the foundation. Objects follow the same common sense.</p><p>Creating a derived object runs the <b>base</b> constructor first, then the derived one. Destruction is the reverse: the derived destructor first, then the base. The base part must exist before the derived part can rely on it. The figure shows it: build from the foundation up, tear down in reverse.</p>",
+      "keynotes": [
+        "Creating a derived object runs the base constructor first, then the derived one.",
+        "Destruction is the reverse: derived destructor first, then base."
+      ]
+    },
+    "over": {
+      "body": "<p>A derived class can redefine a base method, and here lies a subtle trap. Suppose you hold a pointer of type <code>Animal*</code> that really points to a Dog, and call <code>speak()</code>. Which one runs? Without <code>virtual</code>, the version chosen depends on the <b>declared</b> (static) type of the pointer or reference, so you hear the generic Animal. With <code>virtual</code> it depends on the <b>actual</b> object type, and the Dog barks.</p><p>One more thing to know: multiple inheritance (several bases) is allowed, but it can cause the diamond problem, where a shared base appears twice. <code>virtual</code> base classes solve it.</p>",
+      "keynotes": [
+        "Without virtual, the version called depends on the declared (static) type of the pointer or reference.",
+        "With virtual, it depends on the actual object type.",
+        "Multiple inheritance can cause the diamond problem; virtual base classes solve it."
+      ]
+    },
+    "virt": {
+      "body": "<p>This is the section that makes OOP click for you. Declare the base method <code>virtual</code> and a call through a base pointer runs the override of the <i>actual</i> object. How is the magic done? Each object with virtual functions carries a hidden pointer (vptr) to its class’s table (vtable) of function addresses, and the call looks up the slot at run time. In the figure the vtable sends the call to Dog::speak, and Animal::speak is never used.</p><p>Here is the payoff. Put three objects in an Animal* array: Dog, Cat, Cow, each overriding speak(). One loop calling <code>p[i]-&gt;speak()</code> produces three different outputs, with no if/else on type. Add a fourth animal tomorrow and the loop does not change. That is polymorphism: one call, many behaviours.</p>",
+      "keynotes": [
+        "Declare the base method virtual and a call through a base pointer runs the override of the actual object.",
+        "Each object with virtual functions carries a hidden vptr to its class’s vtable of function addresses, looked up at run time.",
+        "One loop over an Animal* array of Dog, Cat and Cow gives three different outputs with no if/else on type."
+      ]
+    },
+    "abs": {
+      "body": "<p>What does an abstract “Shape” look like? You cannot draw a generic shape, only a circle or a rectangle. A <b>pure virtual</b> function (<code>virtual double area() = 0;</code>) has no body and makes the class abstract: it cannot be instantiated, and it acts as an interface that derived classes must implement. Each concrete shape supplies its own area().</p><p>Let’s total some: a Circle with r = 2 (π = 3.14) and a Rect 3 × 5. One loop over Shape* gives 3.14·2² = 12.56 and 15, and the total is 27.56. One final warning: always give a polymorphic base a <b>virtual destructor</b>, or <code>delete</code> through a base pointer skips the derived destructor and leaks.</p>",
+      "keynotes": [
+        "A pure virtual function (virtual double area() = 0;) has no body and makes the class abstract: it cannot be instantiated and acts as an interface.",
+        "Always give a polymorphic base a virtual destructor, or delete through a base pointer skips the derived destructor and leaks.",
+        "A Circle with r = 2 (π = 3.14) and a Rect 3 × 5 give areas 12.56 and 15, a total of 27.56."
+      ]
+    },
+    "rtti": {
+      "body": "<p>Does all this magic cost something? A little. A virtual call costs one extra indirection and prevents inlining, which is negligible except in tight loops. So don’t fear virtual functions.</p><p>Some design tips from experience: prefer small interfaces, favour composition over deep hierarchies, and mark overrides with <code>override</code> so the compiler catches signature mismatches. Typo in the name? The compiler tells you instead of silently creating a new function.</p>",
+      "keynotes": [
+        "A virtual call costs one extra indirection and prevents inlining, which is negligible except in tight loops.",
+        "Prefer small interfaces and favour composition over deep hierarchies.",
+        "Mark overrides with override so the compiler catches signature mismatches."
+      ]
+    }
+  }
+}

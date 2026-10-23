@@ -1,0 +1,42 @@
+{
+  "title": "Streams, templates and exceptions",
+  "subtitle": "Generic code that works for any type, input/output as flowing streams, and errors that jump to where they can be handled.",
+  "sections": {
+    "stream": {
+      "title": "Streams",
+      "body": "<p>A stream is a sequence of characters flowing between a program and a device. <code>cin</code> (input), <code>cout</code> (output), <code>cerr</code> (errors). <code>&lt;&lt;</code> inserts, <code>&gt;&gt;</code> extracts, and both chain. The stream classes form a hierarchy: <code>ios</code> → <code>istream</code>/<code>ostream</code> → <code>ifstream</code>/<code>ofstream</code> (files) and <code>stringstream</code> (strings).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "fmt": {
+      "title": "Formatting and file I/O",
+      "body": "<p>Manipulators format output: <code>setw(6)</code> width, <code>setprecision(2)</code> with <code>fixed</code>, <code>endl</code> newline-and-flush. Files: <code>ofstream f(\"a.txt\"); f &lt;&lt; 42;</code> — the destructor closes it (RAII). Check <code>if (!f)</code> after opening.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "tmpl": {
+      "title": "Function templates",
+      "body": "<p><code>template &lt;typename T&gt; T maxOf(T a, T b) { return a &gt; b ? a : b; }</code> is a recipe; when you call <code>maxOf(3, 9)</code> the compiler <b>instantiates</b> a version with T = int, and <code>maxOf(2.5, 1.5)</code> another with T = double. One source, many type-specific functions, all checked at compile time with no run-time cost. The type must support the operations used (here <code>&gt;</code>).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ctmpl": {
+      "title": "Class templates and the STL",
+      "body": "<p><code>template &lt;class T&gt; class Stack { T data[100]; int top; … };</code> gives <code>Stack&lt;int&gt;</code>, <code>Stack&lt;string&gt;</code>. The Standard Template Library supplies containers (<code>vector</code>, <code>list</code>, <code>map</code>, <code>set</code>), iterators and algorithms (<code>sort</code>, <code>find</code>) all built from templates.</p>",
+      "after": "",
+      "steps": "vector<int> v = {5, 2, 9}; sort(v.begin(), v.end()); Result order."
+    },
+    "exc": {
+      "title": "Exceptions: throw, try, catch",
+      "body": "<p>When a function cannot continue, it <code>throw</code>s an object. The runtime unwinds the call stack, destroying locals on the way, until it finds a matching <code>catch</code>. If none is found the program terminates. <code>try { risky(); } catch (const runtime_error&amp; e) { … }</code>. Use exceptions for exceptional conditions, not ordinary control flow.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "safe": {
+      "title": "Exception safety",
+      "body": "<p>Acquire resources in objects whose destructors release them (RAII, smart pointers) and exceptions cannot leak. Catch by <code>const&amp;</code>, order handlers from most specific to most general, <code>catch (...)</code> catches anything, and never throw from a destructor. Levels of guarantee: basic (no leak), strong (all-or-nothing), no-throw.</p>",
+      "after": "",
+      "steps": "Order catch blocks: derived exception types before their base. catch (const base&) first would swallow every derived type, hiding the specific handlers."
+    }
+  }
+}

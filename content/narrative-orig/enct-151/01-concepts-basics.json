@@ -1,0 +1,42 @@
+{
+  "title": "Objects, classes and the C++ basics",
+  "subtitle": "Model the problem as things that have data and can do things, then let those things talk to each other.",
+  "sections": {
+    "idea": {
+      "title": "Objects and classes",
+      "body": "<p>An <em class=\"term\">object</em> bundles <b>state</b> (data members) with <b>behaviour</b> (member functions). A <em class=\"term\">class</em> is the blueprint; objects are instances made from it. Programs run by objects sending each other messages (calling methods).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "pillars": {
+      "title": "The four pillars",
+      "body": "<table><thead><tr><th>Pillar</th><th>Meaning</th></tr></thead><tbody><tr><td>Encapsulation</td><td>hide data; expose a small interface</td></tr><tr><td>Abstraction</td><td>show what, hide how</td></tr><tr><td>Inheritance</td><td>a new class reuses and extends another</td></tr><tr><td>Polymorphism</td><td>one call, different behaviour by object type</td></tr></tbody></table>",
+      "after": "",
+      "steps": ""
+    },
+    "refs": {
+      "title": "References and pass-by-reference",
+      "body": "<p>A reference is another name for an existing variable: <code>int &amp;r = x;</code>. As a parameter it lets a function modify the caller’s variable without pointer syntax, and avoids copying large objects (use <code>const T&amp;</code> to forbid changes).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ovl": {
+      "title": "Overloading and default arguments",
+      "body": "<p>Functions with the same name but different parameter lists are <b>overloads</b>; the compiler picks by the argument types and count. Return type alone cannot distinguish them. Default arguments (<code>int add(int a, int b = 10)</code>) let a caller omit trailing arguments. (The DSA Lab’s interpreter is a teaching subset and does not resolve overloads or defaults faithfully, so these are explained here rather than run.)</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mem": {
+      "title": "Dynamic memory: new and delete",
+      "body": "<p><code>new</code> creates an object on the heap and returns its address; <code>delete</code> destroys it. Pair them: every <code>new</code> needs one <code>delete</code> (<code>new[]</code> with <code>delete[]</code>) or memory leaks. Prefer smart pointers (<code>unique_ptr</code>) in modern C++.</p>",
+      "after": "",
+      "steps": "new int[100] allocates 100 ints of 4 bytes. Bytes requested."
+    },
+    "cppc": {
+      "title": "C++ over C",
+      "body": "<p>C++ adds classes, references, overloading, templates, exceptions, the STL containers (<code>vector</code>, <code>map</code>, <code>string</code>), and stream I/O (<code>cin</code>, <code>cout</code>). Namespaces (<code>std::</code>) prevent name clashes.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

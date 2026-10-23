@@ -8,7 +8,7 @@
       "locator": "3.1",
       "title": "Defining a class",
       "eyebrow": "Data + methods",
-      "body": "<p>Members are <code>private</code> by default in a <code>class</code> (public in a <code>struct</code>). Keep data private and offer public methods: the class can then enforce rules (balance never negative) that raw data cannot. Watch the guard in action — the negative deposit is ignored.</p>",
+      "body": "<p>Imagine a bank account where anyone can walk up and write any number into the balance. Disaster! A class lets you put the balance behind a wall and give out only a teller’s window.</p><p>Members are <code>private</code> by default in a <code>class</code> (public in a <code>struct</code>). Keep data private and offer public methods, and the class can enforce rules that raw data cannot, such as “the balance never goes negative”. Watch the guard in action in the figure: the negative deposit is simply ignored, and the balance never changes. That is encapsulation, doing its job. Why do you think we keep data members private? The figure just answered it.</p>",
       "questions": [
         {
           "id": "priv",
@@ -53,6 +53,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Members are private by default in a class (public in a struct).",
+        "Keep data private and offer public methods so the class can enforce rules such as a balance never going negative.",
+        "In the example the invalid negative deposit is ignored."
       ]
     },
     {
@@ -60,7 +65,7 @@
       "locator": "3.2",
       "title": "Constructors and destructors",
       "eyebrow": "Birth and death",
-      "body": "<p>A constructor has the class name, no return type, and runs when an object is created — use it (and the initialiser list) to put the object in a valid state. A destructor <code>~Name()</code> runs when it is destroyed: close files, free memory. A <b>copy constructor</b> builds a new object from an existing one; if the class owns a raw pointer, copy the pointed data (deep copy), not just the pointer.</p>",
+      "body": "<p>Every object has a life story: it is born, it lives, it dies. A <b>constructor</b> handles the birth. It has the class name, no return type, and runs when the object is created. Use it, and the initialiser list, to put the object in a valid state from its very first moment.</p><p>A destructor, written <code>~Name()</code>, handles the death: it runs when the object is destroyed, so close files and free memory there. And the <b>copy constructor</b> builds a new object from an existing one. Watch out: if your class owns a raw pointer, copy the pointed data (a deep copy), not just the pointer, or two objects will fight over the same memory. The figure shows the pattern called RAII: acquire in the constructor, release in the destructor.</p>",
       "questions": [
         {
           "id": "dtor",
@@ -100,6 +105,11 @@
           "note": "RAII: acquire in the constructor, release in the destructor.",
           "script": "diagram(\"mode: sequence\\n[main] as m\\n[Resource object] as r\\nm -> r : construct (acquire)\\nr -> r : use\\nm -> r : scope ends\\nr -> m : destructor runs (release)\\n@0 m -> r : construct (acquire)\\n@1 r -> r : use\\n@2 m -> r : scope ends\\n@3 r -> m : destructor runs (release)\");"
         }
+      ],
+      "keynotes": [
+        "A constructor has the class name, no return type, and runs on creation; use it and the initialiser list to reach a valid state.",
+        "A destructor ~Name() runs on destruction: close files, free memory.",
+        "A copy constructor builds a new object from an existing one; for a raw pointer, make a deep copy."
       ]
     },
     {
@@ -107,7 +117,7 @@
       "locator": "3.3",
       "title": "this, static and const",
       "eyebrow": "Finer points",
-      "body": "<p><code>this</code> is a pointer to the current object. A <code>static</code> member belongs to the class, shared by all objects (an instance counter). A <code>const</code> method promises not to change the object, so it can be called on const objects.</p>",
+      "body": "<p>Three small keywords, three finer points. Inside a method, how does an object refer to itself? Through <code>this</code>, a pointer to the current object. In the figure, <code>this-&gt;x</code> is the member, while plain x is the parameter that happens to share its name.</p><p>A <code>static</code> member belongs to the class, not to any object, so all objects share it, which makes it perfect for an instance counter. And a <code>const</code> method promises not to change the object, so it can be called even on const objects. Make a habit of marking every method that only reads with <code>const</code>.</p>",
       "questions": [
         {
           "id": "st",
@@ -152,6 +162,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "this is a pointer to the current object.",
+        "A static member belongs to the class and is shared by all objects, such as an instance counter.",
+        "A const method promises not to change the object, so it can be called on const objects."
       ]
     },
     {
@@ -159,7 +174,7 @@
       "locator": "4.1",
       "title": "Operator overloading",
       "eyebrow": "Natural syntax for new types",
-      "body": "<p>C++ lets a class define what <code>+ - == &lt;&lt; []</code> mean for it: <code>Vec operator+(const Vec&amp; o) const</code> makes <code>a + b</code> work on vectors. Rules: you cannot invent new operators or change precedence; <code>:: . .* ?:</code> cannot be overloaded; keep the meaning intuitive. The expression <code>a + b</code> is just sugar for <code>a.operator+(b)</code>.</p>",
+      "body": "<p>Wouldn’t it be lovely to write <code>a + b</code> for two vectors, exactly as you would for numbers? C++ lets a class decide what <code>+ - == &lt;&lt; []</code> mean for it: <code>Vec operator+(const Vec&amp; o) const</code> makes <code>a + b</code> work on vectors. Underneath, the expression <code>a + b</code> is just sugar for <code>a.operator+(b)</code>, an ordinary method call in disguise.</p><p>Do it by hand: Vec(1,2) + Vec(3,4), component-wise, is (1+3, 2+4) = (4,6). But keep the rules in mind. You cannot invent new operators or change precedence, <code>:: . .* ?:</code> cannot be overloaded, and the meaning should stay intuitive. Overloading + to subtract would be legal and cruel.</p>",
       "worked": [
         {
           "toc": "Rule",
@@ -218,6 +233,12 @@
           "prompt": "<p>Complex(2,3) + Complex(1,−5) with operator+ adding parts. Result?</p>",
           "answer": "<b>(3, −2)</b>."
         }
+      ],
+      "keynotes": [
+        "A class can define what + - == << [] mean for it, as in Vec operator+(const Vec& o) const.",
+        "a + b is sugar for a.operator+(b).",
+        "You cannot invent new operators or change precedence, and :: . .* ?: cannot be overloaded.",
+        "Vec(1,2) + Vec(3,4) = (4,6)."
       ]
     },
     {
@@ -225,7 +246,7 @@
       "locator": "4.2",
       "title": "Friends and stream operators",
       "eyebrow": "Outside but trusted",
-      "body": "<p>A <code>friend</code> function may touch private members. It is how <code>operator&lt;&lt;(ostream&amp;, const T&amp;)</code> is usually written — the left operand is the stream, not your class, so it cannot be a member. Return the stream to allow chaining: <code>cout &lt;&lt; a &lt;&lt; b</code>.</p>",
+      "body": "<p>Sometimes you want an outsider to be trusted with your private things, like giving a neighbour a spare key. A <code>friend</code> function may touch private members. The best-known use is <code>operator&lt;&lt;(ostream&amp;, const T&amp;)</code> for printing. Why can’t it be a member? Because the left operand is the stream, not your class.</p><p>One detail makes it shine: return the stream, and chaining works, so <code>cout &lt;&lt; a &lt;&lt; b</code> just flows left to right.</p>",
       "questions": [
         {
           "id": "fr",
@@ -257,6 +278,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A friend function may touch private members.",
+        "operator<<(ostream&, const T&) is usually a non-member friend because the left operand is the stream.",
+        "Return the stream to allow chaining: cout << a << b."
       ]
     },
     {
@@ -264,7 +290,7 @@
       "locator": "4.3",
       "title": "Conversions",
       "eyebrow": "Between types",
-      "body": "<p>A one-argument constructor is an implicit conversion (mark it <code>explicit</code> to stop surprises). A conversion operator <code>operator double()</code> converts out. Use them sparingly: hidden conversions make code harder to read.</p>",
+      "body": "<p>C++ will sometimes change a value from one type to another quietly, and you can teach your own classes to do it. A one-argument constructor is an implicit conversion, so mark it <code>explicit</code> to stop surprises. A conversion operator such as <code>operator double()</code> converts out of the class.</p><p>A word of friendly advice: use these sparingly. Hidden conversions make code harder to read, and you will thank yourself later for making them explicit.</p>",
       "questions": [
         {
           "id": "ex",
@@ -296,6 +322,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A one-argument constructor is an implicit conversion; mark it explicit to stop surprises.",
+        "A conversion operator such as operator double() converts out of the class.",
+        "Use conversions sparingly because hidden conversions make code harder to read."
       ]
     }
   ]

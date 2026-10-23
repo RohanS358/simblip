@@ -1,0 +1,54 @@
+{
+  "subtitle": "Generic code that works for any type, input/output as flowing streams, and errors that jump to where they can be handled.",
+  "sections": {
+    "stream": {
+      "body": "<p>Think of a stream as a river of characters between your program and the outside world. You stand on the bank and either drop things in or fish things out. <code>cin</code> is the input stream, <code>cout</code> the output, and <code>cerr</code> the one for errors. <code>&lt;&lt;</code> inserts, <code>&gt;&gt;</code> extracts, and both chain.</p><p>The stream classes form a family tree: <code>ios</code> → <code>istream</code>/<code>ostream</code> → <code>ifstream</code>/<code>ofstream</code> (files) and <code>stringstream</code> (strings). In the figure, file streams specialise the console streams, which is inheritance from the last chapter doing real work. So ifstream is derived from which class? Read the tree.</p>",
+      "keynotes": [
+        "A stream is a sequence of characters flowing between a program and a device: cin (input), cout (output), cerr (errors).",
+        "<< inserts and >> extracts, and both chain.",
+        "The hierarchy is ios → istream/ostream → ifstream/ofstream (files) and stringstream (strings)."
+      ]
+    },
+    "fmt": {
+      "body": "<p>Raw output is plain; manipulators dress it up. <code>setw(6)</code> sets the width, <code>setprecision(2)</code> with <code>fixed</code> sets decimals, and <code>endl</code> gives a newline and flushes.</p><p>Files work the same way: <code>ofstream f(\"a.txt\"); f &lt;&lt; 42;</code>. The destructor closes the file for you, which is RAII again, and you should check <code>if (!f)</code> after opening. As the figure shows, insertion operators chain left to right. Why can <code>cout &lt;&lt; a &lt;&lt; b</code> chain? Because each << returns the stream.</p>",
+      "keynotes": [
+        "Manipulators format output: setw(6) width, setprecision(2) with fixed, endl newline-and-flush.",
+        "ofstream f(\"a.txt\"); f << 42; writes to a file, and the destructor closes it (RAII).",
+        "Check if (!f) after opening."
+      ]
+    },
+    "tmpl": {
+      "body": "<p>Suppose you wrote a function to find the larger of two ints, then needed it for doubles, then strings. Copy and paste three times? No. A template is a recipe the compiler follows for you: <code>template &lt;typename T&gt; T maxOf(T a, T b) { return a &gt; b ? a : b; }</code>.</p><p>When you call <code>maxOf(3, 9)</code> the compiler <b>instantiates</b> a version with T = int, and <code>maxOf(2.5, 1.5)</code> another with T = double. One source, many type-specific functions, all checked at compile time with no run-time cost. The only requirement is that the type must support the operations used (here <code>&gt;</code>). Until it is used, the template is only a recipe, as the figure says.</p>",
+      "keynotes": [
+        "A function template is a recipe: template <typename T> T maxOf(T a, T b).",
+        "The compiler instantiates a version for each type used: maxOf(3, 9) with T = int, maxOf(2.5, 1.5) with T = double.",
+        "It is checked at compile time with no run-time cost, and the type must support the operations used."
+      ]
+    },
+    "ctmpl": {
+      "body": "<p>The same idea works for whole classes. <code>template &lt;class T&gt; class Stack { T data[100]; int top; … };</code> gives you <code>Stack&lt;int&gt;</code> and <code>Stack&lt;string&gt;</code> from one definition.</p><p>The Standard Template Library is this idea taken to its limit: containers (<code>vector</code>, <code>list</code>, <code>map</code>, <code>set</code>), iterators and algorithms (<code>sort</code>, <code>find</code>), all built from templates. Try it: <code>vector&lt;int&gt; v = {5, 2, 9}; sort(v.begin(), v.end());</code> leaves the order 2, 5, 9. Three lines, no loops written by you.</p>",
+      "keynotes": [
+        "A class template such as Stack<T> gives Stack<int> and Stack<string> from one definition.",
+        "The STL supplies containers (vector, list, map, set), iterators and algorithms (sort, find), all built from templates.",
+        "sort on {5, 2, 9} gives the order 2, 5, 9."
+      ]
+    },
+    "exc": {
+      "body": "<p>What should a function do when it simply cannot go on, say it was asked to open a file that does not exist? Return a magic code and hope everyone checks it? Exceptions offer something better, and you will like it: the function <code>throw</code>s an object and the runtime unwinds the call stack, destroying locals on the way, until it finds a matching <code>catch</code>. If none is found the program terminates.</p><p>Look at the figure: control leaps straight to the handler, and the in-between functions never resume. The shape is <code>try { risky(); } catch (const runtime_error&amp; e) { … }</code>. One sensible rule: use exceptions for exceptional conditions, not ordinary control flow. And what happens to local objects while the exception propagates? They are properly destroyed.</p>",
+      "keynotes": [
+        "A function that cannot continue throws an object; the runtime unwinds the call stack, destroying locals, until it finds a matching catch.",
+        "If no handler is found the program terminates.",
+        "Use exceptions for exceptional conditions, not ordinary control flow."
+      ]
+    },
+    "safe": {
+      "body": "<p>How do you write code that survives errors without turning every function into a minefield of cleanup? Let objects do the cleaning: acquire resources in objects whose destructors release them (RAII, smart pointers) and exceptions cannot leak.</p><p>A few habits to keep. Catch by <code>const&amp;</code>. Order handlers from most specific to most general, because <code>catch (...)</code> catches anything. And never throw from a destructor. There are three levels of guarantee: basic (no leak), strong (all-or-nothing), and no-throw.</p><p>Here is the classic mistake: put a <code>catch (const base&amp;)</code> first and it swallows every derived type, hiding the specific handlers you wrote below it. So the derived exception types go before their base. Would you have spotted that?</p>",
+      "keynotes": [
+        "Acquire resources in objects whose destructors release them (RAII, smart pointers) so exceptions cannot leak.",
+        "Catch by const&, order handlers from most specific to most general, and never throw from a destructor.",
+        "Guarantee levels: basic (no leak), strong (all-or-nothing), no-throw.",
+        "Put derived exception types before their base, or the base handler swallows them."
+      ]
+    }
+  }
+}
