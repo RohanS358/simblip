@@ -1,0 +1,54 @@
+{
+  "subtitle": "Forget “thinking machines”. An agent senses, decides and acts, and everything in AI is a way of making that decision better.",
+  "sections": {
+    "what": {
+      "body": "<p>Let’s start with a question that sounds easy and isn’t: what <i>is</i> artificial intelligence? Ask four people and you will get four answers, and funnily enough, the field itself has settled on four too. AI has been defined as systems that <b>think like humans</b>, systems that <b>act like humans</b> (that is the famous Turing test), systems that <b>think rationally</b> (the world of logic), and systems that <b>act rationally</b>.</p><p>Here is the twist that makes the rest of this course possible: the last one is the working definition. Forget whether a machine <i>feels</i> clever; ask whether it does the right thing. A <em class='term'>rational agent</em> does whatever is expected to maximise its performance measure, given what it has perceived. No mind-reading and no consciousness required. Just: given what you know, make the best choice you can.</p><p>Where did all this come from? From everywhere. Philosophy, mathematics, psychology, neuroscience, linguistics and computer engineering all poured into it, and the field was given its name in 1956 at Dartmouth. Not bad for a discipline that began with a handful of people in a room asking, “what if machines could do that?”</p>",
+      "keynotes": [
+        "AI has been defined four ways: thinking like humans, acting like humans (the Turing test), thinking rationally and acting rationally.",
+        "The working definition is acting rationally: a rational agent maximises its performance measure given what it has perceived.",
+        "AI draws on philosophy, mathematics, psychology, neuroscience, linguistics and computer engineering, and was named in 1956 (Dartmouth)."
+      ]
+    },
+    "agent": {
+      "body": "<p>Here is the one picture to keep in your head for the entire course. Imagine a thermostat in your hallway, a robot vacuum under your sofa, and a chess program on your laptop. They look nothing alike, and yet they are all the same kind of thing.</p><p>An <em class='term'>agent</em> perceives its <em class='term'>environment</em> through sensors and acts on it through actuators. That is all there is to it. Mathematically, its behaviour is a mapping from everything it has perceived so far (the <i>percept history</i>) to an action. The thermostat’s sensor is a thermometer and its actuator is the heating switch; the vacuum has bump sensors and wheels; the chess program “sees” the board and “acts” by moving a piece.</p><p>Press Simulate on the figure and watch the loop turn: perceive, decide, act… perceive, decide, act. From now on, whenever you hear “AI” in the news, try to find that loop hiding inside it. It is always there.</p>",
+      "keynotes": [
+        "An agent perceives its environment through sensors and acts on it through actuators.",
+        "Its behaviour is a mapping from the percept history to an action.",
+        "A thermostat, a robot vacuum and a chess program all fit the agent model."
+      ]
+    },
+    "types": {
+      "body": "<p>Not all agents are equally smart, and the differences form a ladder, each rung adding one ingredient. Let’s climb it together using the humble vacuum cleaner.</p><p>At the bottom is the <em class='term'>simple reflex</em> agent: condition–action rules on the current percept only. “If the floor is dirty, suck.” Fast, cheap, and a bit dim, because it has no memory. Climb one rung and you meet the <em class='term'>model-based reflex</em> agent, which keeps internal state about the parts of the world it cannot see right now (“I already cleaned the kitchen”). Next comes the <em class='term'>goal-based</em> agent, which chooses actions because they lead to a goal, and that means it needs search and planning.</p><p>Then something interesting happens. Goals are yes-or-no: you got there, or you didn’t. But life is full of trade-offs. A <em class='term'>utility-based</em> agent maximises a measure of how <i>good</i> an outcome is, so it can pick the quick-but-risky route over the slow-but-safe one when that is truly better. And at the top of the ladder sit <em class='term'>learning</em> agents, which improve from experience using a critic (“that went badly”) and a learning element (“then do this next time”).</p><p>Every type adds exactly one ingredient. Which one would you need to build a taxi that weighs speed against safety? Hold that thought for the question below.</p>",
+      "keynotes": [
+        "Simple reflex agents use condition–action rules on the current percept; model-based reflex agents also keep internal state about what they cannot see.",
+        "Goal-based agents choose actions that reach a goal, which needs search and planning.",
+        "Utility-based agents maximise a measure of how good outcomes are, so they can handle trade-offs.",
+        "Learning agents improve from experience using a critic and a learning element."
+      ]
+    },
+    "env": {
+      "body": "<p>Why is a chess program so much easier to build than a self-driving car? It is the same agent loop in two wildly different worlds. The trick is to describe the world along a few dimensions, because each one changes what kind of agent you need.</p><p>Is the environment fully or partially <em class='term'>observable</em>: can the agent see everything that matters? Is it <em class='term'>deterministic</em> or stochastic: does an action always have the same effect, or is there dice-rolling in the world? Is it <em class='term'>episodic</em> or sequential: do today’s choices affect tomorrow’s? Is it <em class='term'>static</em> or dynamic: does the world wait politely while the agent thinks? Is it <em class='term'>discrete</em> or continuous? And is the agent alone, or among other agents?</p><p>Now score our two examples. Chess is fully observable, deterministic, sequential, static, discrete, and has two agents. Pleasant! Driving is partially observable (that truck hides the junction), stochastic (the child might run out), dynamic (the world does <i>not</i> wait) and continuous: much harder. That is why one problem was cracked decades ago and the other is still being fought over. Does that match your intuition about which job is harder?</p>",
+      "keynotes": [
+        "Environments differ along dimensions: observable or partially observable, deterministic or stochastic, episodic or sequential, static or dynamic, discrete or continuous, single or multi-agent.",
+        "Chess is fully observable, deterministic, sequential, static, discrete and has two agents.",
+        "Driving is partially observable, stochastic, dynamic and continuous, which makes it much harder."
+      ]
+    },
+    "agentic": {
+      "body": "<p>Here is something that should feel strangely familiar. The latest wave of AI, language-model “agents”, runs on exactly the loop we have been studying. It <b>perceives</b>: it reads a goal and the outputs of its tools. It <b>decides</b>: it plans a step. It <b>acts</b>: it calls a tool or runs some code. Then it observes what happened, and the loop turns again.</p><p>New hardware, old idea. And that means the old vocabulary still works, and it asks sharp questions. What is the performance measure: what does “doing well” actually mean here? What can this agent observe, and what is hidden from it? And the uncomfortable one: what happens when the model’s picture of the world is wrong, and it carries on acting confidently anyway? A fresh technology doesn’t excuse you from the classic questions. If anything, it makes them more important.</p>",
+      "keynotes": [
+        "Language-model agents use the same loop: perceive (read a goal and tool outputs), decide (plan a step), act (call a tool or run code), observe.",
+        "A new technology is no excuse to skip the classic questions: what is the performance measure, and what can the agent observe?",
+        "The classic questions still apply: the performance measure, what is observable, and what happens when the world model is wrong."
+      ]
+    },
+    "knowledge": {
+      "body": "<p>Strip away the buzzwords and ask where intelligence actually <i>comes from</i>. There are two ingredients: knowledge (facts and rules, represented so that a program can use them) and the ability to learn that knowledge in the first place.</p><p>There have historically been two camps. Symbolic AI encodes knowledge by hand: experts write the rules down. Machine learning goes the other way and extracts it from data. Today the two are blended in modern systems, and the rest of this course follows that split: first search and logic, then learning.</p><p>Feel the difference with a number. An expert system might have 500 hand-written rules; a neural network might have 10⁶ weights learned from examples. The rules you can read aloud and argue with, but writing them is slow and tiring. The weights are cheap to acquire but nearly impossible to explain. Neither wins outright, and knowing when to reach for which is a big part of being a good AI engineer.</p>",
+      "keynotes": [
+        "Intelligence needs knowledge, represented so a program can use it, and the ability to learn it.",
+        "Symbolic AI encodes knowledge by hand; machine learning extracts it from data; modern systems combine the two.",
+        "Rules are inspectable but laborious; learned weights are cheap to acquire but hard to explain."
+      ]
+    }
+  }
+}

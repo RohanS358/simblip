@@ -137,6 +137,9 @@ export interface CourseSection {
   questions?: CourseQuestion[]
   /** Numerical problems with revealed answers. */
   problems?: CourseProblem[]
+  /** The section in a few lines a student can revise from (3–5, each one idea). Shown as a "Key notes" card at the end of the
+   *  section, and read out when the lesson is taught as a film. */
+  keynotes?: string[]
 }
 
 export interface CourseDoc {

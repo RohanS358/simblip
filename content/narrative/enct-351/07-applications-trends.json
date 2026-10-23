@@ -1,0 +1,53 @@
+{
+  "subtitle": "Where the algorithms go to work, and what we owe the people affected.",
+  "sections": {
+    "es": {
+      "body": "<p>Before neural networks took over the headlines, there was a different dream: bottle up what a specialist knows. Imagine a doctor who has seen ten thousand cases, now sitting inside a program. That is an <em class='term'>expert system</em>: a specialist’s knowledge captured as if–then rules, plus an <em class='term'>inference engine</em> that applies them.</p><p>The engine can reason in two directions. <em class='term'>Forward chaining</em> starts from the facts and derives conclusions, like a detective collecting clues until a name falls out. <em class='term'>Backward chaining</em> starts from a goal (“is it measles?”) and goes looking for the facts that would support it. Add a user interface and an explanation facility that answers “why?”, and you have the full architecture. Classic examples: MYCIN (medical diagnosis) and XCON (configuring computers).</p><p>Watch it run. Rules: R1 fever∧rash → measles-suspect; R2 measles-suspect∧contact → measles. Facts: fever, rash, contact. Forward chaining fires R1 first, adding measles-suspect, and that new fact lets R2 fire and add measles. The engine matches rules against facts until nothing new follows. Notice how every step is readable: that is the great strength of rules.</p>",
+      "keynotes": [
+        "An expert system captures a specialist’s knowledge as if–then rules plus an inference engine, a user interface and an explanation facility.",
+        "Forward chaining starts from facts and derives conclusions; backward chaining starts from a goal and looks for supporting facts.",
+        "Classic examples are MYCIN (medical diagnosis) and XCON (configuring computers)."
+      ]
+    },
+    "nlp": {
+      "body": "<p>“I saw the man with the telescope.” Who has the telescope: you, or the man? Even you can’t tell without more context, and that tiny sentence is the whole difficulty of language in a nutshell.</p><p>NLP works through levels, like peeling an onion: phonetic (sounds), morphological (word forms), lexical (words), syntactic (structure, as in parse trees), semantic (meaning) and pragmatic (context and intent). At every level, trouble waits: ambiguity, idiom (“it’s raining cats and dogs”), and context that no sentence carries by itself.</p><p>Modern methods take a bold shortcut: pre-train large neural language models on huge amounts of text, then adapt them to translation, summarisation, question answering and dialogue. The model has never been taught grammar; it absorbed it.</p>",
+      "keynotes": [
+        "NLP works through levels: phonetic, morphological, lexical, syntactic (parse trees), semantic and pragmatic.",
+        "Challenges include ambiguity (“I saw the man with the telescope”), idiom and context.",
+        "Modern methods pre-train large neural language models on huge text and adapt them to translation, summarisation, question answering and dialogue."
+      ]
+    },
+    "vis": {
+      "body": "<p>How does a robot know there is a pedestrian ahead? Not in one leap. It works through a pipeline, and let’s walk along it once. First <b>acquire</b> an image. Then <b>pre-process</b> it (denoise, normalise). Then <b>extract features</b>: edges, corners, or learned features. Then <b>detect or classify objects</b>, and finally <b>interpret the scene</b>.</p><p>A robot adds more around that. It senses with cameras, lidar and encoders; it plans with search and A*, the same ideas from earlier in this course; it controls with feedback loops; and it acts through actuators. Self-driving cars combine every one of those at once.</p><p>Spot the pattern in the figure: perceive, plan, act. It’s the agent loop again, the very first picture of this course, now wearing wheels.</p>",
+      "keynotes": [
+        "A vision pipeline acquires an image, pre-processes it, extracts features, detects or classifies objects and interprets the scene.",
+        "A robot adds sensing (cameras, lidar, encoders), planning (search, A*), control (feedback loops) and actuators.",
+        "Self-driving cars combine all of them in the perceive, plan, act loop."
+      ]
+    },
+    "emerging": {
+      "body": "<p>Here are three ideas shaping where the field goes next, and each begins with a worry. How do you translate a sentence when the output has a different length from the input? <b>Sequence-to-sequence</b> models turn one sequence into another with an encoder and a decoder, now built with attention.</p><p>How do you train a model on people’s phones without ever collecting their private data? <em class='term'>Federated learning</em> trains a shared model across many devices: each device computes an update locally, and only the updates are averaged centrally. The raw data never leaves the devices, as the figure shows.</p><p>And how do you get an answer without waiting on a network at all? <em class='term'>Edge AI</em> runs models on the device itself (phone, camera) for low latency and privacy, using compression such as quantisation and pruning to make the model fit.</p>",
+      "keynotes": [
+        "Sequence-to-sequence models turn one sequence into another with an encoder and decoder, now built with attention.",
+        "Federated learning trains a shared model across devices: each computes an update locally and only the updates are averaged centrally, which protects privacy.",
+        "Edge AI runs models on the device for low latency and privacy, using compression (quantisation, pruning) to fit."
+      ]
+    },
+    "ethics": {
+      "body": "<p>A model that is 95% accurate sounds wonderful. Now ask: 95% accurate for <i>whom</i>? Models inherit bias from the data they learn from, and when they are used to make decisions about people, that bias gets a very real cost. Think of unfair decisions in hiring or lending, invasive surveillance, opaque reasoning nobody can challenge, misinformation, and even the energy bill.</p><p>So the field has settled on principles: fairness, transparency and explainability, accountability, privacy, safety and robustness, and human oversight. But principles on a poster change nothing; practice does. Audit data and outcomes across groups, document your models, test them adversarially, and keep a human in the loop wherever the stakes are high.</p><p>This is why a high overall accuracy can still hide unfairness: the average can look fine while one group is quietly being failed. Always ask who is inside the average.</p>",
+      "keynotes": [
+        "Models inherit bias from data and can harm people: unfair hiring or lending decisions, surveillance, opaque reasoning, misinformation and energy cost.",
+        "Principles: fairness, transparency and explainability, accountability, privacy, safety and robustness, human oversight.",
+        "Practice: audit data and outcomes across groups, document models, test adversarially and keep a human in high-stakes loops."
+      ]
+    },
+    "sust": {
+      "body": "<p>Every clever model has a power bill. Training large models consumes large amounts of energy, and “the cloud” is a physical place with real chimneys at the end of the supply chain.</p><p>Do the sum once, so it sticks. A training run uses 1000 MWh at 0.4 kg CO₂ per kWh. Convert: 1000 MWh is 10⁶ kWh, so emissions = 10⁶ kWh × 0.4 kg = 4×10⁵ kg, which is 400 tonnes. That is one training run.</p><p>What can we do? Use smaller models, apply distillation (a small model learns to mimic a big one), use sparse computation, reuse work through transfer learning, choose efficient hardware, and run in regions with clean energy. Sustainable AI asks one honest question about every project: is the benefit worth the cost?</p>",
+      "keynotes": [
+        "Training large models consumes large amounts of energy.",
+        "A run of 1000 MWh at 0.4 kg CO₂ per kWh emits 4×10⁵ kg, which is 400 tonnes.",
+        "Efficiency measures: smaller models, distillation, sparse computation, transfer learning, efficient hardware and clean-energy regions."
+      ]
+    }
+  }
+}

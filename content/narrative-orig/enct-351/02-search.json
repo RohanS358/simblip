@@ -1,0 +1,42 @@
+{
+  "title": "Uninformed and informed search",
+  "subtitle": "Problem solving as finding a path through a space of states: blind search, then search that can see where the goal is.",
+  "sections": {
+    "formal": {
+      "title": "Formulating a problem",
+      "body": "<p>A well-defined search problem has an <em class=\"term\">initial state</em>, a set of <em class=\"term\">actions</em>, a <em class=\"term\">transition model</em> (state + action → state), a <em class=\"term\">goal test</em> and a <em class=\"term\">path cost</em>. A route-finding problem: states are cities, actions are roads, cost is distance. A solution is a sequence of actions from start to goal; an optimal solution has least cost. Search strategies are compared on completeness, optimality, time and space.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "unin": {
+      "title": "Breadth-first and depth-first",
+      "body": "<p><em class=\"term\">BFS</em> expands the shallowest node first (a FIFO queue): complete, optimal when steps cost the same, but memory grows as bᵈ. <em class=\"term\">DFS</em> expands the deepest first (a stack): tiny memory, but can dive forever and need not find the shortest path. <em class=\"term\">Iterative deepening</em> runs depth-limited DFS with limits 0, 1, 2… combining BFS’s optimality with DFS’s memory. On the small maze: BFS cost <b>5</b>, DFS cost <b>5</b> (a longer, legal route).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "heur": {
+      "title": "Heuristics: greedy best-first and A*",
+      "body": "<p>A <em class=\"term\">heuristic</em> h(n) estimates the cost from n to the goal (here the Manhattan distance). <em class=\"term\">Greedy best-first</em> expands the node with the smallest h: fast, but not optimal. <em class=\"term\">A*</em> expands the smallest f(n) = g(n) + h(n), where g is the cost so far: it is optimal if h is <em class=\"term\">admissible</em> (never overestimates). On an open 4×8 grid BFS expands <b>32</b> cells, greedy <b>11</b> and A* <b>11</b> — all three find the cost-10 path except greedy may not in general.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "csp": {
+      "title": "Constraint satisfaction",
+      "body": "<p>A <em class=\"term\">CSP</em> has variables, domains and constraints (map colouring: neighbouring regions differ; sudoku; timetabling). Solve by <em class=\"term\">backtracking</em>: assign a variable, check constraints, undo on failure. Improve with constraint propagation (node/arc/path consistency) and variable-ordering heuristics (most constrained first).</p>",
+      "after": "",
+      "steps": "Colour WA, NT, SA, Q with 3 colours so neighbours differ. SA touches WA, NT and Q, so colour it first (most constrained). SA = red; WA = green, NT = blue (differs from both), Q = green (differs from NT and SA)."
+    },
+    "cmp": {
+      "title": "Comparing strategies",
+      "body": "<table><thead><tr><th>Strategy</th><th>Complete</th><th>Optimal</th><th>Time</th><th>Space</th></tr></thead><tbody><tr><td>BFS</td><td>yes</td><td>yes (unit cost)</td><td>bᵈ</td><td>bᵈ</td></tr><tr><td>DFS</td><td>no (infinite depth)</td><td>no</td><td>bᵐ</td><td>b·m</td></tr><tr><td>Iterative deepening</td><td>yes</td><td>yes (unit cost)</td><td>bᵈ</td><td>b·d</td></tr><tr><td>Greedy</td><td>no</td><td>no</td><td>bᵐ</td><td>bᵐ</td></tr><tr><td>A*</td><td>yes</td><td>yes (admissible h)</td><td>exp.</td><td>all nodes</td></tr></tbody></table>",
+      "after": "",
+      "steps": "Branching factor b = 3, solution depth d = 4: BFS generates about 1 + 3 + 9 + 27 + 81 nodes."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>BFS: shortest in steps; DFS: small memory; A*: optimal and focused with an admissible heuristic.</li><li>CSP: backtracking plus propagation.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

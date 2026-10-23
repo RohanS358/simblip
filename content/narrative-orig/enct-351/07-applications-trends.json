@@ -1,0 +1,42 @@
+{
+  "title": "Expert systems, NLP, vision and responsible AI",
+  "subtitle": "Where the algorithms go to work — and what we owe the people affected.",
+  "sections": {
+    "es": {
+      "title": "Expert systems",
+      "body": "<p>An <em class=\"term\">expert system</em> captures a specialist’s knowledge as if–then rules plus an <em class=\"term\">inference engine</em> that applies them: <em class=\"term\">forward chaining</em> starts from facts and derives conclusions; <em class=\"term\">backward chaining</em> starts from a goal and looks for supporting facts. A user interface and an explanation facility (“why?”) complete it. Classic examples: MYCIN (medical diagnosis), XCON (configuring computers).</p>",
+      "after": "",
+      "steps": "Rules: R1 fever∧rash → measles-suspect; R2 measles-suspect∧contact → measles. Facts: fever, rash, contact. Forward chaining: R1 fires (adds measles-suspect), then R2 fires (adds measles)."
+    },
+    "nlp": {
+      "title": "Natural language processing",
+      "body": "<p>NLP works through levels: phonetic, morphological (word forms), lexical, syntactic (structure — parse trees), semantic (meaning), pragmatic (context). Challenges: ambiguity (“I saw the man with the telescope”), idiom, context. Modern methods pre-train large neural language models on huge text and adapt them to translation, summarisation, question answering and dialogue.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "vis": {
+      "title": "Computer vision and robotics",
+      "body": "<p>A vision pipeline: acquire an image, pre-process (denoise, normalise), extract features (edges, corners, learned features), detect or classify objects, interpret the scene. A robot adds sensing (cameras, lidar, encoders), planning (search, A*), control (feedback loops) and actuators. Self-driving cars combine all of them.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "emerging": {
+      "title": "Sequence models, federated learning, edge AI",
+      "body": "<p>Sequence-to-sequence models turn one sequence into another (translation) with an encoder and decoder, now built with attention. <em class=\"term\">Federated learning</em> trains a shared model across many devices without collecting their raw data: each device computes an update locally and only the updates are averaged centrally (privacy). <em class=\"term\">Edge AI</em> runs models on the device (phone, camera) for low latency and privacy, with compression (quantisation, pruning) to fit.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ethics": {
+      "title": "Ethics and responsible AI",
+      "body": "<p>Models inherit bias from data and can harm people: unfair decisions in hiring or lending, invasive surveillance, opaque reasoning, misinformation, energy cost. Principles: fairness, transparency and explainability, accountability, privacy, safety and robustness, human oversight. Practice: audit data and outcomes across groups, document models, test adversarially, keep a human in high-stakes loops.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "sust": {
+      "title": "Sustainable AI",
+      "body": "<p>Training large models consumes large amounts of energy. Efficiency measures: smaller models, distillation, sparse computation, reuse through transfer learning, efficient hardware, and running in regions with clean energy. Sustainable AI asks whether the benefit is worth the cost.</p>",
+      "after": "",
+      "steps": "A training run uses 1000 MWh at 0.4 kg CO₂ per kWh. Emissions = 10⁶ kWh × 0.4 kg."
+    }
+  }
+}

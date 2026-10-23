@@ -438,6 +438,7 @@ export function CourseView({ pageId }: { pageId: string }) {
               )}
 
               {s.after && <Prose html={s.after} />}
+              {!!s.keynotes?.length && <KeyNotes notes={s.keynotes} />}
             </section>
           )
         })}
@@ -477,5 +478,25 @@ function Prose({ html }: { html: string }) {
       className="course-prose text-ui-lg leading-[1.8] [&_b]:font-semibold [&_p]:mb-4 [&_p]:mt-0"
       dangerouslySetInnerHTML={{ __html: html }}
     />
+  )
+}
+
+/** The section in a few lines to revise from. Plain text (the notes are short facts, not markup). */
+function KeyNotes({ notes }: { notes: string[] }) {
+  return (
+    <aside
+      aria-label="Key notes"
+      className="my-6 rounded-xl border border-[color-mix(in_oklch,var(--accent-violet)_30%,transparent)] bg-[color-mix(in_oklch,var(--accent-violet)_6%,transparent)] px-5 py-4"
+    >
+      <p className="m-0 mb-2 text-ui-2xs font-bold uppercase tracking-[0.09em] text-[var(--accent-violet)]">Key notes</p>
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+        {notes.map((n, i) => (
+          <li key={i} className="flex gap-2.5 text-ui-md leading-relaxed">
+            <span aria-hidden className="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-violet)]" />
+            <span>{n}</span>
+          </li>
+        ))}
+      </ul>
+    </aside>
   )
 }

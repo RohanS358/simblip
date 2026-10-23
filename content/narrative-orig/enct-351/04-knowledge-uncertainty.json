@@ -1,0 +1,42 @@
+{
+  "title": "Logic, Bayes and fuzzy reasoning",
+  "subtitle": "Representing what an agent knows — exactly, probably, or vaguely.",
+  "sections": {
+    "kb": {
+      "title": "Knowledge-based agents and logic",
+      "body": "<p>A <em class=\"term\">knowledge-based agent</em> stores sentences in a knowledge base and infers new ones. <em class=\"term\">Propositional logic</em> uses true/false statements with ¬ ∧ ∨ → ↔; <em class=\"term\">first-order (predicate) logic</em> adds objects, predicates and quantifiers: ∀x Human(x) → Mortal(x). Inference rules: modus ponens, resolution. Semantic networks, frames and knowledge graphs store facts as nodes and links.</p>",
+      "after": "",
+      "steps": "KB: Human(Socrates); ∀x Human(x) → Mortal(x). Instantiate x = Socrates. Modus ponens gives Mortal(Socrates)."
+    },
+    "bayes": {
+      "title": "Bayes' theorem",
+      "body": "<p>P(H | E) = P(E | H) · P(H) / P(E). A disease affects 1% of people; a test detects it 90% of the time (sensitivity) and correctly clears 91% of healthy people (specificity). What is the chance you have it given a positive test? Count 1000 people: 10 are sick, 9 of them test positive; of 990 healthy, 9% = 89.1 also test positive. Of about 98 positives, 9 are truly sick: <b>9.2%</b>. A low prior keeps the posterior small even for a decent test.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "net": {
+      "title": "Bayesian networks",
+      "body": "<p>A <em class=\"term\">Bayesian network</em> is a directed acyclic graph where each node holds P(node | parents). It encodes a joint distribution compactly as a product: P(x₁…xₙ) = ∏ P(xᵢ | parents(xᵢ)). Example: Burglary → Alarm ← Earthquake; Alarm → JohnCalls. Evidence on a leaf updates beliefs about causes.</p>",
+      "after": "",
+      "steps": "P(B) = 0.001, P(E) = 0.002. Alarm probabilities given (B,E) are listed in its table. The full joint factorises as P(B)P(E)P(A|B,E)P(J|A)P(M|A) — 5 small tables instead of one with 2⁵ entries."
+    },
+    "fuzzy": {
+      "title": "Fuzzy logic",
+      "body": "<p>Real concepts are vague: 28 °C is somewhat warm and a little hot. <em class=\"term\">Fuzzy sets</em> give each value a membership in [0, 1]. A <em class=\"term\">fuzzy inference system</em> has four steps: fuzzify the input (here μ<sub>cold</sub> = 0, μ<sub>warm</sub> = 0.7, μ<sub>hot</sub> = 0.2), fire the rules (IF warm THEN fan medium…) with strength min(condition), aggregate the clipped outputs, and <em class=\"term\">defuzzify</em> by centroid — here a fan speed of <b>58.9%</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Logic: exact. Probability: uncertainty about facts. Fuzzy: vagueness in concepts.</li><li>Bayes: posterior ∝ likelihood × prior; Bayesian nets factorise the joint.</li></ul>",
+      "after": "",
+      "steps": ""
+    },
+    "ex": {
+      "title": "Try it",
+      "body": "",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

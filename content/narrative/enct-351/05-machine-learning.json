@@ -1,0 +1,55 @@
+{
+  "subtitle": "Instead of writing rules, show examples and let an optimiser find the rule.",
+  "sections": {
+    "kinds": {
+      "body": "<p>How did <i>you</i> learn to recognise a dog? Nobody handed you a rulebook with “four legs, fur, barks”. Someone pointed and said “dog!” enough times, and your brain worked out the rest. Machine learning is that idea, turned into engineering: instead of writing the rules, show examples and let an optimiser find the rule.</p><p>It comes in flavours. <em class='term'>Supervised</em> learning has labelled examples (input → correct output): classification when the label is a category, regression when it is a number. <em class='term'>Unsupervised</em> learning gets no labels at all and has to find structure by itself: clustering, dimensionality reduction. <em class='term'>Reinforcement</em> learning learns from rewards by trial and error, the way you learned to ride a bike. And <em class='term'>semi-supervised</em> learning uses a few labels plus many unlabelled examples, because labels are expensive and raw data is cheap.</p><p>Underneath every flavour sit the same four pillars: data, model, loss and optimiser. Show the data to the model, measure the mistake with the loss, let the optimiser nudge the model, repeat. Look at the figure: every learning algorithm you will ever meet is this loop wearing a different hat.</p>",
+      "keynotes": [
+        "Supervised learning has labelled examples (classification for labels, regression for numbers); unsupervised learning finds structure without labels, such as clustering.",
+        "Reinforcement learning learns from rewards by trial and error; semi-supervised uses a few labels plus many unlabelled examples.",
+        "The four pillars of the field are data, model, loss and optimiser."
+      ]
+    },
+    "gd": {
+      "body": "<p>Imagine standing on a foggy hillside, and you want to reach the valley floor. You can’t see it, but you can feel which way the ground tilts under your boots. So you take a step downhill, feel again, step again. That, in one sentence, is <em class='term'>gradient descent</em>: to minimise a loss f(x), repeatedly step opposite the slope, x ← x − η f′(x). The little η is the learning rate, the length of your stride.</p><p>And the stride matters enormously. Too small and you shuffle for hours; too large and you leap clean over the valley and land higher up on the far side. Let’s watch both happen. On f(x) = x² − 4x + 5 with η = 0.2, the steps shrink as the slope flattens and it converges to x = <b>2</b>. Now take f(x) = x² with η = 1.1: each step multiplies x by −1.2, so you bounce back and forth, further away every time. Does it diverge? <b>Yes</b>.</p><p>Run the two figures one after the other. The first looks like a ball settling into a bowl; the second looks like someone shaking the bowl harder and harder. That single number, η, is often the difference between a model that learns and one that explodes.</p>",
+      "keynotes": [
+        "Gradient descent minimises a loss by stepping opposite the slope: x ← x − η f′(x).",
+        "A learning rate that is too small is slow; one that is too large overshoots and can diverge.",
+        "On f(x) = x² − 4x + 5 with η = 0.2 it converges to x = 2; on f(x) = x² with η = 1.1 each step multiplies x by −1.2 and it diverges."
+      ]
+    },
+    "reg": {
+      "body": "<p>Here are five dots on a graph, and your job is to draw the single straight line that best describes them. Your eye can do it roughly. How would a machine do it exactly?</p><p>Fit ŷ = b₀ + b₁x by minimising the sum of squared residuals: those little red segments in the figure, the gaps between each dot and the line. Squaring them punishes big misses heavily and makes the maths clean. The best part is that this one has a closed form, so no stepping is needed: b₁ = Sxy/Sxx and b₀ = ȳ − b₁x̄. For the five sample points that gives slope <b>0.9</b> and intercept <b>1.3</b>.</p><p>How good is the line? R² tells you: here R² = <b>0.81</b>, the fraction of variance explained. In plain words, the line accounts for 81% of how much the data wobbles, and the remaining 19% is noise or something the line can’t see. And the idea grows up gracefully: add more features and you have multiple regression, add a sigmoid and you have logistic regression for classification. Everything starts from this humble line.</p>",
+      "keynotes": [
+        "Linear regression fits ŷ = b₀ + b₁x by minimising the sum of squared residuals.",
+        "The closed form is b₁ = Sxy/Sxx and b₀ = ȳ − b₁x̄; for the sample points the slope is 0.9 and the intercept 1.3.",
+        "R² = 0.81 is the fraction of variance explained.",
+        "With many features, and with a sigmoid for classification, the same idea becomes logistic regression."
+      ]
+    },
+    "cluster": {
+      "body": "<p>Now take away the labels. You are handed a pile of points and told only: “find the groups.” Where would you even start? Here is the beautifully simple answer, called k-means, and you could run it with a pencil.</p><p>Guess k centres. Then alternate two moves. First, <b>assign</b>: every point joins its nearest centroid. Second, <b>update</b>: each centroid moves to the mean of the points that joined it. Repeat until nothing changes. It is like people drifting towards the nearest coffee stand while the stands keep relocating to the middle of their crowd, until everyone settles.</p><p>It minimises the within-cluster sum of squares, but be warned: the answer depends on where you start, and on your choice of k. On the sample points the centroids settle at <b>(1.25,1.5) (3.9,5.1)</b>. Squares mark the centroids in the figure and colours show the clusters. Try to predict where the squares will land before you press Simulate.</p>",
+      "keynotes": [
+        "k-means assigns every point to its nearest centroid, then moves each centroid to the mean of its points, and repeats until nothing changes.",
+        "It minimises the within-cluster sum of squares but depends on the start and on k.",
+        "On the sample points the centroids settle at (1.25,1.5) and (3.9,5.1)."
+      ]
+    },
+    "perc": {
+      "body": "<p>Time to meet the ancestor of every neural network. A <em class='term'>perceptron</em> looks at the sign of w·x + b to decide which side of a line a point is on, and it learns the way a stubborn student does: only when it gets something wrong. After each mistake it corrects itself, w ← w + η(t − y)x.</p><p>Does it always work? On linearly separable data, yes. Learn AND and it converges (<b>yes</b>) in 6 epochs, the amber line swinging into place after each mistake. But give it XOR and it never converges, because no single straight line can separate those classes. Watch the second figure and you will see the line thrash about forever.</p><p>Now the more important lesson. A model can learn <i>too</i> well: it can <em class='term'>overfit</em>, memorising noise in the training data like a student who memorises last year’s paper instead of the subject. That is why we measure performance on held-out data, tune hyper-parameters on a validation set, and use cross-validation to rotate the split. The opposite failure, underfitting, is a model too simple to capture the pattern at all. Learning well lives between the two.</p>",
+      "keynotes": [
+        "A perceptron classifies by the sign of w·x + b and corrects itself on mistakes: w ← w + η(t − y)x.",
+        "It converges on linearly separable data (AND converges in 6 epochs) and never on XOR.",
+        "Overfitting means memorising noise, so performance is measured on held-out data, hyper-parameters are tuned on a validation set and cross-validation rotates the split.",
+        "Underfitting means the model is too simple to capture the pattern."
+      ]
+    },
+    "summary": {
+      "body": "<p>Let’s hold it all in one hand before we move on.</p><ul><li>Learning = data + model + loss + optimiser.</li><li>Gradient descent: x ← x − η f′(x); watch η.</li><li>Evaluate on unseen data; precision/recall beyond accuracy.</li></ul><p>If you remember only one thing, remember that last line: a model that looks brilliant on data it has already seen tells you almost nothing.</p>",
+      "keynotes": [
+        "Learning is data plus model plus loss plus optimiser.",
+        "Gradient descent is x ← x − η f′(x), so watch η.",
+        "Evaluate on unseen data, and look at precision and recall beyond accuracy."
+      ]
+    }
+  }
+}

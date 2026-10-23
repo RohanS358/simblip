@@ -1,0 +1,54 @@
+{
+  "subtitle": "Representing what an agent knows: exactly, probably, or vaguely.",
+  "sections": {
+    "kb": {
+      "body": "<p>Time for a different kind of agent: one that <i>knows things</i> and works out what follows. A <em class='term'>knowledge-based agent</em> keeps sentences in a knowledge base and infers new ones from them, like a detective who collects clues and then says, “therefore…”.</p><p>The simplest language for those sentences is <em class='term'>propositional logic</em>: true/false statements joined by ¬ (not), ∧ (and), ∨ (or), → (implies) and ↔ (if and only if). It is crisp but a little cramped, because you cannot say “everyone”. So we upgrade to <em class='term'>first-order (predicate) logic</em>, which adds objects, predicates and quantifiers. Now we can write the most famous sentence in logic: ∀x Human(x) → Mortal(x), “for every x, if x is human then x is mortal.”</p><p>To squeeze new facts out of old ones we need inference rules, such as modus ponens (from A and A → B, conclude B) and resolution. Tell the knowledge base that Socrates is human, and the machine can calmly conclude that Socrates is mortal. And if you prefer pictures to symbols, semantic networks, frames and knowledge graphs store facts as nodes and links: the same knowledge, drawn as a map.</p>",
+      "keynotes": [
+        "A knowledge-based agent stores sentences in a knowledge base and infers new ones.",
+        "Propositional logic uses true/false statements with ¬ ∧ ∨ → ↔; first-order logic adds objects, predicates and quantifiers, as in ∀x Human(x) → Mortal(x).",
+        "Inference rules include modus ponens and resolution.",
+        "Semantic networks, frames and knowledge graphs store facts as nodes and links."
+      ]
+    },
+    "bayes": {
+      "body": "<p>Here is a puzzle that fools doctors, so don’t feel bad if it fools you. A disease affects 1% of people. A test detects it 90% of the time (that is its sensitivity) and correctly clears 91% of healthy people (its specificity). You test positive. What is the chance you actually have the disease?</p><p>Most people say “about 90%”. Brace yourself: it is nowhere near. Let’s do it by counting, which is the friendliest way to meet Bayes’ theorem, P(H | E) = P(E | H) · P(H) / P(E). Imagine 1000 people. 10 are sick, and 9 of them test positive. Of the 990 healthy people, 9% (so 89.1) <i>also</i> test positive, because no test is perfect. That makes about 98 positives in total, and only 9 of them are truly sick. The answer: <b>9.2%</b>.</p><p>Why so low? Because the disease is rare to begin with. A low prior keeps the posterior small, even for a decent test: the healthy majority produces more false alarms than the sick minority produces true ones. Next time a headline shouts about a “90% accurate” test, you will know exactly which question to ask first.</p>",
+      "keynotes": [
+        "Bayes’ theorem: P(H | E) = P(E | H) · P(H) / P(E).",
+        "With a 1% disease, a 90% sensitive test and 91% specificity, a positive result means only a 9.2% chance of being sick.",
+        "Counting people makes it obvious: of about 98 positives, only 9 are truly sick.",
+        "A low prior keeps the posterior small even for a decent test."
+      ]
+    },
+    "net": {
+      "body": "<p>Bayes with one cause and one test is manageable. But the real world has dozens of variables all tugging at each other, and writing down every combination would bury you. Take just five yes/no variables: that is a table with 32 rows. With fifty variables you would never finish filling it in.</p><p>The way out is a clever observation: most variables don’t depend on <i>everything</i>, only on a few direct causes. A <em class='term'>Bayesian network</em> draws exactly that: a directed acyclic graph in which each node holds P(node | parents). Together the tables encode the whole joint distribution compactly as a product: P(x₁…xₙ) = ∏ P(xᵢ | parents(xᵢ)).</p><p>The classic example tells a little story. Burglary → Alarm ← Earthquake: either one can set the alarm off. Then Alarm → JohnCalls: if the alarm rings, your neighbour John may phone you. Now observe something at the leaf, “John called”, and the network updates your beliefs about the causes. Was it a burglary? An earthquake? The arrows point from cause to effect, but the reasoning flows both ways.</p>",
+      "keynotes": [
+        "A Bayesian network is a directed acyclic graph where each node holds P(node | parents).",
+        "It encodes the joint distribution compactly: P(x₁…xₙ) = ∏ P(xᵢ | parents(xᵢ)).",
+        "In Burglary → Alarm ← Earthquake and Alarm → JohnCalls, evidence on a leaf updates beliefs about causes.",
+        "Small per-node tables replace one joint table: five yes/no variables would need 32 rows."
+      ]
+    },
+    "fuzzy": {
+      "body": "<p>Is 28 °C hot? Honestly… it’s a bit of both. It is somewhat warm and a little hot, and any sharp cut-off (“hot means above thirty”) feels silly the moment you stand near it. Real concepts are vague, and logic with only true and false handles vagueness badly.</p><p><em class='term'>Fuzzy sets</em> fix that by giving each value a membership between 0 and 1 (written [0, 1]), a degree of truth. A <em class='term'>fuzzy inference system</em> then works in four steps. First, <b>fuzzify</b> the input: for 28 °C, μ<sub>cold</sub> = 0, μ<sub>warm</sub> = 0.7 and μ<sub>hot</sub> = 0.2. Second, <b>fire the rules</b> (IF warm THEN fan medium, and so on), each with strength min(condition). Third, <b>aggregate</b> the clipped outputs into one shape. Fourth, <em class='term'>defuzzify</em> by centroid to get one crisp number out of the blur: here a fan speed of <b>58.9%</b>.</p><p>Notice how smooth it feels: no sudden jump from “off” to “on”, just a fan that eases up as the room warms. That is why fuzzy control lives inside washing machines and air-conditioners. Step through the four frames in the figure, and ask yourself what a membership of 0.7 actually means. (Hint: it is <i>not</i> a probability.)</p>",
+      "keynotes": [
+        "Fuzzy sets give each value a membership in [0, 1], a degree of truth.",
+        "A fuzzy inference system fuzzifies the input, fires rules with strength min(condition), aggregates the clipped outputs and defuzzifies by centroid.",
+        "At 28 °C the memberships are cold 0, warm 0.7 and hot 0.2, giving a fan speed of 58.9%."
+      ]
+    },
+    "summary": {
+      "body": "<p>Three ways of being uncertain, three tools. Keep them straight and you are ahead of most people.</p><ul><li>Logic: exact. Probability: uncertainty about facts. Fuzzy: vagueness in concepts.</li><li>Bayes: posterior ∝ likelihood × prior; Bayesian nets factorise the joint.</li></ul><p>One quick way to remember it: logic asks “is it true?”, probability asks “how likely is it?”, and fuzzy asks “how much?”.</p>",
+      "keynotes": [
+        "Logic is exact, probability handles uncertainty about facts, fuzzy logic handles vagueness in concepts.",
+        "Bayes: posterior ∝ likelihood × prior; Bayesian networks factorise the joint distribution."
+      ]
+    },
+    "ex": {
+      "body": "<p>One last check before you leave this chapter: in fuzzy inference, how strongly does each rule fire? Think back to the fan example (it used the min of the rule’s conditions) and then try the question below.</p>",
+      "keynotes": [
+        "In fuzzy inference each rule fires with strength min(condition).",
+        "The clipped outputs of all fired rules are aggregated, then defuzzified by centroid."
+      ]
+    }
+  }
+}

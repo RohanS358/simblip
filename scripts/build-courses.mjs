@@ -13,6 +13,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { applyNarrative } from './narrative/apply.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const tmp = mkdtempSync(join(tmpdir(), 'courses-'))
@@ -52,6 +53,8 @@ for (const dir of readdirSync(srcRoot, { withFileTypes: true }).filter((d) => d.
   writeFileSync(join(out, 'course.json'), JSON.stringify({ ...rest, published: true, order: order.sort((a, b) => (manifest.order ?? []).indexOf(a) - (manifest.order ?? []).indexOf(b)), lessons }, null, 2) + '\n')
   console.log(`${dir.name}: ${order.length} lesson(s)`)
 }
+// The teacher's-voice layer goes over the freshly built lessons (content/narrative; see scripts/narrative/apply.mjs).
+if (built.length) console.log(`narrative applied to ${applyNarrative(only)} lesson(s)`)
 if (built.length && !process.env.NO_LINT) {
   execFileSync(process.execPath, [join(root, '.claude/skills/course-author/lint-course.mjs'), ...built], { cwd: root, stdio: 'inherit' })
 }

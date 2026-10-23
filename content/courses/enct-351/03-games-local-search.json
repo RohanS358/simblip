@@ -1,14 +1,14 @@
 {
   "title": "Games, local search and genetic algorithms",
   "kicker": "ENCT 351 · Artificial Intelligence · Chapter 2 (adversarial and optimisation)",
-  "subtitle": "When an opponent answers back, and when the path does not matter — only the final state.",
+  "subtitle": "When an opponent answers back, and when the path does not matter, only the final state.",
   "sections": [
     {
       "id": "minimax",
       "locator": "2.7",
       "title": "Minimax",
       "eyebrow": "Two players",
-      "body": "<p>In a zero-sum game two players alternate. MAX tries to maximise a score, MIN to minimise it. <em class=\"term\">Minimax</em> looks ahead to the leaves, scores them with an evaluation function, and backs values up: MAX nodes take the largest child, MIN nodes the smallest. The root value is the best MAX can guarantee against perfect play. Cost: bᵈ nodes.</p>",
+      "body": "<p>Everything so far was a solo sport. Now someone is playing <i>against</i> you, and every move you make, they will try to ruin. Welcome to adversarial search. Picture a zero-sum game, where one player’s gain is exactly the other’s loss: two players alternate turns, MAX trying to maximise a score and MIN trying to minimise it.</p><p><em class=\"term\">Minimax</em> is the beautifully pessimistic idea at the heart of it. Look ahead down the game tree to the leaves, score each leaf with an evaluation function, and then back the values up. At a MAX node take the largest child (I will choose my best move). At a MIN node take the smallest (my opponent will choose their best, which is my worst). The value that arrives at the root is the best MAX can guarantee against <i>perfect</i> play. Assume your opponent is brilliant, and you will never be unpleasantly surprised.</p><p>The price of that caution is cost: the search looks at bᵈ nodes. Watch the figure and count: all 8 leaves are evaluated before the value 5 floats up to the root. Eight is fine. A real game is another story, and that is exactly the problem the next section solves.</p>",
       "questions": [
         {
           "id": "minmax",
@@ -54,6 +54,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "In a zero-sum game MAX tries to maximise the score and MIN to minimise it.",
+        "Minimax scores the leaves with an evaluation function and backs values up: MAX nodes take the largest child, MIN nodes the smallest.",
+        "The root value is the best MAX can guarantee against perfect play; the cost is bᵈ nodes."
       ]
     },
     {
@@ -61,7 +66,7 @@
       "locator": "2.8",
       "title": "Alpha–beta pruning",
       "eyebrow": "Skipping what cannot matter",
-      "body": "<p><em class=\"term\">Alpha–beta</em> carries two bounds: α, the best MAX is already assured, and β, the best MIN is already assured. When α ≥ β the remaining children cannot change the decision and are <em class=\"term\">pruned</em>. It returns the same value as minimax but evaluates fewer leaves: here <b>5</b> of 8, value 5. With perfect move ordering it searches about b^(d/2) nodes — doubling the depth you can afford.</p>",
+      "body": "<p>Minimax has a problem: it works far too hard. Imagine you are choosing between two doors, and you have already seen that behind the first one you can guarantee yourself a decent prize. You open the second door, and the very first thing you see is a trap that your opponent will happily steer you into. Do you need to look at the rest of that room? Of course not! Whatever else is in there, it cannot beat what you already have. You just walk out.</p><p>That is <em class=\"term\">alpha–beta</em> pruning. It carries two bounds: α, the best MAX is already assured, and β, the best MIN is already assured. The moment α ≥ β, the remaining children cannot change the decision and are <em class=\"term\">pruned</em>, skipped entirely. The magic is that it returns exactly the same value as minimax, just by evaluating fewer leaves: here <b>5</b> of 8, and the value is still 5.</p><p>How much can it save? With perfect move ordering it searches about b^(d/2) nodes, which means that for the same effort you can look <i>twice as deep</i>. Doubling your lookahead for free is the kind of deal you should be suspicious of, and yet here it is. Look at the dashed red branches in the figure: those are the places we never had to look.</p>",
       "questions": [
         {
           "id": "same",
@@ -125,6 +130,12 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Alpha–beta keeps two bounds: α, the best MAX is already assured, and β, the best MIN is already assured.",
+        "When α ≥ β the remaining children cannot change the decision and are pruned.",
+        "It returns the same value as minimax: here it evaluates 5 of 8 leaves and the value is 5.",
+        "With perfect move ordering it searches about b^(d/2) nodes, doubling the depth you can afford."
       ]
     },
     {
@@ -132,7 +143,7 @@
       "locator": "2.9",
       "title": "Local search: hill climbing and simulated annealing",
       "eyebrow": "Only the state matters",
-      "body": "<p>For timetabling or n-queens the path is irrelevant. <em class=\"term\">Hill climbing</em> moves to the best neighbouring state until none is better; it gets stuck on <em class=\"term\">local maxima</em>, plateaus and ridges. <em class=\"term\">Simulated annealing</em> sometimes accepts a worse move with probability e^(−Δ/T), where the temperature T falls over time: early on it explores, later it settles. Random restarts also help.</p>",
+      "body": "<p>Some problems don’t care how you got there; only the final answer matters. A timetable. The n-queens puzzle. There is no “path” to optimise, just a good state to find. For these, we stop building trees and start wandering a landscape.</p><p>Imagine climbing a hill in thick fog. <em class=\"term\">Hill climbing</em> says: look at the ground around your feet, step to the best neighbouring spot, and repeat until nothing nearby is better. Simple, quick, and sadly easy to fool. You can end up on a small hill that is not the highest around, a peak that is only locally best (a <em class=\"term\">local maxima</em>), or on a flat plateau where every step looks the same, or on a narrow ridge you keep slipping off.</p><p>So how do you escape a small hill? Sometimes you have to go <i>down</i> first. That is the idea of <em class=\"term\">simulated annealing</em>, borrowed from cooling metal. It occasionally accepts a worse move, with probability e^(−Δ/T), where the temperature T falls over time. At the start the temperature is high and the search is adventurous, happily exploring; as it cools, the search settles down and commits. Random restarts help too: when in doubt, drop yourself into a new fog bank and try again.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -176,6 +187,12 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Local search is for problems where the path is irrelevant, like timetabling or n-queens.",
+        "Hill climbing moves to the best neighbouring state until none is better; it gets stuck on local maxima, plateaus and ridges.",
+        "Simulated annealing accepts a worse move with probability e^(−Δ/T), where the temperature T falls over time: explore early, settle later.",
+        "Random restarts also help escape poor local optima."
       ]
     },
     {
@@ -183,7 +200,7 @@
       "locator": "2.10",
       "title": "Genetic algorithms",
       "eyebrow": "Evolution as search",
-      "body": "<p>A <em class=\"term\">genetic algorithm</em> keeps a population of candidate solutions (bit strings). Each generation: <em class=\"term\">selection</em> (fitter individuals are more likely parents, e.g. roulette wheel), <em class=\"term\">crossover</em> (swap tails at a random cut) and <em class=\"term\">mutation</em> (rare bit flips). Here it maximises f(x) = x² over 5-bit strings (optimum 31² = 961); after 30 generations of 10 individuals the best fitness reaches <b>961</b> (optimum 961).</p>",
+      "body": "<p>Nature has been solving optimisation problems for a very long time, so perhaps we should copy her. That is the cheeky idea behind a <em class=\"term\">genetic algorithm</em>: keep a whole population of candidate solutions (bit strings), and let them breed.</p><p>Each generation has three moves. <em class=\"term\">Selection</em>: fitter individuals are more likely to become parents (picture a roulette wheel where the fitter you are, the fatter your slice). <em class=\"term\">Crossover</em>: pick a random cut and swap the tails of two parents to make children. <em class=\"term\">Mutation</em>: rarely, flip a bit, just to keep the gene pool from going stale. Select, cross, mutate, repeat.</p><p>Does it really work? Try this one: maximise f(x) = x² over 5-bit strings, where the best possible answer is 31² = 961. Starting from random guesses, after 30 generations of 10 individuals the best fitness reaches <b>961</b>, the optimum. Nobody told the algorithm that 31 was special; it found it by evolution. Watch the fitness climb generation by generation in the figure. It is oddly satisfying.</p>",
       "questions": [
         {
           "id": "mut",
@@ -229,6 +246,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A genetic algorithm keeps a population of candidate solutions, usually bit strings.",
+        "Each generation applies selection (fitter individuals are likelier parents), crossover (swap tails at a random cut) and mutation (rare bit flips).",
+        "Maximising f(x) = x² over 5-bit strings, the best fitness reaches 961 (the optimum, 31²) after 30 generations of 10 individuals."
       ]
     },
     {
@@ -236,14 +258,18 @@
       "locator": "2.11",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Minimax backs up values; alpha–beta prunes without changing them.</li><li>Local search ignores the path; annealing escapes local optima; GAs evolve populations.</li></ul>"
+      "body": "<p>One breath, then we move on. Ready?</p><ul><li>Minimax backs up values; alpha–beta prunes without changing them.</li><li>Local search ignores the path; annealing escapes local optima; GAs evolve populations.</li></ul><p>Notice how different the two halves feel: one is about <i>outsmarting an opponent</i>, the other about <i>searching a landscape</i>. Same course, different moods.</p>",
+      "keynotes": [
+        "Minimax backs up values; alpha–beta prunes branches without changing the root value.",
+        "Local search ignores the path: simulated annealing escapes local optima and genetic algorithms evolve populations."
+      ]
     },
     {
       "id": "ex",
       "locator": "2.12",
       "title": "Try it",
       "eyebrow": "Practice",
-      "body": "<p>Change the leaf values and watch which branches get pruned. Good ordering (best move first) prunes the most; bad ordering prunes nothing.</p>",
+      "body": "<p>Time to get your hands dirty. Change the leaf values and watch which branches get pruned. Here is the thing to discover: good ordering (best move first) prunes the most, and bad ordering prunes nothing at all. Same game, same answer, wildly different amount of work. Try it before you read the explanation; I promise the figure below makes it click.</p>",
       "questions": [
         {
           "id": "order",
@@ -288,6 +314,10 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Good move ordering (best move first) lets alpha–beta prune the most.",
+        "Bad ordering prunes nothing, though the root value is unchanged."
       ]
     }
   ]

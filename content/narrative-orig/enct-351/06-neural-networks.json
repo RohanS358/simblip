@@ -1,0 +1,42 @@
+{
+  "title": "Perceptrons and backpropagation",
+  "subtitle": "One neuron draws a line. Stack layers and the network can draw any boundary — if you can train it.",
+  "sections": {
+    "neuron": {
+      "title": "The artificial neuron",
+      "body": "<p>A neuron computes a weighted sum of its inputs plus a bias, z = Σ wᵢxᵢ + b, then applies an <em class=\"term\">activation function</em>: step (perceptron), sigmoid 1/(1+e⁻ᶻ), tanh, or ReLU max(0, z). Without a non-linearity, any stack of layers collapses into one linear map.</p>",
+      "after": "",
+      "steps": "Inputs (1, 0), weights (0.5, −0.3), bias 0.1. z = 0.5·1 + (−0.3)·0 + 0.1 = 0.6; sigmoid(0.6) = 1/(1 + e⁻⁰·⁶)."
+    },
+    "perc": {
+      "title": "What one neuron can and cannot do",
+      "body": "<p>A perceptron’s decision boundary is a straight line (hyperplane). It learns AND (converged: <b>yes</b>) but cannot learn XOR — Minsky and Papert’s 1969 observation which stalled the field. The cure is a hidden layer.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mlp": {
+      "title": "Multilayer networks and backpropagation",
+      "body": "<p>A <em class=\"term\">multilayer perceptron</em> has hidden layers between input and output. <em class=\"term\">Backpropagation</em> trains it: (1) forward pass computes the output; (2) the loss measures the error; (3) the chain rule sends the error gradient backwards, layer by layer, giving ∂L/∂w for every weight; (4) gradient descent updates w ← w − η ∂L/∂w. Run the 2-3-1 network on XOR: the loss falls to <b>0.0004</b> and all four outputs are right (<b>yes</b>).</p>",
+      "after": "",
+      "steps": "Output unit: y = σ(z), loss E = ½(y − t)². Its error signal is δ = (y − t)·y(1 − y). For a hidden unit h the signal is passed back through the weight: δ_h = δ_o · w · h(1 − h). Each weight moves against its gradient: Δw = −η δ · (input to that weight)."
+    },
+    "deep": {
+      "title": "Deep learning and architectures",
+      "body": "<p><em class=\"term\">Deep learning</em> uses many layers that learn features automatically. Convolutional networks share small filters across an image (translation-invariant features); recurrent networks carry a hidden state through a sequence; transformers replace recurrence with attention. Universal approximation: one hidden layer of enough units can approximate any continuous function — depth makes it efficient. Generative networks (GANs, diffusion models, language models) create new data.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Neuron = weighted sum + activation; a single neuron separates linearly only.</li><li>Hidden layers + backpropagation solve XOR and far more.</li></ul>",
+      "after": "",
+      "steps": ""
+    },
+    "ex": {
+      "title": "Try it",
+      "body": "<p>In the card below set <em>units</em> to 2 and then 1 and see what happens to the loss: how many hidden units does XOR need?</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

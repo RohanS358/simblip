@@ -1,0 +1,42 @@
+{
+  "title": "Intelligent agents",
+  "subtitle": "Forget “thinking machines”: an agent senses, decides and acts. Everything in AI is a way of making that decision better.",
+  "sections": {
+    "what": {
+      "title": "What is AI?",
+      "body": "<p>AI has been defined four ways: systems that think like humans, act like humans (the Turing test), think rationally (logic) or act rationally. The last is the working definition: a <em class=\"term\">rational agent</em> does whatever is expected to maximise its performance measure given what it has perceived. Roots: philosophy, mathematics, psychology, neuroscience, linguistics and computer engineering; the field was named in 1956 (Dartmouth).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "agent": {
+      "title": "Agents and environments",
+      "body": "<p>An <em class=\"term\">agent</em> perceives its <em class=\"term\">environment</em> through sensors and acts on it through actuators; its behaviour is a mapping from the percept history to an action. A thermostat, a robot vacuum and a chess program all fit.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "types": {
+      "title": "Kinds of agent",
+      "body": "<p><em class=\"term\">Simple reflex</em>: condition–action rules on the current percept (“if the floor is dirty, suck”). <em class=\"term\">Model-based reflex</em>: keeps internal state about what it cannot see. <em class=\"term\">Goal-based</em>: chooses actions that reach a goal (needs search and planning). <em class=\"term\">Utility-based</em>: maximises a measure of how good outcomes are, handling trade-offs. <em class=\"term\">Learning</em> agents improve from experience with a critic and a learning element.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "env": {
+      "title": "Properties of environments",
+      "body": "<p>Fully vs partially <em class=\"term\">observable</em>; <em class=\"term\">deterministic</em> vs stochastic; <em class=\"term\">episodic</em> vs sequential; <em class=\"term\">static</em> vs dynamic; <em class=\"term\">discrete</em> vs continuous; single vs multi-agent. Chess is fully observable, deterministic, sequential, static, discrete, two-agent. Driving is partially observable, stochastic, dynamic and continuous — much harder.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "agentic": {
+      "title": "Agentic AI",
+      "body": "<p>Modern language-model “agents” use the same loop: perceive (read a goal, tool outputs), decide (plan a step), act (call a tool, run code) and observe again. The classic vocabulary applies: what is the performance measure, what is observable, what happens when the model's world model is wrong?</p>",
+      "after": "",
+      "steps": ""
+    },
+    "knowledge": {
+      "title": "Knowledge and learning",
+      "body": "<p>Intelligence needs knowledge (facts and rules, represented so a program can use them) and the ability to learn it. Symbolic AI encodes knowledge by hand; machine learning extracts it from data. The two are combined in modern systems. The rest of the course is this split: search and logic, then learning.</p>",
+      "after": "",
+      "steps": "An expert system has 500 hand-written rules; a neural network has 10⁶ weights learned from examples. Rules are inspectable but laborious; learned weights are cheap to acquire but hard to explain."
+    }
+  }
+}

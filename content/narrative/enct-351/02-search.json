@@ -1,0 +1,57 @@
+{
+  "subtitle": "Ever asked your phone for the fastest way home? Here is how a machine finds its way: first blind, then with a nose for the goal.",
+  "sections": {
+    "formal": {
+      "body": "<p>Picture this. You step off a bus in a city you have never visited, your phone is dead, and you need to reach the airport. What do you actually do? You work out where you are, you list the moves open to you (walk, hop on another bus, wave down a taxi), and you weigh what each move will cost. Congratulations: you just formulated a search problem. Every route-finder on earth does exactly this, only faster and without the panic.</p><p>Here is the formal recipe, and it is worth learning slowly, because everything else in this chapter hangs on it. A well-defined search problem has an <em class=\"term\">initial state</em>: where you start. It has a set of <em class=\"term\">actions</em>: the moves available to you. It has a <em class=\"term\">transition model</em> that says what happens when you take one (state + action → state), a <em class=\"term\">goal test</em>: \"have we arrived yet?\", and a <em class=\"term\">path cost</em>: the price of the whole journey.</p><p>In a route-finding problem the states are cities, the actions are roads, and the cost is distance. A solution is a sequence of actions from start to goal, and an optimal solution is the cheapest one. Then we hold every strategy up to four questions: does it always find an answer, is the answer the best one, how long does it take, and how much memory does it eat? Completeness, optimality, time and space. Keep those four in your pocket; they come back in a table before the chapter ends.</p>",
+      "keynotes": [
+        "A search problem has five parts: initial state, actions, transition model, goal test and path cost.",
+        "In route-finding the states are cities, the actions are roads and the cost is distance.",
+        "A solution is a sequence of actions from start to goal; an optimal solution has the least cost.",
+        "Strategies are compared on completeness, optimality, time and space."
+      ]
+    },
+    "unin": {
+      "body": "<p>Let us start with the two simplest ways to search, the ones with no cleverness at all. Think of them as two very different explorers dropped into the same maze.</p><p>The first explorer is cautious and thorough. <em class=\"term\">BFS</em> (breadth-first search) expands the shallowest node first, using a FIFO queue. It checks everything one step away, then everything two steps away, and so on, like ripples spreading from a stone dropped in a pond. That makes it complete, and optimal whenever every step costs the same. The catch is memory: the frontier grows as bᵈ, and it grows <i>fast</i>.</p><p>The second explorer is a daredevil. <em class=\"term\">DFS</em> (depth-first search) expands the deepest node first, using a stack: pick a corridor, sprint down it as far as it goes, and back up only at a dead end. Its memory use is tiny, which is lovely. But it can dive forever down a bottomless branch, and even when it does reach the goal it need not have found the <i>shortest</i> way there.</p><p>Can we have the best of both? We can. <em class=\"term\">Iterative deepening</em> runs a depth-limited DFS with limits 0, 1, 2… one after another. It re-visits the top of the tree every round, which feels wasteful, but the bottom level is so enormous that the repetition barely matters. You get BFS's optimality and DFS's memory. On the small maze, BFS finds a route of cost <b>5</b>, and DFS reports cost <b>5</b> as well (a longer, perfectly legal route). Run the two figures side by side and watch how differently they spend their effort.</p>",
+      "keynotes": [
+        "BFS expands the shallowest node first using a FIFO queue: complete, and optimal when every step costs the same, but its memory grows as bᵈ.",
+        "DFS expands the deepest node first using a stack: tiny memory, but it can dive forever and need not find the shortest path.",
+        "Iterative deepening runs depth-limited DFS with limits 0, 1, 2… and combines BFS's optimality with DFS's small memory.",
+        "On the small maze both BFS and DFS report cost 5, though DFS takes a longer, legal route."
+      ]
+    },
+    "heur": {
+      "body": "<p>So far our explorers are blind: they have no idea where the goal is, so they stumble outward in every direction. Now give one of them a compass. That is exactly what a <em class=\"term\">heuristic</em> is: a function h(n) that estimates the cost from node n to the goal. In our maze we use the Manhattan distance, the number of blocks you would walk if the buildings were not in the way.</p><p><em class=\"term\">Greedy best-first</em> search trusts the compass completely. It expands the node with the smallest h, and it is fast, but a compass does not know about walls, so greedy can march confidently into a dead end and it is not optimal. <em class=\"term\">A*</em> is the grown-up version. It expands the node with the smallest f(n) = g(n) + h(n), where g is the cost <i>so far</i>: how far you have already come plus how far you think you have left to go. Here is the beautiful part: if h is <em class=\"term\">admissible</em>, meaning it never overestimates, then A* is guaranteed to find the optimal path.</p><p>Does the compass really help? Look at the numbers. On an open 4×8 grid, BFS expands <b>32</b> cells, while greedy expands <b>11</b> and A* expands <b>11</b>. Same destination, a third of the work. All three find the cost-10 path here, though in general greedy may not. Watch the figures and see how greedy heads straight for the goal.</p>",
+      "keynotes": [
+        "A heuristic h(n) estimates the cost from n to the goal; here it is the Manhattan distance.",
+        "Greedy best-first expands the smallest h: fast, but not optimal.",
+        "A* expands the smallest f(n) = g(n) + h(n), and is optimal if h is admissible (never overestimates).",
+        "On an open 4×8 grid BFS expands 32 cells while greedy and A* expand 11, and all find the cost-10 path."
+      ]
+    },
+    "csp": {
+      "body": "<p>Not every problem is about finding a path. Some are about finding an <i>arrangement</i>: a timetable where no teacher is in two rooms at once, a sudoku grid, a map where no two neighbouring countries share a colour. These are <em class=\"term\">CSP</em>s, constraint satisfaction problems, and they are made of three ingredients: variables, the domains of values each can take, and the constraints between them (in map colouring, neighbouring regions must differ).</p><p>The classic way to solve one is <em class=\"term\">backtracking</em>. You assign a variable, check the constraints, and if you have painted yourself into a corner you undo the last choice and try another. That sounds like trial and error, and it is, but a smart kind. Two ideas make it dramatically better: constraint propagation (node, arc and path consistency), which spreads the consequences of a choice to the rest of the puzzle before you waste time, and variable-ordering heuristics, such as \"most constrained first\". Work through the map below and notice how much easier it gets when you colour the troublemaker first.</p>",
+      "keynotes": [
+        "A CSP has variables, domains and constraints; map colouring, sudoku and timetabling are all CSPs.",
+        "Backtracking assigns a variable, checks the constraints and undoes the choice on failure.",
+        "Constraint propagation (node, arc and path consistency) prunes the search before it wastes effort.",
+        "Colour the most constrained variable first: it has the fewest legal values."
+      ]
+    },
+    "cmp": {
+      "body": "<p>Time to line up our contestants and compare them honestly. Remember the four questions from the start of the chapter? Here they are, answered for every strategy.</p><table><thead><tr><th>Strategy</th><th>Complete</th><th>Optimal</th><th>Time</th><th>Space</th></tr></thead><tbody><tr><td>BFS</td><td>yes</td><td>yes (unit cost)</td><td>bᵈ</td><td>bᵈ</td></tr><tr><td>DFS</td><td>no (infinite depth)</td><td>no</td><td>bᵐ</td><td>b·m</td></tr><tr><td>Iterative deepening</td><td>yes</td><td>yes (unit cost)</td><td>bᵈ</td><td>b·d</td></tr><tr><td>Greedy</td><td>no</td><td>no</td><td>bᵐ</td><td>bᵐ</td></tr><tr><td>A*</td><td>yes</td><td>yes (admissible h)</td><td>exp.</td><td>all nodes</td></tr></tbody></table><p>Notice the pattern: nobody wins every column. BFS is safe but hungry for memory, DFS is frugal but reckless, and A* is clever but keeps every node it generates. Engineering is mostly choosing which weakness you can live with. And if you want to feel how big \"hungry\" really is, take a branching factor b = 3 and a solution at depth d = 4: BFS generates about 1 + 3 + 9 + 27 + 81 nodes, which is 121.</p>",
+      "keynotes": [
+        "BFS and iterative deepening are complete and optimal for unit costs; DFS and greedy are neither.",
+        "DFS needs only b·m memory, against bᵈ for BFS; iterative deepening needs b·d.",
+        "A* is complete and optimal with an admissible heuristic, but it stores all generated nodes.",
+        "With b = 3 and d = 4, BFS generates about 121 nodes."
+      ]
+    },
+    "summary": {
+      "body": "<p>Let us pull the whole chapter into one breath. Still with me? Good.</p><ul><li>BFS: shortest in steps. DFS: small memory. A*: optimal and focused, with an admissible heuristic.</li><li>CSP: backtracking plus propagation.</li></ul><p>If you can explain to a friend <i>why</i> each of those lines is true, and not just recite it, you have understood the chapter. If one line feels slippery, that is your cue to go back and rerun its figure.</p>",
+      "keynotes": [
+        "BFS finds the shortest path in steps, DFS uses little memory, and A* with an admissible heuristic is optimal and focused.",
+        "CSPs are solved by backtracking plus constraint propagation."
+      ]
+    }
+  }
+}

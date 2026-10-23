@@ -1,0 +1,42 @@
+{
+  "title": "Games, local search and genetic algorithms",
+  "subtitle": "When an opponent answers back, and when the path does not matter — only the final state.",
+  "sections": {
+    "minimax": {
+      "title": "Minimax",
+      "body": "<p>In a zero-sum game two players alternate. MAX tries to maximise a score, MIN to minimise it. <em class=\"term\">Minimax</em> looks ahead to the leaves, scores them with an evaluation function, and backs values up: MAX nodes take the largest child, MIN nodes the smallest. The root value is the best MAX can guarantee against perfect play. Cost: bᵈ nodes.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ab": {
+      "title": "Alpha–beta pruning",
+      "body": "<p><em class=\"term\">Alpha–beta</em> carries two bounds: α, the best MAX is already assured, and β, the best MIN is already assured. When α ≥ β the remaining children cannot change the decision and are <em class=\"term\">pruned</em>. It returns the same value as minimax but evaluates fewer leaves: here <b>5</b> of 8, value 5. With perfect move ordering it searches about b^(d/2) nodes — doubling the depth you can afford.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "hill": {
+      "title": "Local search: hill climbing and simulated annealing",
+      "body": "<p>For timetabling or n-queens the path is irrelevant. <em class=\"term\">Hill climbing</em> moves to the best neighbouring state until none is better; it gets stuck on <em class=\"term\">local maxima</em>, plateaus and ridges. <em class=\"term\">Simulated annealing</em> sometimes accepts a worse move with probability e^(−Δ/T), where the temperature T falls over time: early on it explores, later it settles. Random restarts also help.</p>",
+      "after": "",
+      "steps": "Current cost 10; a neighbour has cost 12 (Δ = 2). Temperature T = 4. Probability of accepting the worse move."
+    },
+    "ga": {
+      "title": "Genetic algorithms",
+      "body": "<p>A <em class=\"term\">genetic algorithm</em> keeps a population of candidate solutions (bit strings). Each generation: <em class=\"term\">selection</em> (fitter individuals are more likely parents, e.g. roulette wheel), <em class=\"term\">crossover</em> (swap tails at a random cut) and <em class=\"term\">mutation</em> (rare bit flips). Here it maximises f(x) = x² over 5-bit strings (optimum 31² = 961); after 30 generations of 10 individuals the best fitness reaches <b>961</b> (optimum 961).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Minimax backs up values; alpha–beta prunes without changing them.</li><li>Local search ignores the path; annealing escapes local optima; GAs evolve populations.</li></ul>",
+      "after": "",
+      "steps": ""
+    },
+    "ex": {
+      "title": "Try it",
+      "body": "<p>Change the leaf values and watch which branches get pruned. Good ordering (best move first) prunes the most; bad ordering prunes nothing.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
