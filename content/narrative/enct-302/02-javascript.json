@@ -1,0 +1,53 @@
+{
+  "subtitle": "JavaScript runs one thing at a time, yet handles clicks, timers and network replies. The event loop is the trick.",
+  "sections": {
+    "lang": {
+      "body": "<p>JavaScript was written in ten days, and you can feel it: brilliant ideas next to a few odd corners. Let’s learn the safe path through it. For variables use <code>let</code> and <code>const</code> (block-scoped; prefer const). The types are number, string, boolean, null, undefined, object, array and function. Functions are values, so you can pass them around: <code>const add = (a, b) =&gt; a + b</code>.</p><p>Here is the corner to avoid. Use <code>===</code>, not <code>==</code>, to avoid coercion surprises, since <code>0 == '0'</code> is true. So 0 === \"0\" is false: different types never match under ===.</p>",
+      "keynotes": [
+        "Variables use let and const (block-scoped; prefer const).",
+        "Types: number, string, boolean, null, undefined, object, array and function; functions are values, as in const add = (a, b) => a + b.",
+        "Use === not ==, since 0 == '0' is true."
+      ]
+    },
+    "dom": {
+      "body": "<p>Picture the page as a family tree of objects, and your code as someone who can reach into any branch and change it. That tree is the <em class='term'>DOM</em>. <code>document.querySelector('#btn')</code> finds a node; <code>el.textContent = …</code> changes it; <code>el.addEventListener('click', fn)</code> reacts.</p><p>There is a clever behaviour you can use: events <b>bubble</b> up from the target to ancestors, like a ripple travelling up the tree. So one listener on a list can handle all its items (event delegation), instead of attaching hundreds of listeners. Event bubbling means an event travels from the target up through its ancestors.</p>",
+      "keynotes": [
+        "The DOM is the page as a tree of objects: querySelector finds a node, textContent changes it and addEventListener reacts.",
+        "Events bubble up from the target to ancestors.",
+        "One listener on a list can handle all its items (event delegation)."
+      ]
+    },
+    "loop": {
+      "body": "<p>Here is a puzzle. JavaScript can only do one thing at a time, yet your page responds to clicks while a timer runs and an image downloads. How? Think of a single waiter in a restaurant who never stands waiting at the kitchen door: he takes an order, hands it to the kitchen, and moves on.</p><p>JavaScript has one call stack. Slow work (timers, network, I/O) is handed to the browser; when it finishes, a callback is queued. The <em class='term'>event loop</em> moves a queued callback onto the stack only when the stack is empty. <b>Microtasks</b> (promise callbacks) run before the next <b>macrotask</b> (timer, event). So `setTimeout(f, 0); console.log(\"a\")` prints “a” first: a 0 ms timer still waits for the stack to empty, as the figure shows.</p>",
+      "keynotes": [
+        "JavaScript has one call stack; slow work is handed to the browser and a callback is queued when it finishes.",
+        "The event loop moves a queued callback onto the stack only when the stack is empty.",
+        "Microtasks (promise callbacks) run before the next macrotask (timer, event); a 0 ms timer still waits for the stack to empty."
+      ]
+    },
+    "async": {
+      "body": "<p>Waiting is the main thing a web page does: for a server, a file, a user. A <code>Promise</code> represents a future value: pending → fulfilled or rejected, like a restaurant pager that buzzes when your food is ready. And <code>await</code> pauses an <code>async</code> function (not the thread) until the promise settles: <code>const res = await fetch(url); const data = await res.json();</code>.</p><p>Handle failure with <code>try/catch</code>, and run independent requests together with <code>Promise.all</code>. See the saving: two independent requests take 300 ms and 200 ms. Sequentially that is 500 ms; with Promise.all it is the max of the two, 300 ms. Never wait for one if you can wait for both at once.</p>",
+      "keynotes": [
+        "A Promise represents a future value: pending, then fulfilled or rejected.",
+        "await pauses an async function (not the thread) until the promise settles; handle failure with try/catch.",
+        "Two independent requests of 300 ms and 200 ms take 500 ms sequentially but 300 ms with Promise.all."
+      ]
+    },
+    "fetch": {
+      "body": "<p>Now you can put it all together. A click handler calls <code>fetch('/api/items')</code>, awaits JSON and updates the DOM, and there is no page reload. That is the whole trick behind most modern web apps, and it is the idea in the figure.</p><p>One security rule gets in your way until you understand it: the browser’s same-origin policy blocks reading responses from other origins unless the server allows it via CORS headers. CORS is a rule enforced by the browser, not by the server.</p>",
+      "keynotes": [
+        "A click handler can call fetch('/api/items'), await JSON and update the DOM with no page reload.",
+        "The same-origin policy blocks reading responses from other origins unless the server allows it via CORS headers.",
+        "CORS is enforced by the browser."
+      ]
+    },
+    "spa": {
+      "body": "<p>As interfaces grow, updating the DOM by hand becomes a mess of bugs. Frameworks (React, Vue, Svelte) offer a calmer way: describe the UI as a function of <b>state</b>. Change the state and the framework updates only the DOM parts that differ (virtual DOM or fine-grained reactivity).</p><p>A few habits will serve you well: keep state minimal, derive the rest, and lift shared state up to the nearest common parent. In a component framework, the UI is a function of the state.</p>",
+      "keynotes": [
+        "Frameworks (React, Vue, Svelte) describe the UI as a function of state.",
+        "Changing the state updates only the DOM parts that differ.",
+        "Keep state minimal, derive the rest, and lift shared state up to the nearest common parent."
+      ]
+    }
+  }
+}

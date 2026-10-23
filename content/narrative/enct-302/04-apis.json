@@ -1,0 +1,53 @@
+{
+  "subtitle": "An API is a contract between programs: what to ask, in what shape, and what comes back.",
+  "sections": {
+    "rest": {
+      "body": "<p>When two programs talk, they need manners as strict as a restaurant’s: you order from a menu, in a set form, and you get what the menu promised. <em class='term'>REST</em> is the most common set of manners. It models an API as <b>resources</b> with URLs (<code>/books</code>, <code>/books/7</code>) and uses HTTP methods as verbs: GET read, POST create, PUT replace, PATCH change, DELETE remove.</p><p>Requests are stateless, and the status codes are standard (201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found). The golden habit is nouns in URLs, not verbs: <code>DELETE /books/7</code>, not <code>/deleteBook</code>. So deleting book 7 is DELETE /books/7.</p>",
+      "keynotes": [
+        "REST models an API as resources with URLs (/books, /books/7) and uses HTTP methods as verbs: GET read, POST create, PUT replace, PATCH change, DELETE remove.",
+        "Requests are stateless and use standard status codes: 201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found.",
+        "Use nouns in URLs, not verbs: DELETE /books/7, not /deleteBook."
+      ]
+    },
+    "json": {
+      "body": "<p>What language do the programs speak in? Almost always JSON, a text format for objects, arrays, strings, numbers, booleans and null: <code>{\"id\": 7, \"title\": \"SICP\", \"tags\": [\"cs\"]}</code>. <code>JSON.stringify</code> and <code>JSON.parse</code> convert to and from it.</p><p>It is strict, and you will trip over the rules at least once: keys are quoted with double quotes, there are no trailing commas, and there are no comments.</p>",
+      "keynotes": [
+        "JSON is text for objects, arrays, strings, numbers, booleans and null.",
+        "JSON.stringify and JSON.parse convert to and from JSON.",
+        "Keys are quoted with double quotes; there are no trailing commas and no comments."
+      ]
+    },
+    "crud": {
+      "body": "<p>Almost every API is four verbs in a trench coat: create, read, update, delete. The same URL changes meaning with the method, as the figure shows. Creating returns 201 and the new resource; reading returns 200; updating returns 200 or 204; deleting 204; and a missing id gives 404. A successful POST that creates a resource returns 201, so you know the thing now exists.</p>",
+      "keynotes": [
+        "Creating returns 201 and the new resource; reading returns 200.",
+        "Updating returns 200 or 204; deleting returns 204.",
+        "A missing id gives 404."
+      ]
+    },
+    "idem": {
+      "body": "<p>The network is unreliable. Your request times out, and you do not know whether it arrived. May you safely send it again? That depends on the method. Safe methods (GET) change nothing. Idempotent methods (GET, PUT, DELETE) give the same final state if repeated. POST is not idempotent, because retrying it may create two orders. For payments, use an idempotency key.</p><p>See it with PUT /books/7 {title: \"A\"} sent twice: the final state is the same both times, so it is idempotent. Think before you retry a POST.</p>",
+      "keynotes": [
+        "Safe methods (GET) change nothing.",
+        "Idempotent methods (GET, PUT, DELETE) give the same final state if repeated; POST is not, so retrying may create two orders.",
+        "Use an idempotency key for payments."
+      ]
+    },
+    "auth": {
+      "body": "<p>How does an API know who is calling? You send, as the client, a credential with each request: an API key, or a bearer token in <code>Authorization: Bearer …</code>. For letting users share access safely, there is OAuth 2.0, which lets a user grant an app limited access without sharing a password; the app never sees the password, as the figure shows.</p><p>Tokens can also be self-contained: JWTs are signed, self-describing tokens (header.payload.signature) that the server can verify without a lookup. OAuth’s main benefit is delegated access with no password sharing.</p>",
+      "keynotes": [
+        "Clients send a credential with each request: an API key, or a bearer token in Authorization: Bearer ….",
+        "OAuth 2.0 lets a user grant an app limited access without sharing a password.",
+        "JWTs are signed, self-describing tokens (header.payload.signature) the server can verify without a lookup."
+      ]
+    },
+    "ver": {
+      "body": "<p>A good API is one that you can live with for years. Version it (<code>/v1/</code>), paginate lists (<code>?page=2&amp;limit=20</code>), return consistent error bodies, rate-limit, and document with OpenAPI. Status 429 tells a client to slow down.</p><p>Pagination is simple arithmetic. With 1,050 records and 20 per page, pages = ⌈1050/20⌉ = 53. Why paginate a list endpoint? So that a huge list is never sent in one slow, heavy response.</p>",
+      "keynotes": [
+        "Version the API (/v1/), paginate lists (?page=2&limit=20), return consistent error bodies, rate-limit and document with OpenAPI.",
+        "Status 429 tells a client to slow down.",
+        "1,050 records at 20 per page make ⌈1050/20⌉ = 53 pages."
+      ]
+    }
+  }
+}

@@ -8,7 +8,7 @@
       "locator": "4.1",
       "title": "REST principles",
       "eyebrow": "Resources and verbs",
-      "body": "<p><em class=\"term\">REST</em> models an API as <b>resources</b> with URLs (<code>/books</code>, <code>/books/7</code>) and uses HTTP methods as verbs: GET read, POST create, PUT replace, PATCH change, DELETE remove. Stateless requests; standard status codes (201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found). Nouns in URLs, not verbs: <code>DELETE /books/7</code>, not <code>/deleteBook</code>.</p>",
+      "body": "<p>When two programs talk, they need manners as strict as a restaurant’s: you order from a menu, in a set form, and you get what the menu promised. <em class=\"term\">REST</em> is the most common set of manners. It models an API as <b>resources</b> with URLs (<code>/books</code>, <code>/books/7</code>) and uses HTTP methods as verbs: GET read, POST create, PUT replace, PATCH change, DELETE remove.</p><p>Requests are stateless, and the status codes are standard (201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found). The golden habit is nouns in URLs, not verbs: <code>DELETE /books/7</code>, not <code>/deleteBook</code>. So deleting book 7 is DELETE /books/7.</p>",
       "questions": [
         {
           "id": "rs",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "REST models an API as resources with URLs (/books, /books/7) and uses HTTP methods as verbs: GET read, POST create, PUT replace, PATCH change, DELETE remove.",
+        "Requests are stateless and use standard status codes: 201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found.",
+        "Use nouns in URLs, not verbs: DELETE /books/7, not /deleteBook."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "4.2",
       "title": "JSON",
       "eyebrow": "The data format",
-      "body": "<p>JSON is text for objects, arrays, strings, numbers, booleans and null: <code>{\"id\": 7, \"title\": \"SICP\", \"tags\": [\"cs\"]}</code>. <code>JSON.stringify</code> / <code>JSON.parse</code> convert. Keys are quoted with double quotes; no trailing commas, no comments.</p>",
+      "body": "<p>What language do the programs speak in? Almost always JSON, a text format for objects, arrays, strings, numbers, booleans and null: <code>{\"id\": 7, \"title\": \"SICP\", \"tags\": [\"cs\"]}</code>. <code>JSON.stringify</code> and <code>JSON.parse</code> convert to and from it.</p><p>It is strict, and you will trip over the rules at least once: keys are quoted with double quotes, there are no trailing commas, and there are no comments.</p>",
       "questions": [
         {
           "id": "js",
@@ -79,6 +84,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "JSON is text for objects, arrays, strings, numbers, booleans and null.",
+        "JSON.stringify and JSON.parse convert to and from JSON.",
+        "Keys are quoted with double quotes; there are no trailing commas and no comments."
       ]
     },
     {
@@ -86,7 +96,7 @@
       "locator": "4.3",
       "title": "A CRUD conversation",
       "eyebrow": "Create, read, update, delete",
-      "body": "<p>Creating returns 201 and the new resource; reading returns 200; updating returns 200 or 204; deleting 204; a missing id 404.</p>",
+      "body": "<p>Almost every API is four verbs in a trench coat: create, read, update, delete. The same URL changes meaning with the method, as the figure shows. Creating returns 201 and the new resource; reading returns 200; updating returns 200 or 204; deleting 204; and a missing id gives 404. A successful POST that creates a resource returns 201, so you know the thing now exists.</p>",
       "questions": [
         {
           "id": "c201",
@@ -126,6 +136,11 @@
           "note": "The same URL changes meaning with the method.",
           "script": "diagram(\"mode: sequence\\n[Client] as c\\n[API] as a\\n[DB] as d\\nc -> a : POST /books {title}\\na -> d : INSERT\\nd --> a : id 7\\na --> c : 201 Created {id 7}\\nc -> a : GET /books/7\\na --> c : 200 {id 7, title}\\nc -> a : DELETE /books/7\\na --> c : 204 No Content\\n@0 c -> a : POST /books {title}\\n@1 a -> d : INSERT\\n@2 d -> a : id 7\\n@3 a -> c : 201 Created {id 7}\\n@4 c -> a : GET /books/7\\n@5 a -> c : 200 {id 7, title}\\n@6 c -> a : DELETE /books/7\\n@7 a -> c : 204 No Content\");"
         }
+      ],
+      "keynotes": [
+        "Creating returns 201 and the new resource; reading returns 200.",
+        "Updating returns 200 or 204; deleting returns 204.",
+        "A missing id gives 404."
       ]
     },
     {
@@ -133,7 +148,7 @@
       "locator": "4.4",
       "title": "Idempotence and safety",
       "eyebrow": "Retry rules",
-      "body": "<p>Safe methods (GET) change nothing. Idempotent methods (GET, PUT, DELETE) give the same final state if repeated; POST is not — retrying it may create two orders. Use an idempotency key for payments.</p>",
+      "body": "<p>The network is unreliable. Your request times out, and you do not know whether it arrived. May you safely send it again? That depends on the method. Safe methods (GET) change nothing. Idempotent methods (GET, PUT, DELETE) give the same final state if repeated. POST is not idempotent, because retrying it may create two orders. For payments, use an idempotency key.</p><p>See it with PUT /books/7 {title: \"A\"} sent twice: the final state is the same both times, so it is idempotent. Think before you retry a POST.</p>",
       "worked": [
         {
           "toc": "Repeat",
@@ -176,6 +191,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Safe methods (GET) change nothing.",
+        "Idempotent methods (GET, PUT, DELETE) give the same final state if repeated; POST is not, so retrying may create two orders.",
+        "Use an idempotency key for payments."
       ]
     },
     {
@@ -183,7 +203,7 @@
       "locator": "4.5",
       "title": "Authentication for APIs",
       "eyebrow": "Who is calling?",
-      "body": "<p>Clients send a credential with each request: an API key, or a bearer token in <code>Authorization: Bearer …</code>. OAuth 2.0 lets a user grant an app limited access without sharing a password; JWTs are signed, self-describing tokens (header.payload.signature) the server can verify without a lookup.</p>",
+      "body": "<p>How does an API know who is calling? You send, as the client, a credential with each request: an API key, or a bearer token in <code>Authorization: Bearer …</code>. For letting users share access safely, there is OAuth 2.0, which lets a user grant an app limited access without sharing a password; the app never sees the password, as the figure shows.</p><p>Tokens can also be self-contained: JWTs are signed, self-describing tokens (header.payload.signature) that the server can verify without a lookup. OAuth’s main benefit is delegated access with no password sharing.</p>",
       "questions": [
         {
           "id": "oa",
@@ -223,6 +243,11 @@
           "note": "The app never sees the password.",
           "script": "diagram(\"mode: sequence\\n[App] as a\\n[User] as u\\n[Auth server] as s\\n[API] as p\\na -> u : redirect to login\\nu -> s : log in and approve\\ns --> a : authorisation code\\na -> s : code for token\\ns --> a : access token\\na -> p : GET /me (Bearer token)\\np --> a : user data\\n@0 a -> u : redirect to login\\n@1 u -> s : log in and approve\\n@2 s -> a : authorisation code\\n@3 a -> s : code for token\\n@4 s -> a : access token\\n@5 a -> p : GET /me (Bearer token)\\n@6 p -> a : user data\");"
         }
+      ],
+      "keynotes": [
+        "Clients send a credential with each request: an API key, or a bearer token in Authorization: Bearer ….",
+        "OAuth 2.0 lets a user grant an app limited access without sharing a password.",
+        "JWTs are signed, self-describing tokens (header.payload.signature) the server can verify without a lookup."
       ]
     },
     {
@@ -230,7 +255,7 @@
       "locator": "4.6",
       "title": "Good API design",
       "eyebrow": "Habits",
-      "body": "<p>Version the API (<code>/v1/</code>); paginate lists (<code>?page=2&amp;limit=20</code>); return consistent error bodies; rate-limit; document with OpenAPI. Status 429 tells a client to slow down.</p>",
+      "body": "<p>A good API is one that you can live with for years. Version it (<code>/v1/</code>), paginate lists (<code>?page=2&amp;limit=20</code>), return consistent error bodies, rate-limit, and document with OpenAPI. Status 429 tells a client to slow down.</p><p>Pagination is simple arithmetic. With 1,050 records and 20 per page, pages = ⌈1050/20⌉ = 53. Why paginate a list endpoint? So that a huge list is never sent in one slow, heavy response.</p>",
       "worked": [
         {
           "toc": "Data",
@@ -281,6 +306,11 @@
           "prompt": "<p>2,345 records at 50 per page. How many pages?</p>",
           "answer": "⌈2345/50⌉ = <b>47</b>."
         }
+      ],
+      "keynotes": [
+        "Version the API (/v1/), paginate lists (?page=2&limit=20), return consistent error bodies, rate-limit and document with OpenAPI.",
+        "Status 429 tells a client to slow down.",
+        "1,050 records at 20 per page make ⌈1050/20⌉ = 53 pages."
       ]
     }
   ]

@@ -1,14 +1,14 @@
 {
   "title": "How the web works",
   "kicker": "ENCT 302 · Web Application Programming · Chapter 1",
-  "subtitle": "Type a URL, press Enter — and a dozen systems cooperate in under a second. Follow one request all the way.",
+  "subtitle": "Type a URL, press Enter, and a dozen systems cooperate in under a second. Let’s follow one request all the way.",
   "sections": [
     {
       "id": "url",
       "locator": "1.1",
       "title": "URLs and clients/servers",
       "eyebrow": "The vocabulary",
-      "body": "<p>The web is a client–server system: a <b>browser</b> (client) requests resources from a <b>web server</b>. A <em class=\"term\">URL</em> such as <code>https://example.com:443/docs?page=2#top</code> has scheme (protocol), host, port, path, query string and fragment. The fragment never leaves the browser.</p>",
+      "body": "<p>You type an address, press Enter, and a page appears. It feels like magic, but it is a conversation between two parties, and learning to read it is the first step to building for the web. The web is a client–server system: a <b>browser</b> (the client) requests resources from a <b>web server</b>.</p><p>Look closely at what you typed. A <em class=\"term\">URL</em> such as <code>https://example.com:443/docs?page=2#top</code> has scheme (protocol), host, port, path, query string and fragment, like a postal address with country, city, street and flat. One quirky detail: the fragment never leaves the browser, so the server never sees it. In https://a.com/x?y=1#z, the part “z” is the fragment, used only by the browser.</p>",
       "questions": [
         {
           "id": "frag",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The web is a client–server system: a browser (client) requests resources from a web server.",
+        "A URL such as https://example.com:443/docs?page=2#top has scheme, host, port, path, query string and fragment.",
+        "The fragment never leaves the browser."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "1.2",
       "title": "DNS: names to addresses",
       "eyebrow": "Finding the server",
-      "body": "<p>Computers route by IP address, so the browser first asks DNS to resolve the host name. The answer is cached at several levels (browser, OS, resolver) for its TTL, so repeat visits skip the lookup.</p>",
+      "body": "<p>Computers do not understand “example.com”; they route by IP address. So before anything else, your browser asks DNS, the internet’s phone book, to resolve the host name into a number. Press Enter on a name you have never visited, and a resolver does the legwork.</p><p>You will be glad to hear that the answer is cached at several levels (browser, OS, resolver) for its TTL, so repeat visits skip the lookup altogether. The TTL controls how long a cached DNS answer may be reused before it must be asked for again.</p>",
       "questions": [
         {
           "id": "ttl",
@@ -87,6 +92,11 @@
           "note": "The resolver does the legwork and caches the answer.",
           "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[Resolver] as r\\n[Root / TLD / authoritative] as a\\nb -> r : example.com ?\\nr -> a : ask authoritative\\na --> r : 93.184.216.34\\nr --> b : 93.184.216.34\\n@0 b -> r : example.com ?\\n@1 r -> a : ask authoritative\\n@2 a -> r : 93.184.216.34\\n@3 r -> b : 93.184.216.34\");"
         }
+      ],
+      "keynotes": [
+        "Computers route by IP address, so the browser first asks DNS to resolve the host name.",
+        "The answer is cached at several levels (browser, OS, resolver) for its TTL.",
+        "Repeat visits skip the lookup."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "1.3",
       "title": "HTTP request and response",
       "eyebrow": "The conversation",
-      "body": "<p>HTTP is a text protocol: the client sends a <b>request</b> (method, path, headers, optional body); the server answers with a <b>response</b> (status code, headers, body). Methods: GET (read), POST (create), PUT/PATCH (update), DELETE. Status families: 2xx success, 3xx redirect, 4xx client error, 5xx server error. HTTP is <em class=\"term\">stateless</em>: each request stands alone; cookies and tokens carry identity.</p>",
+      "body": "<p>Once the browser knows the address, the two sides talk in a plain-text language called HTTP, and you can learn it in a minute. HTTP is a text protocol: the client sends a <b>request</b> (method, path, headers, optional body); the server answers with a <b>response</b> (status code, headers, body).</p><p>The methods are verbs: GET (read), POST (create), PUT/PATCH (update), DELETE. The status codes come in families: 2xx success, 3xx redirect, 4xx client error, 5xx server error. So when you see 404 you know the page was not found, and the fault is on the client side of the request. One more big idea: HTTP is <em class=\"term\">stateless</em>: each request stands alone, so cookies and tokens carry identity. As the figure shows, one page view is many round trips.</p>",
       "questions": [
         {
           "id": "stat",
@@ -134,6 +144,11 @@
           "note": "One page view is many round trips.",
           "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[DNS] as d\\n[Server] as s\\nb -> d : resolve example.com\\nd --> b : IP address\\nb -> s : TCP + TLS handshake\\ns --> b : secure channel\\nb -> s : GET /index.html\\ns --> b : 200 OK + HTML\\nb -> s : GET /style.css\\ns --> b : 200 OK + CSS\\n@0 b -> d : resolve example.com\\n@1 d -> b : IP address\\n@2 b -> s : TCP + TLS handshake\\n@3 s -> b : secure channel\\n@4 b -> s : GET /index.html\\n@5 s -> b : 200 OK + HTML\\n@6 b -> s : GET /style.css\\n@7 s -> b : 200 OK + CSS\");"
         }
+      ],
+      "keynotes": [
+        "HTTP is a text protocol: a request has a method, path, headers and optional body; a response has a status code, headers and body.",
+        "Methods: GET (read), POST (create), PUT/PATCH (update), DELETE; status families are 2xx success, 3xx redirect, 4xx client error, 5xx server error.",
+        "HTTP is stateless: each request stands alone, and cookies and tokens carry identity."
       ]
     },
     {
@@ -141,7 +156,7 @@
       "locator": "1.4",
       "title": "Why latency matters",
       "eyebrow": "Numbers",
-      "body": "<p>Each round trip costs the network RTT. A page needing DNS (1 RTT), TCP (1), TLS (1–2), then the request (1) needs about 4–5 RTTs before the first byte. HTTP/2 multiplexes requests on one connection; HTTP/3 uses QUIC to cut handshakes.</p>",
+      "body": "<p>Why does a website feel slow even on fast internet? Because every conversation step costs a round trip, and a round trip across the sea cannot be hurried. Each trip costs the network RTT. A page needing DNS (1 RTT), TCP (1), TLS (1–2), then the request (1) needs about 4–5 RTTs before the first byte.</p><p>Do the sum. With RTT = 50 ms and four round trips (DNS, TCP, TLS, request), the time to first byte is at least 4 × 50 ms = 200 ms, before the server has even thought. HTTP/2 multiplexes requests on one connection, and HTTP/3 uses QUIC to cut handshakes. On a high-RTT link, the best way to cut page-load time is to reduce the number of round trips.</p>",
       "worked": [
         {
           "toc": "RTTs",
@@ -192,6 +207,11 @@
           "prompt": "<p>RTT is 80 ms. A fresh page needs DNS, TCP, TLS (2 RTT) and the GET. Minimum time to first byte?</p>",
           "answer": "5 round trips × 80 = <b>400 ms</b>."
         }
+      ],
+      "keynotes": [
+        "Each round trip costs the network RTT; DNS (1), TCP (1), TLS (1–2) and the request (1) need about 4–5 RTTs before the first byte.",
+        "With RTT = 50 ms and four round trips, time to first byte is at least 200 ms.",
+        "HTTP/2 multiplexes requests on one connection and HTTP/3 uses QUIC to cut handshakes."
       ]
     },
     {
@@ -199,7 +219,7 @@
       "locator": "1.5",
       "title": "HTML, CSS and JavaScript",
       "eyebrow": "The three layers",
-      "body": "<p><b>HTML</b> is structure (headings, links, forms); <b>CSS</b> is presentation (layout, colour); <b>JavaScript</b> is behaviour. The browser parses HTML into the DOM tree, CSS into a style tree, combines them to lay out and paint. Keep the three separate so each can change alone.</p>",
+      "body": "<p>Think of a house. The walls and rooms are the structure, the paint and furniture are the style, and the lights switching on when you clap are the behaviour. A web page has the same three layers, and you should keep them separate. <b>HTML</b> is structure (headings, links, forms); <b>CSS</b> is presentation (layout, colour); <b>JavaScript</b> is behaviour.</p><p>The browser parses HTML into the DOM tree and CSS into a style tree, then combines them to lay out and paint. Keep the three separate so each can change alone. If you want to change a button’s colour, that is a job for CSS.</p>",
       "questions": [
         {
           "id": "lay",
@@ -231,6 +251,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "HTML is structure, CSS is presentation and JavaScript is behaviour.",
+        "The browser parses HTML into the DOM tree and CSS into a style tree, then combines them to lay out and paint.",
+        "Keep the three separate so each can change alone."
       ]
     },
     {
@@ -238,7 +263,7 @@
       "locator": "1.6",
       "title": "Static, dynamic and SPA",
       "eyebrow": "Kinds of sites",
-      "body": "<p><b>Static</b> sites serve the same files to all; <b>dynamic</b> sites build pages per request on the server; <b>single-page apps (SPAs)</b> load one page and update it with JavaScript, fetching JSON. SPAs feel fast after first load but cost a heavy first load and need care for SEO.</p>",
+      "body": "<p>Not every website is built the same way, and you should know the three families. <b>Static</b> sites serve the same files to everyone. <b>Dynamic</b> sites build pages per request on the server. <b>Single-page apps (SPAs)</b> load one page and update it with JavaScript, fetching JSON.</p><p>Each has a trade. SPAs feel fast after the first load, but cost a heavy first load and need care for SEO. A SPA typically fetches JSON data and redraws only part of the page, rather than whole new pages.</p>",
       "questions": [
         {
           "id": "spa",
@@ -270,6 +295,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Static sites serve the same files to all; dynamic sites build pages per request on the server.",
+        "Single-page apps load one page and update it with JavaScript, fetching JSON.",
+        "SPAs feel fast after first load but cost a heavy first load and need care for SEO."
       ]
     }
   ]

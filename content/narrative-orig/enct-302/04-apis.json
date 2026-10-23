@@ -1,0 +1,42 @@
+{
+  "title": "REST APIs and JSON",
+  "subtitle": "An API is a contract between programs: what to ask, in what shape, and what comes back.",
+  "sections": {
+    "rest": {
+      "title": "REST principles",
+      "body": "<p><em class=\"term\">REST</em> models an API as <b>resources</b> with URLs (<code>/books</code>, <code>/books/7</code>) and uses HTTP methods as verbs: GET read, POST create, PUT replace, PATCH change, DELETE remove. Stateless requests; standard status codes (201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found). Nouns in URLs, not verbs: <code>DELETE /books/7</code>, not <code>/deleteBook</code>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "json": {
+      "title": "JSON",
+      "body": "<p>JSON is text for objects, arrays, strings, numbers, booleans and null: <code>{\"id\": 7, \"title\": \"SICP\", \"tags\": [\"cs\"]}</code>. <code>JSON.stringify</code> / <code>JSON.parse</code> convert. Keys are quoted with double quotes; no trailing commas, no comments.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "crud": {
+      "title": "A CRUD conversation",
+      "body": "<p>Creating returns 201 and the new resource; reading returns 200; updating returns 200 or 204; deleting 204; a missing id 404.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "idem": {
+      "title": "Idempotence and safety",
+      "body": "<p>Safe methods (GET) change nothing. Idempotent methods (GET, PUT, DELETE) give the same final state if repeated; POST is not — retrying it may create two orders. Use an idempotency key for payments.</p>",
+      "after": "",
+      "steps": "PUT /books/7 {title: \"A\"} sent twice. Final state is the same both times — it is idempotent."
+    },
+    "auth": {
+      "title": "Authentication for APIs",
+      "body": "<p>Clients send a credential with each request: an API key, or a bearer token in <code>Authorization: Bearer …</code>. OAuth 2.0 lets a user grant an app limited access without sharing a password; JWTs are signed, self-describing tokens (header.payload.signature) the server can verify without a lookup.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ver": {
+      "title": "Good API design",
+      "body": "<p>Version the API (<code>/v1/</code>); paginate lists (<code>?page=2&amp;limit=20</code>); return consistent error bodies; rate-limit; document with OpenAPI. Status 429 tells a client to slow down.</p>",
+      "after": "",
+      "steps": "1,050 records, 20 per page. Pages = ⌈1050/20⌉."
+    }
+  }
+}

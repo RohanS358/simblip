@@ -1,0 +1,42 @@
+{
+  "title": "JavaScript, the DOM and the event loop",
+  "subtitle": "JavaScript runs one thing at a time — yet handles clicks, timers and network replies. The event loop is the trick.",
+  "sections": {
+    "lang": {
+      "title": "The language in brief",
+      "body": "<p>Variables: <code>let</code>, <code>const</code> (block-scoped; prefer const). Types: number, string, boolean, null, undefined, object, array, function. Functions are values: <code>const add = (a, b) =&gt; a + b</code>. Use <code>===</code>, not <code>==</code>, to avoid coercion surprises (<code>0 == '0'</code> is true).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "dom": {
+      "title": "The DOM and events",
+      "body": "<p>The <em class=\"term\">DOM</em> is the page as a tree of objects. <code>document.querySelector('#btn')</code> finds a node; <code>el.textContent = …</code> changes it; <code>el.addEventListener('click', fn)</code> reacts. Events <b>bubble</b> up from the target to ancestors, so one listener on a list can handle all its items (event delegation).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "loop": {
+      "title": "The event loop",
+      "body": "<p>JavaScript has one call stack. Slow work (timers, network, I/O) is handed to the browser; when it finishes, a callback is queued. The <em class=\"term\">event loop</em> moves a queued callback onto the stack only when the stack is empty. <b>Microtasks</b> (promise callbacks) run before the next <b>macrotask</b> (timer, event).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "async": {
+      "title": "Promises and async/await",
+      "body": "<p>A <code>Promise</code> represents a future value: pending → fulfilled or rejected. <code>await</code> pauses an <code>async</code> function (not the thread) until the promise settles: <code>const res = await fetch(url); const data = await res.json();</code>. Handle failure with <code>try/catch</code>; run independent requests together with <code>Promise.all</code>.</p>",
+      "after": "",
+      "steps": "Two independent requests take 300 ms and 200 ms. Sequential: 500 ms. With Promise.all: the max of the two."
+    },
+    "fetch": {
+      "title": "Fetch in action",
+      "body": "<p>A click handler calls <code>fetch('/api/items')</code>, awaits JSON and updates the DOM — no page reload. The browser’s same-origin policy blocks reading responses from other origins unless the server allows it via CORS headers.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "spa": {
+      "title": "Frameworks and state",
+      "body": "<p>Frameworks (React, Vue, Svelte) describe the UI as a function of <b>state</b>: change the state and the framework updates only the DOM parts that differ (virtual DOM or fine-grained reactivity). Keep state minimal, derive the rest, and lift shared state up to the nearest common parent.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

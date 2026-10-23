@@ -1,14 +1,14 @@
 {
   "title": "XSS, CSRF, injection and tokens",
   "kicker": "ENCT 302 · Web Application Programming · Chapter 5",
-  "subtitle": "Every input is hostile until proven otherwise. See how the classic attacks work — and the one habit that stops each.",
+  "subtitle": "Every input is hostile until proven otherwise. See how the classic attacks work, and the one habit that stops each.",
   "sections": [
     {
       "id": "mind",
       "locator": "5.1",
       "title": "The security mindset",
       "eyebrow": "Principles",
-      "body": "<p>Never trust client input; give the least privilege; layer defences; fail closed. The <em class=\"term\">OWASP Top 10</em> lists the most common flaws (broken access control, injection, cryptographic failures, insecure design, …). HTTPS protects data in transit but does nothing about these bugs.</p>",
+      "body": "<p>Imagine you run a shop and a stranger hands you a note saying “give the bearer all the money.” Would you obey it? A secure programmer treats every input the same way. The mindset has four habits: never trust client input, give the least privilege, layer defences, and fail closed.</p><p>The <em class=\"term\">OWASP Top 10</em> lists the most common flaws (broken access control, injection, cryptographic failures, insecure design, …). Know it, because you will meet these bugs. Note too that HTTPS protects data in transit but does nothing about these bugs. Validation in the browser alone is never enough, since an attacker can skip the browser entirely.</p>",
       "questions": [
         {
           "id": "trust",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The security mindset: never trust client input, give the least privilege, layer defences and fail closed.",
+        "The OWASP Top 10 lists the most common flaws, such as broken access control, injection, cryptographic failures and insecure design.",
+        "HTTPS protects data in transit but does nothing about these bugs."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "5.2",
       "title": "SQL injection",
       "eyebrow": "Input becomes code",
-      "body": "<p>Pasting input into SQL: <code>\"SELECT * FROM users WHERE name='\" + n + \"'\"</code> with n = <code>' OR '1'='1</code> returns every user. Fix: <b>parameterised queries</b> (<code>WHERE name = ?</code>) so the input is always data, never code.</p>",
+      "body": "<p>Here is the attack that has emptied more databases than any other. Suppose you paste input straight into SQL: <code>\"SELECT * FROM users WHERE name='\" + n + \"'\"</code>. If n = <code>' OR '1'='1</code>, the quote in the input closes the string, and the query returns every user. The input has become code!</p><p>The fix is one habit: <b>parameterised queries</b> (<code>WHERE name = ?</code>), so the input is always data, never code. That is the standard defence against SQL injection, and you should use it every time.</p>",
       "questions": [
         {
           "id": "pq",
@@ -87,6 +92,10 @@
           "note": "The quote in the input closes the string.",
           "script": "diagram(\"mode: sequence\\n[Attacker] as a\\n[App] as p\\n[Database] as d\\na -> p : name = ' OR '1'='1\\np -> d : SELECT * WHERE name='' OR '1'='1'\\nd --> p : all users\\np --> a : everyone's data\\n@0 a -> p : name = ' OR '1'='1\\n@1 p -> d : SELECT * WHERE name='' OR '1'='1'\\n@2 d -> p : all users\\n@3 p -> a : everyone's data\");"
         }
+      ],
+      "keynotes": [
+        "Pasting input into SQL lets a quote in the input close the string, so n = ' OR '1'='1 returns every user.",
+        "The fix is parameterised queries (WHERE name = ?), so input is always data, never code."
       ]
     },
     {
@@ -94,7 +103,7 @@
       "locator": "5.3",
       "title": "Cross-site scripting (XSS)",
       "eyebrow": "Their script on your page",
-      "body": "<p>If a site echoes user text into a page unescaped, an attacker can make it include <code>&lt;script&gt;</code> that runs in victims’ browsers with the site’s privileges (stealing cookies, acting as them). Defences: <b>escape output</b> for its context, a Content-Security-Policy, <code>HttpOnly</code> cookies, and frameworks that escape by default.</p>",
+      "body": "<p>What if an attacker could write a little script on your page and have it run in your visitors’ browsers? If a site echoes user text into a page unescaped, an attacker can make it include <code>&lt;script&gt;</code> that runs in victims’ browsers with the site’s privileges (stealing cookies, acting as them). Stored XSS hits everyone who views the comment, as the figure shows.</p><p>Your defences: <b>escape output</b> for its context, a Content-Security-Policy, <code>HttpOnly</code> cookies, and frameworks that escape by default. To display user text safely, treat it as text and escape it before it reaches the page.</p>",
       "questions": [
         {
           "id": "xssq",
@@ -134,6 +143,11 @@
           "note": "Stored XSS hits everyone who views the comment.",
           "script": "diagram(\"mode: sequence\\n[Attacker] as a\\n[Site] as s\\n[Victim browser] as v\\na -> s : post comment with script\\ns --> a : saved\\nv -> s : view page\\ns --> v : page containing the script\\nv -> a : script sends cookie\\n@0 a -> s : post comment with script\\n@1 s -> a : saved\\n@2 v -> s : view page\\n@3 s -> v : page containing the script\\n@4 v -> a : script sends cookie\");"
         }
+      ],
+      "keynotes": [
+        "If a site echoes user text unescaped, an attacker can make it include a script that runs in victims’ browsers with the site’s privileges.",
+        "Stored XSS hits everyone who views the comment.",
+        "Defences: escape output for its context, a Content-Security-Policy, HttpOnly cookies and frameworks that escape by default."
       ]
     },
     {
@@ -141,7 +155,7 @@
       "locator": "5.4",
       "title": "Cross-site request forgery (CSRF)",
       "eyebrow": "Their request, your cookie",
-      "body": "<p>While you are logged in to a bank, a malicious page makes your browser send <code>POST /transfer</code> — the browser attaches your cookie automatically. Defences: a secret <b>CSRF token</b> in forms, <code>SameSite</code> cookies, re-authenticating for sensitive actions.</p>",
+      "body": "<p>Here the attacker never reads anything; they just trick your browser. While you are logged in to a bank, a malicious page makes your browser send <code>POST /transfer</code>, and the browser attaches your cookie automatically. The bank cannot tell the request was not intended, as the figure shows.</p><p>The defences: a secret <b>CSRF token</b> in forms, <code>SameSite</code> cookies, and re-authenticating for sensitive actions. A CSRF token works because a third-party page cannot read or guess it, so it cannot forge a valid request.</p>",
       "questions": [
         {
           "id": "cs",
@@ -181,6 +195,10 @@
           "note": "The bank cannot tell the request was not intended.",
           "script": "diagram(\"mode: sequence\\n[Victim] as v\\n[Evil site] as e\\n[Bank] as b\\nv -> e : visit page\\ne --> v : hidden form auto-submits\\nv -> b : POST /transfer (cookie attached)\\nb --> v : done, money moved\\n@0 v -> e : visit page\\n@1 e -> v : hidden form auto-submits\\n@2 v -> b : POST /transfer (cookie attached)\\n@3 b -> v : done, money moved\");"
         }
+      ],
+      "keynotes": [
+        "In CSRF a malicious page makes the logged-in victim’s browser send POST /transfer and the browser attaches the cookie automatically.",
+        "Defences: a secret CSRF token in forms, SameSite cookies and re-authenticating for sensitive actions."
       ]
     },
     {
@@ -188,7 +206,7 @@
       "locator": "5.5",
       "title": "Passwords and tokens",
       "eyebrow": "Storing credentials",
-      "body": "<p>Never store passwords in plain text: store a salted, slow hash (bcrypt, scrypt, Argon2). The salt is random per user, so identical passwords hash differently and rainbow tables fail; slowness limits guessing. Add rate limiting and multi-factor authentication. A password of length L over an alphabet of A symbols has A<sup>L</sup> possibilities.</p>",
+      "body": "<p>If your database leaks tomorrow, will your users’ passwords leak too? Not if you store them properly. Never store passwords in plain text: store a salted, slow hash (bcrypt, scrypt, Argon2). The salt is random per user, so identical passwords hash differently and rainbow tables fail; slowness limits guessing. Add rate limiting and multi-factor authentication.</p><p>How strong is a password? A password of length L over an alphabet of A symbols has A<sup>L</sup> possibilities. Lowercase letters only (A = 26), length 8 gives 26⁸ ≈ 2.1 × 10¹¹; with A = 94 printable symbols it is 94⁸ ≈ 6.1 × 10¹⁵, about 29 000× more. A per-user salt prevents rainbow-table attacks and identical hashes for identical passwords.</p>",
       "worked": [
         {
           "toc": "Space",
@@ -239,6 +257,11 @@
           "prompt": "<p>How many 6-digit numeric PINs exist?</p>",
           "answer": "10⁶ = <b>1,000,000</b>."
         }
+      ],
+      "keynotes": [
+        "Never store passwords in plain text: store a salted, slow hash (bcrypt, scrypt, Argon2).",
+        "A random per-user salt means identical passwords hash differently and rainbow tables fail; slowness limits guessing.",
+        "A password of length L over A symbols has A^L possibilities: 26⁸ ≈ 2.1 × 10¹¹ against 94⁸ ≈ 6.1 × 10¹⁵, about 29 000× more."
       ]
     },
     {
@@ -246,7 +269,7 @@
       "locator": "5.6",
       "title": "Security headers and a checklist",
       "eyebrow": "Habits",
-      "body": "<ul><li>HTTPS everywhere with HSTS</li><li>Content-Security-Policy</li><li>Escape output, parameterise queries</li><li>Hash passwords with salt</li><li>CSRF tokens + SameSite cookies</li><li>Least privilege; update dependencies</li></ul>",
+      "body": "<p>Security is a habit, not a feature, so here is your checklist to keep beside the keyboard. Run through it before you ship anything.</p><ul><li>HTTPS everywhere with HSTS</li><li>Content-Security-Policy</li><li>Escape output, parameterise queries</li><li>Hash passwords with salt</li><li>CSRF tokens + SameSite cookies</li><li>Least privilege; update dependencies</li></ul><p>Which measure reduces the damage of an XSS bug even if one slips through? The Content-Security-Policy, which limits what an injected script is allowed to do.</p>",
       "questions": [
         {
           "id": "chk",
@@ -278,6 +301,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Use HTTPS everywhere with HSTS and a Content-Security-Policy.",
+        "Escape output, parameterise queries and hash passwords with salt.",
+        "Use CSRF tokens with SameSite cookies, apply least privilege and update dependencies."
       ]
     }
   ]

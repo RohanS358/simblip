@@ -1,0 +1,53 @@
+{
+  "subtitle": "Getting code from a laptop to users, repeatably and safely.",
+  "sections": {
+    "env": {
+      "body": "<p>You wouldn’t test a new recipe on a hundred wedding guests. You try it at home first, then on a few friends, then serve it. Code travels the same road, through environments: <b>development</b> (your machine), <b>staging</b> (a production-like copy for final checks), and <b>production</b> (real users).</p><p>One rule makes it all work: configuration (URLs, secrets) comes from environment variables, never committed to the repository, so the same build runs everywhere. Where do database passwords belong? In the environment’s secret configuration, not in your code.</p>",
+      "keynotes": [
+        "Code moves through development (your machine), staging (a production-like copy for final checks) and production (real users).",
+        "Configuration (URLs, secrets) comes from environment variables and is never committed to the repository.",
+        "The same build runs everywhere."
+      ]
+    },
+    "ci": {
+      "body": "<p>What if releasing a new version were boring? That is the goal of a CI/CD pipeline. Every push triggers install → lint → test → build → deploy to staging → (approval) → deploy to production. A failing stage stops the line, like a factory belt halting when something is wrong. Automated pipelines make releases boring, and boring is exactly what you want.</p><p>In the figure the token moves on only when the stage passes. Why deploy to staging first? Because you would rather find a problem in a safe copy than in front of your users.</p>",
+      "keynotes": [
+        "Every push triggers install, lint, test, build, deploy to staging, (approval), then deploy to production.",
+        "A failing stage stops the line.",
+        "Automated pipelines make releases boring."
+      ]
+    },
+    "cont": {
+      "body": "<p>“But it works on my machine!” is the most famous sentence in software. Containers end it. A <b>container</b> (Docker) packages an app with its dependencies, so “works on my machine” means works everywhere. An <b>image</b> is the recipe; a container is a running instance, just as a class is to an object. Kubernetes schedules, scales and heals containers across machines.</p>",
+      "keynotes": [
+        "A container (Docker) packages an app with its dependencies.",
+        "An image is the recipe and a container is a running instance, like a class and an object.",
+        "Kubernetes schedules, scales and heals containers across machines."
+      ]
+    },
+    "rel": {
+      "body": "<p>Even with tests, bugs reach production, so the question is how you keep the damage small. Three strategies help. <b>Blue–green</b>: run old (blue) and new (green) side by side, switch traffic, switch back if broken. <b>Canary</b>: send 5 % of traffic to the new version first, like the canary in the coal mine. <b>Feature flags</b> ship code turned off. And always have a fast rollback.</p><p>See what a canary buys you. A bug affects 2 % of requests. A 5 % canary sees it on 0.05 × 0.02 = 0.1 % of all traffic, instead of 2 %. Promote only while the canary looks healthy, as the figure shows. A canary release reduces risk by exposing only a small share of users to the new version.</p>",
+      "keynotes": [
+        "Blue–green runs old and new versions side by side and switches traffic, switching back if broken.",
+        "A canary sends 5 % of traffic to the new version first; feature flags ship code turned off; always have a fast rollback.",
+        "A bug affecting 2 % of requests seen through a 5 % canary hits 0.05 × 0.02 = 0.1 % of all traffic."
+      ]
+    },
+    "perf": {
+      "body": "<p>Users leave slow sites within seconds, so speed is a feature you can build. Minify and compress (gzip/brotli), cache static files with long max-age and hashed names, serve from a CDN near the user, lazy-load images, and avoid render-blocking scripts. Then measure with Core Web Vitals: LCP (loading), INP (responsiveness) and CLS (layout stability).</p><p>A CDN speeds up a site mainly by serving files from a location close to the user, which cuts the distance, and so the round-trip time.</p>",
+      "keynotes": [
+        "Minify and compress (gzip/brotli), cache static files with long max-age and hashed names, serve from a CDN near the user, lazy-load images and avoid render-blocking scripts.",
+        "Core Web Vitals: LCP (loading), INP (responsiveness) and CLS (layout stability).",
+        "A CDN speeds up a site by serving files near the user."
+      ]
+    },
+    "trend": {
+      "body": "<p>Where is the web going next? You will hear about serverless functions (pay per call), edge computing, server-side rendering with hydration, Progressive Web Apps (installable, offline), WebAssembly for near-native speed, WebSockets/SSE for real-time updates, and AI-assisted development.</p><p>It is easy to chase every new thing, so remember the advice that applies to all of them: pick the simplest architecture that meets the need. Serverless means you run functions without managing servers, and pay per call.</p>",
+      "keynotes": [
+        "Trends include serverless functions (pay per call), edge computing, server-side rendering with hydration and Progressive Web Apps.",
+        "WebAssembly gives near-native speed; WebSockets and SSE give real-time updates.",
+        "Pick the simplest architecture that meets the need."
+      ]
+    }
+  }
+}

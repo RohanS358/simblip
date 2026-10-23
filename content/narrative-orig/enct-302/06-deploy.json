@@ -1,0 +1,42 @@
+{
+  "title": "Deployment and modern trends",
+  "subtitle": "Getting code from a laptop to users, repeatably and safely.",
+  "sections": {
+    "env": {
+      "title": "Environments",
+      "body": "<p>Code moves through environments: <b>development</b> (your machine), <b>staging</b> (a production-like copy for final checks), <b>production</b> (real users). Configuration (URLs, secrets) comes from environment variables, never committed to the repository — the same build runs everywhere.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ci": {
+      "title": "CI/CD pipeline",
+      "body": "<p>Every push triggers: install → lint → test → build → deploy to staging → (approval) → deploy to production. A failing stage stops the line. Automated pipelines make releases boring.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "cont": {
+      "title": "Containers",
+      "body": "<p>A <b>container</b> (Docker) packages an app with its dependencies, so “works on my machine” means works everywhere. An <b>image</b> is the recipe; a container is a running instance. Kubernetes schedules, scales and heals containers across machines.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "rel": {
+      "title": "Safe release strategies",
+      "body": "<p><b>Blue–green</b>: run old (blue) and new (green) side by side, switch traffic, switch back if broken. <b>Canary</b>: send 5 % of traffic to the new version first. <b>Feature flags</b> ship code turned off. Always have a fast rollback.</p>",
+      "after": "",
+      "steps": "A bug affects 2 % of requests. A 5 % canary sees it on: 0.05 × 0.02 = 0.1 % of all traffic, instead of 2 %."
+    },
+    "perf": {
+      "title": "Performance and caching",
+      "body": "<p>Minify and compress (gzip/brotli), cache static files with long max-age and hashed names, serve from a CDN near the user, lazy-load images, avoid render-blocking scripts. Measure with Core Web Vitals: LCP (loading), INP (responsiveness), CLS (layout stability).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "trend": {
+      "title": "Modern trends",
+      "body": "<p>Serverless functions (pay per call), edge computing, server-side rendering with hydration, Progressive Web Apps (installable, offline), WebAssembly for near-native speed, WebSockets/SSE for real-time updates, and AI-assisted development. Pick the simplest architecture that meets the need.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

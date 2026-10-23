@@ -8,7 +8,7 @@
       "locator": "3.1",
       "title": "Request → response",
       "eyebrow": "The server’s job",
-      "body": "<p>A server listens on a port, parses the request, routes it to a handler, does the work (read/write a database, call services), and builds a response. A minimal Node handler: <code>app.get('/hello', (req, res) =&gt; res.send('hi'))</code>.</p>",
+      "body": "<p>Every time you click a link, a program somewhere is waiting at a door. A server listens on a port, parses the request, routes it to a handler, does the work (read or write a database, call other services), and builds a response. You can write the smallest possible handler yourself: <code>app.get('/hello', (req, res) =&gt; res.send('hi'))</code>. Routing maps a URL and method to the handler that should answer it.</p>",
       "questions": [
         {
           "id": "rt",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A server listens on a port, parses the request, routes it to a handler, does the work and builds a response.",
+        "A minimal Node handler is app.get('/hello', (req, res) => res.send('hi')).",
+        "Routing maps a URL and method to a handler."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "3.2",
       "title": "Middleware",
       "eyebrow": "A chain of steps",
-      "body": "<p>Middleware are functions that see every request in order: logging, parsing JSON, authentication, then the route handler; each may respond or call <code>next()</code>. Order matters: authentication must run before the handler it protects.</p>",
+      "body": "<p>Imagine an airport: you pass check-in, then security, then the gate, in that order, and any stop can turn you back. Middleware works like that for requests. Middleware are functions that see every request in order: logging, parsing JSON, authentication, then the route handler; each may respond or call <code>next()</code>.</p><p>Order matters. Authentication must run before the handler it protects, otherwise you would be checking the passport after the plane has left. As the figure shows, auth sits before the handler, and a bad token would stop here.</p>",
       "questions": [
         {
           "id": "mw",
@@ -87,6 +92,11 @@
           "note": "Auth sits before the handler; a bad token would stop here.",
           "script": "diagram(\"mode: sequence\\n[Client] as c\\n[Logger] as l\\n[Auth] as a\\n[Handler] as h\\nc -> l : request\\nl -> a : next()\\na -> h : next() if token ok\\nh --> c : response\\n@0 c -> l : request\\n@1 l -> a : next()\\n@2 a -> h : next() if token ok\\n@3 h -> c : response\");"
         }
+      ],
+      "keynotes": [
+        "Middleware are functions that see every request in order: logging, parsing JSON, authentication, then the route handler.",
+        "Each may respond or call next().",
+        "Order matters: authentication must run before the handler it protects."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "3.3",
       "title": "MVC",
       "eyebrow": "Separating concerns",
-      "body": "<p>Model: data and business rules; View: templates that render HTML; Controller: maps requests to model calls and picks a view. The router hands a request to the controller, which asks the model, then renders a view.</p>",
+      "body": "<p>As a server grows, putting everything in one file turns it into spaghetti. MVC is the classic way to keep things tidy by giving each layer one job. The Model holds data and business rules; the View holds templates that render HTML; the Controller maps requests to model calls and picks a view.</p><p>The router hands a request to the controller, which asks the model, then renders a view. Ask yourself what a controller should not do: it should not hold business rules or build HTML itself; that belongs to the model and the view.</p>",
       "questions": [
         {
           "id": "ctl",
@@ -134,6 +144,11 @@
           "note": "Each layer has one job.",
           "script": "diagram(\"mode: sequence\\n[Router] as r\\n[Controller] as c\\n[Model] as m\\n[Database] as d\\n[View] as v\\nr -> c : GET /products/5\\nc -> m : find(5)\\nm -> d : SELECT ...\\nd --> m : row\\nm --> c : product\\nc -> v : render(product)\\nv --> r : HTML\\n@0 r -> c : GET /products/5\\n@1 c -> m : find(5)\\n@2 m -> d : SELECT ...\\n@3 d -> m : row\\n@4 m -> c : product\\n@5 c -> v : render(product)\\n@6 v -> r : HTML\");"
         }
+      ],
+      "keynotes": [
+        "Model: data and business rules; View: templates that render HTML; Controller: maps requests to model calls and picks a view.",
+        "The router hands a request to the controller, which asks the model, then renders a view.",
+        "Each layer has one job."
       ]
     },
     {
@@ -141,7 +156,7 @@
       "locator": "3.4",
       "title": "Databases from code",
       "eyebrow": "Persistence",
-      "body": "<p>Use parameterised queries — never build SQL by pasting user input. An ORM maps tables to classes. Cache hot reads (Redis) and index the columns you filter by.</p>",
+      "body": "<p>Almost every server talks to a database, and you must do it safely. Use parameterised queries, and never build SQL by pasting user input. An ORM maps tables to classes. Cache hot reads (Redis) and index the columns you filter by.</p><p>Caching pays off, as the numbers show. A product lookup takes 20 ms from the database and 1 ms from cache; if 90 % of reads hit the cache, the average = 0.9·1 + 0.1·20 = 2.9 ms. A 90 % hit rate turns a 20 ms read into about 2.9 ms on average.</p>",
       "worked": [
         {
           "toc": "Hit rate",
@@ -192,6 +207,11 @@
           "prompt": "<p>Cache 2 ms, DB 40 ms, hit rate 75 %. Average time?</p>",
           "answer": "0.75·2 + 0.25·40 = <b>11.5 ms</b>."
         }
+      ],
+      "keynotes": [
+        "Use parameterised queries and never build SQL by pasting user input.",
+        "An ORM maps tables to classes; cache hot reads (Redis) and index the columns you filter by.",
+        "With 1 ms cache hits at 90 % and 20 ms database reads, the average is 0.9·1 + 0.1·20 = 2.9 ms."
       ]
     },
     {
@@ -199,7 +219,7 @@
       "locator": "3.5",
       "title": "State: cookies and sessions",
       "eyebrow": "Remembering users",
-      "body": "<p>HTTP is stateless, so after login the server issues a session id in a <b>cookie</b>; the browser sends it with every request and the server looks up the session. Cookies should be <code>HttpOnly</code> (not readable by JS), <code>Secure</code> (HTTPS only) and <code>SameSite</code>.</p>",
+      "body": "<p>Since HTTP is stateless, how does a website remember you between pages? With a cookie, like a wristband at a festival: the server hands you one after you log in, and you show it at every gate. After login the server issues a session id in a <b>cookie</b>; the browser sends it with every request and the server looks up the session. As the figure says, the cookie is the only thing the browser remembers.</p><p>Wristbands can be stolen, so set the flags: <code>HttpOnly</code> (not readable by JS), <code>Secure</code> (HTTPS only) and <code>SameSite</code>. The HttpOnly flag stops JavaScript from reading the cookie.</p>",
       "questions": [
         {
           "id": "ho",
@@ -239,6 +259,11 @@
           "note": "The cookie is the only thing the browser remembers.",
           "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[Server] as s\\n[Session store] as t\\nb -> s : POST /login\\ns -> t : create session\\nt --> s : id=abc123\\ns --> b : Set-Cookie sid=abc123\\nb -> s : GET /profile (Cookie sid)\\ns -> t : lookup abc123\\nt --> s : user 42\\ns --> b : profile page\\n@0 b -> s : POST /login\\n@1 s -> t : create session\\n@2 t -> s : id=abc123\\n@3 s -> b : Set-Cookie sid=abc123\\n@4 b -> s : GET /profile (Cookie sid)\\n@5 s -> t : lookup abc123\\n@6 t -> s : user 42\\n@7 s -> b : profile page\");"
         }
+      ],
+      "keynotes": [
+        "After login the server issues a session id in a cookie; the browser sends it with every request and the server looks up the session.",
+        "Cookies should be HttpOnly (not readable by JS), Secure (HTTPS only) and SameSite.",
+        "The cookie is the only thing the browser remembers."
       ]
     },
     {
@@ -246,7 +271,7 @@
       "locator": "3.6",
       "title": "Scaling a server",
       "eyebrow": "More users",
-      "body": "<p>Add servers behind a <b>load balancer</b>; keep servers stateless (sessions in a shared store) so any can answer. Put static files on a CDN. If one server handles 200 requests/s, how many for 1500 req/s with 25 % headroom?</p>",
+      "body": "<p>One day your site becomes popular and a single server cannot cope. What do you do? Add servers behind a <b>load balancer</b>, which shares the requests among them, and keep the servers stateless (sessions in a shared store) so that any can answer. Put static files on a CDN.</p><p>Do the sum. If one server handles 200 requests/s, how many for 1500 req/s with 25 % headroom? Needed capacity = 1500 × 1.25 = 1875, and servers = 1875/200, rounded up, which is ⌈9.4⌉ = 10. A load balancer spreads incoming requests across the servers.</p>",
       "worked": [
         {
           "toc": "Capacity",
@@ -291,6 +316,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Add servers behind a load balancer and keep servers stateless, with sessions in a shared store, so any can answer.",
+        "Put static files on a CDN.",
+        "For 1500 req/s with 25 % headroom, capacity is 1875 req/s, so at 200 req/s per server you need ⌈9.4⌉ = 10 servers."
       ]
     }
   ]
