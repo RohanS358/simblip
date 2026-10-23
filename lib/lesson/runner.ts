@@ -12,10 +12,15 @@ import { play, stop } from '@/lib/physics/world'
 import { readBuffer } from '@/lib/physics/bus'
 import { executeSimScript } from '@/lib/scene/simscript'
 import { verifyScene } from '@/lib/scene/verify-scene'
+import { floatingPins } from '@/lib/circuit/floating'
 import { applyParam } from './apply'
 import type { Change, Ground, Runner, SceneObject, Watch } from './director'
 
 const PREFERRED = ['I', 'V', 'P', 'speed', 'x', 'y', 'omega', 'ke', 'angle']
+/** What each instrument or part should be asked: a voltmeter reports its VOLTAGE (its own current is V ÷ 10 MΩ — a reading of
+ *  nanoamps that a lesson would then quote as if it meant something); an ammeter, a resistor or a bulb, its current. */
+const preferredFor = (symbol: string | undefined): string[] =>
+  symbol === 'voltmeter' || symbol === 'battery' || symbol === 'ac-source' ? ['V', ...PREFERRED.filter((c) => c !== 'V')] : PREFERRED
 const RUN_MS = 2500
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 /** Mean of the last quarter of the run: steady readings are steady, noisy ones are not trusted at one instant. */
@@ -85,13 +90,16 @@ export function makeRunner(): Runner {
     async ground(script): Promise<Ground> {
       const err = draw(script)
       if (err) return { ok: false, error: err, objects: [], readings: [] }
+      // A circuit with loose pins is a drawing, not a circuit: report it, and do not run or quote it.
+      const floating = floatingPins(objects())
+      if (floating.length) { stop(); return { ok: false, error: `unconnected pins: ${floating.slice(0, 3).map((f) => `${f.name} pin ${f.pin + 1}`).join(', ')}`, objects: [], readings: [] } }
       play(pageId)
       await sleep(RUN_MS)
       const objs = catalog() // channels exist only once the run has produced samples
       const readings: Ground['readings'] = []
       for (const o of objects()) {
         const ch = options(o.id)
-        const pick = PREFERRED.map((c) => ch.find((x) => x === c || x === `${c}.max`)).find(Boolean)
+        const pick = preferredFor(o.geometry.symbol).map((c) => ch.find((x) => x === c || x === `${c}.max`)).find(Boolean)
         const v = pick ? valueOf(o.id, pick) : null
         if (pick && v !== null) readings.push({ object: o.name, channel: pick, value: v })
       }

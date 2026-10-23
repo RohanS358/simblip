@@ -16,7 +16,7 @@ import { getEngine, runEngine } from '@/lib/steplab/registry'
 import { runCpp } from '@/lib/dsa/interpreter'
 import { capabilityPrompt, isComputing, isOtherLanguage, matchLabs } from './catalog'
 import { lintStoryboard, storyboardSchema, type Beat, type Storyboard } from './storyboard'
-import { circuitRecipe } from './recipes'
+import { circuitRecipe, multiPinRecipe } from './recipes'
 import { parsePlan, planSystemPrompt, planUserPrompt, type Level, type Plan } from './plan'
 
 export interface SceneObject { name: string; kind: string; params: Record<string, number>; channels: string[] }
@@ -261,7 +261,11 @@ export async function directLesson(topic: string, planned: Plan, d: DirectorDeps
         continue
       }
     }
-    const recipe = step.scene ? circuitRecipe(step.scene) : null
+    // The step's own words usually name the circuit; when they only say "a circuit with two transistors", the topic and the
+    // heading ("How does a differential amplifier work?") do.
+    const recipe = step.scene
+      ? circuitRecipe(step.scene) ?? (/\b(circuit|transistor|amplifier|op-?amp)\b/i.test(step.scene) ? multiPinRecipe(`${topic} ${step.heading}`.toLowerCase().replace(/\s+/g, ' ')) : null)
+      : null
     const samePicture: boolean = !!recipeOnBoard && !recipe && !!step.scene && /\b(r\d|resistors?|bulbs?|lamps?|branch(es)?|current|voltage|battery|parallel|series|circuit)\b/i.test(step.scene)
     if (step.scene) {
       try {

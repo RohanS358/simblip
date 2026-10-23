@@ -123,11 +123,25 @@ const isChained = (arg: string): boolean => /^[a-zA-Z_$][\w$]*(?:\s*\.\s*[a-zA-Z
 /** Does `kind` accept `anchor`? Mirrors resolveAnchor's lookup order exactly
  *  (raw name, then input→in / output→out normalized, then _t2, then the
  *  positional fallbacks) so a name the runtime WOULD resolve never errors. */
+/** Does the kind have three or more pins? The shared two-terminal names (a, b, out, negative…) mean "first" and "second
+ *  pin" only on a two-pin part; on a transistor `negative` is not the collector. */
+export const isMultiPin = (kind: string): boolean => Math.max(-1, ...Object.values(ANCHOR_INDEX[kind] ?? {})) >= 2
+
 export function anchorValid(kind: string, anchor: string): boolean {
   if (POSITIONAL_ANCHOR.test(anchor)) return true
   const norm = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
   const map = ANCHOR_INDEX[kind] ?? {}
-  return anchor in map || norm in map || anchor in ANCHOR_INDEX._t2 || norm in ANCHOR_INDEX._t2
+  if (anchor in map || norm in map) return true
+  // The two-terminal vocabulary is NOT accepted on a multi-pin part: it would silently wire the wrong pin.
+  return !isMultiPin(kind) && (anchor in ANCHOR_INDEX._t2 || norm in ANCHOR_INDEX._t2)
+}
+
+/** Parts whose pins must ALL be wired for the circuit to mean anything (a transistor with only its base connected is a
+ *  drawing). The number is how many leading pins are required (an op-amp's supply pins are optional). */
+const FULLY_WIRED: Record<string, number> = {
+  bjt: 3, 'bjt-pnp': 3, mosfet: 3, 'mosfet-pmos': 3, opamp: 3,
+  'and-gate': 3, 'or-gate': 3, 'xor-gate': 3, 'nand-gate': 3, 'nor-gate': 3,
+  transformer: 4, vcvs: 4, vccs: 4, ccvs: 4, cccs: 4,
 }
 
 /**
@@ -314,6 +328,7 @@ export function lintSimScript(source: string): LintResult {
   // Arity alone was never enough: `connect(sw.b, bulb)` has two arguments and
   // silently wires to nothing, producing a scene that LOOKS built but is not
   // connected — the worst failure mode, because it is invisible.
+  const wiredPins: Record<string, Set<number>> = {} // which pin indices each part has been connected through
   const connectRe = /connect\s*\(([^()]*)\)/g
   while ((m = connectRe.exec(code)) !== null) {
     const raw = m[1]
@@ -347,6 +362,8 @@ export function lintSimScript(source: string): LintResult {
       const { varName, member: anchor } = parts
       const kind = kinds[varName]
       if (!kind) continue // unknown variable — not this check's business
+      const pinIdx = ANCHOR_INDEX[kind]?.[anchor] ?? ANCHOR_INDEX[kind]?.[anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')] ?? (POSITIONAL_ANCHOR.test(anchor) ? Number(anchor.replace(/\D/g, '')) : undefined)
+      if (pinIdx !== undefined) (wiredPins[varName] ??= new Set()).add(pinIdx)
       if (!anchorValid(kind, anchor)) {
         const names = anchorNames(kind)
         errors.push(
@@ -355,6 +372,19 @@ export function lintSimScript(source: string): LintResult {
         )
       }
     }
+  }
+
+  // 3b. A multi-pin part with SOME pins wired and others never: a transistor whose collector and emitter go nowhere is
+  // not a transistor circuit, and the lesson built on it quotes readings from an open circuit.
+  for (const [varName, pins] of Object.entries(wiredPins)) {
+    const kind = kinds[varName]
+    const need = FULLY_WIRED[kind]
+    if (!need) continue
+    const map = ANCHOR_INDEX[kind] ?? {}
+    const missing = Array.from({ length: need }, (_, i) => i).filter((i) => !pins.has(i))
+    if (missing.length === 0) continue
+    const nameOf = (i: number) => Object.entries(map).filter(([, v]) => v === i).map(([n]) => n).sort((a, b) => b.length - a.length)[0] ?? `pin${i}`
+    errors.push(`"${varName}" (${kind}) has pins that are never connected: ${missing.map(nameOf).join(', ')} — wire every pin (${Array.from({ length: need }, (_, i) => nameOf(i)).join(', ')}), e.g. connect(${varName}.${nameOf(missing[0])}, …)`)
   }
 
   // 4. graph.plot() channels. `graph.plot(bulb.channel)` parses fine and

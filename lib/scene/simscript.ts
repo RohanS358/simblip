@@ -285,8 +285,11 @@ export function executeSimScript(
     const norm = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
     const symMap = ANCHOR_INDEX[obj.geometry.symbol ?? ''] ?? {}
 
+    // The two-terminal names (a, b, negative, out…) mean "first/second pin" only on a two-pin part. On a transistor
+    // `negative` is not the collector, so multi-pin parts fall through to the role heuristics below instead.
+    const t2 = count > 2 ? {} : ANCHOR_INDEX._t2
     let idx =
-      symMap[anchor] ?? symMap[norm] ?? ANCHOR_INDEX._t2[anchor] ?? ANCHOR_INDEX._t2[norm] ?? -1
+      symMap[anchor] ?? symMap[norm] ?? t2[anchor] ?? t2[norm] ?? -1
 
     if (idx < 0) {
       const numMatch = norm.match(/^(?:pin|t|terminal)?(\d+)$/i)

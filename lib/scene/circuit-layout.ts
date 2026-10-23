@@ -254,7 +254,10 @@ export function placeOptimized(
   // starts from something already near-sane instead of from noise.
   const adj = new Map<string, string[]>(ids.map((id) => [id, []]))
   for (const e of edges) {
-    if (e.fromId === e.toId) continue
+    // An edge to a part that is NOT being placed (it has a position of its own) is not part of this layout:
+    // walking into it put a node with no slot in the order, and the layout crashed on a script that mixed
+    // positioned and unpositioned parts.
+    if (e.fromId === e.toId || !index.has(e.fromId) || !index.has(e.toId)) continue
     adj.get(e.fromId)?.push(e.toId)
     adj.get(e.toId)?.push(e.fromId)
   }
@@ -793,7 +796,11 @@ export function routeEdge(
   // Straight beats bent: a wire whose two stubs already line up needs no
   // corner at all. Try that, and the two L-shapes, before paying for A* —
   // they are the shortest AND the least bent paths that exist.
-  const clean = (pts: Pt[]) => !hitsAnyBody(pts, router.rects, wA, wB)
+  // A candidate is judged as it will be DRAWN: after simplify() collapses any retrace into the straight line it really is.
+  // (A stub that turns back on itself can collapse into a harmless short wire — or into a run straight through the
+  // part's own body and across its other pin, which the engine reads as a junction and shorts the two pins together:
+  // an op-amp amplifier's feedback resistor was shorted that way. Only the collapsed shape tells them apart.)
+  const clean = (pts: Pt[]) => !hitsAnyBody(simplify(pts), router.rects, wA, wB)
 
   // Candidates are SCORED, not taken first-clean. A route that is legal can
   // still lie on top of a wire already drawn — two nets sharing a lane render
@@ -813,9 +820,17 @@ export function routeEdge(
 
   let bestPath: Pt[] | null = null
   let bestScore = Infinity
+  // When nothing is clean (a pin boxed in), the least-bad route: the one that crosses the least body.
+  let looseBest: Pt[] | null = null
+  let looseScore = Infinity
   const offer = (pts: Pt[]) => {
-    if (!clean(pts)) return
+    const drawn = simplify(pts)
     const sc = score(pts)
+    if (hitsAnyBody(drawn, router.rects, wA, wB)) {
+      const loose = 5000 + bodyCrossing(drawn, router.rects, wA, wB) * 20 + sc
+      if (loose < looseScore) { looseScore = loose; looseBest = pts }
+      return
+    }
     if (sc < bestScore) { bestScore = sc; bestPath = pts }
   }
 
@@ -907,12 +922,15 @@ export function routeEdge(
       const cand = [wA, sA, ...h2, ...inner, ...t2.reverse(), sB, wB]
       if (clean(cand)) return simplify(cand)
     }
-    return simplify(full)
+    // Nothing clean: whichever of the A* route and the simple routes crosses the least body.
+    const aStar = bodyCrossing(simplify(full), router.rects, wA, wB)
+    const loose = looseBest as Pt[] | null
+    const simple = loose ? bodyCrossing(simplify(loose), router.rects, wA, wB) : Infinity
+    return simplify(loose && simple < aStar ? loose : full)
   }
 
-  // Nothing clean exists (a pin boxed in on all sides). Take the elbow that
-  // turns along the stub's axis: at least it leaves the pin correctly.
-  return simplify(elbows[0])
+  // Nothing clean exists (a pin boxed in on all sides): the route that crosses the least body.
+  return simplify((looseBest as Pt[] | null) ?? elbows[0])
 }
 
 /** Route from an arbitrary POINT (a tap on an existing net) to a pin.
@@ -1026,6 +1044,27 @@ export function hitsAnyBody(
     }
   }
   return false
+}
+
+/** How many pixels of this route run through bodies, beyond what a pin's own approach may (same allowance as hitsAnyBody).
+ *  The tie-breaker when no route is clean: the one that crosses least is the one that reads least wrong. */
+export function bodyCrossing(
+  pts: Pt[],
+  rects: { x1: number; y1: number; x2: number; y2: number }[],
+  wA: Pt,
+  wB: Pt,
+): number {
+  let total = 0
+  for (let i = 1; i < pts.length; i++) {
+    for (const r of rects) {
+      const inside = insideRunLength(pts[i - 1], pts[i], r)
+      if (inside <= 0) continue
+      const term = [wA, wB].find((t) => (Math.hypot(pts[i - 1].x - t.x, pts[i - 1].y - t.y) < 0.5 || Math.hypot(pts[i].x - t.x, pts[i].y - t.y) < 0.5) && t.x >= r.x1 - 0.5 && t.x <= r.x2 + 0.5 && t.y >= r.y1 - 0.5 && t.y <= r.y2 + 0.5)
+      const allowed = term ? Math.min(Math.abs(term.x - r.x1), Math.abs(r.x2 - term.x), Math.abs(term.y - r.y1), Math.abs(r.y2 - term.y)) + 2 : 0
+      total += Math.max(0, inside - allowed)
+    }
+  }
+  return total
 }
 
 /** How much of this segment lies inside the rectangle. */
