@@ -1,0 +1,71 @@
+{
+  "subtitle": "A rupee today is worth more than a rupee next year. Put every cash flow on one date and the choice becomes arithmetic.",
+  "sections": {
+    "why": {
+      "body": "<p>Would you rather have Rs 1,000 today or Rs 1,000 a year from now? Today, of course, and not just out of impatience: money today can be invested to earn a return, so Rs 1,000 today can become more later. That is the time value of money, and the whole chapter is built on it.</p><p><b>Simple interest</b> is earned only on the principal; <b>compound interest</b> earns interest on interest: F = P(1 + i)ⁿ. Watch it snowball. With P = 1,000, i = 10 % and n = 5, F = 1000(1.1)⁵ = 1610.51. So at 10 % for 5 years, Rs 1,000 grows to <b>Rs 1,611</b>. Turn it round, and Rs 1,000 in 5 years is worth only <b>Rs 621</b> today. Compared with simple interest, compound interest gives you more, and the gap widens every year.</p>",
+      "keynotes": [
+        "Money can be invested to earn a return, so a rupee today is worth more than a rupee later.",
+        "Simple interest is earned only on the principal; compound interest earns interest on interest: F = P(1 + i)ⁿ.",
+        "At 10 % for 5 years Rs 1,000 grows to Rs 1,611; equivalently Rs 1,000 in 5 years is worth only Rs 621 today."
+      ]
+    },
+    "eq": {
+      "body": "<p>How do you compare Rs 1,000 now with Rs 350 a year for four years? You need a common yardstick. Two cash flows are <b>equivalent</b> if they have the same worth at the same date and interest rate, and a cash-flow diagram is the picture that lets you see it. Time runs along a horizontal axis, inflows are up arrows and outflows are down arrows. The initial investment is therefore a down arrow at time zero.</p><p>Below, we invest 1,000 now and receive 350 at the end of each of 4 years, at MARR = 8 %. Look at the card: it shows present worth, future worth, IRR and more. Everything in this chapter is about turning arrows like these into a single comparable number.</p>",
+      "keynotes": [
+        "Two cash flows are equivalent if they have the same worth at the same date and interest rate.",
+        "A cash-flow diagram puts time on a horizontal axis, inflows as up arrows and outflows as down arrows.",
+        "The example invests 1,000 now and receives 350 at the end of each of 4 years, at MARR = 8 %."
+      ]
+    },
+    "factors": {
+      "body": "<p>Six little factors do all the converting between a present sum P, a future sum F and a uniform yearly payment A. Think of them as a currency-exchange table between dates. You do not need to memorise it; you need to know where to look.</p><table><thead><tr><th>To find</th><th>Given</th><th>Factor</th></tr></thead><tbody><tr><td>F</td><td>P</td><td>(1 + i)ⁿ</td></tr><tr><td>P</td><td>F</td><td>(1 + i)⁻ⁿ</td></tr><tr><td>P</td><td>A</td><td>[(1 + i)ⁿ − 1] / [i(1 + i)ⁿ]</td></tr><tr><td>A</td><td>P</td><td>i(1 + i)ⁿ / [(1 + i)ⁿ − 1]</td></tr><tr><td>F</td><td>A</td><td>[(1 + i)ⁿ − 1] / i</td></tr><tr><td>A</td><td>F</td><td>i / [(1 + i)ⁿ − 1]</td></tr></tbody></table><p>Annuity A is a uniform end-of-period payment. Let’s use it. The P/A factor at 8 %, n = 4 is (1.08⁴ − 1)/(0.08 · 1.08⁴) = 3.3121. Multiply by the annuity amount 350 and P = 350 × 3.3121 = 1159.24. So the present worth of 350 a year for 4 years at 8 % is <b>1159.24</b>. Going the other way, repaying a Rs 1,000 loan over 4 years costs <b>301.92</b> a year. To spread a loan P over n years, which factor do you want? The one that takes P to A.</p>",
+      "keynotes": [
+        "Six factors convert between present P, future F and annuity A, such as F/P = (1 + i)ⁿ and P/A.",
+        "An annuity A is a uniform end-of-period payment.",
+        "The P/A factor at 8 % for n = 4 is 3.3121, so 350 a year has present worth 1159.24.",
+        "Repaying a Rs 1,000 loan over 4 years costs 301.92 a year."
+      ]
+    },
+    "nom": {
+      "body": "<p>A bank advertises 12 % “compounded monthly”. Is that really 12 %? Not quite. A nominal 12 % compounded monthly is 1 % per month, and compounding within the year makes the effective annual rate (1 + r/m)ᵐ − 1 = <b>12.68 %</b>, more than 12 %. Interest on interest, again, but now every month.</p><p>Try another: a nominal 18 % compounded quarterly is 4.5 % per quarter, and the effective annual rate is (1.045)⁴ − 1 = 19.25 %. The rule to carry away: always match the interest period to the payment period. Monthly payments need a monthly rate.</p>",
+      "keynotes": [
+        "A nominal 12 % compounded monthly is 1 % per month, with effective annual rate (1 + r/m)ᵐ − 1 = 12.68 %.",
+        "A nominal 18 % compounded quarterly is 4.5 % per quarter, an effective 19.25 %.",
+        "Always match the interest period to the payment period."
+      ]
+    },
+    "pw": {
+      "body": "<p>Before you build anything, ask: is this project worth doing at all? Every firm sets a bar called the <b>minimum attractive rate of return (MARR)</b>, the least return it will accept. Then net present worth, NPW = Σ Cₜ/(1 + MARR)ᵗ, turns the whole project into one number. If NPW &gt; 0 the project earns more than MARR, so accept.</p><p>Test it on project A at 8 %: NPW = −1000 + 350·(P/A) = <b>159.24</b>. Project B (invest 1,500, receive 500 a year) gives <b>156.06</b>. Both are worth doing on their own; but only one can be built. Compare B’s present worth with A’s in the figure. If NPW &gt; 0 at the MARR, what does it mean for the project? That it beats your bar.</p>",
+      "keynotes": [
+        "MARR is the minimum attractive rate of return, the least return the firm will accept.",
+        "NPW = Σ Cₜ/(1 + MARR)ᵗ; if NPW > 0 the project earns more than MARR, so accept.",
+        "At 8 %, project A has NPW 159.24 and project B (invest 1,500, receive 500 a year) has 156.06; only one can be built."
+      ]
+    },
+    "irr": {
+      "body": "<p>NPW answers “how much better than the bar?”. The IRR asks the opposite question: what return does this project earn on its own? It is the rate that makes NPW = 0, and you accept if IRR &gt; MARR.</p><p>For project A the IRR is ≈ <b>14.96 %</b>; for project B, <b>12.59 %</b>. Both beat 8 %. How is it found? By trial: try i = 15 %, then NPW = −1000 + 350 × 2.855 = −0.76. That is almost zero, so the IRR is just under 15 %. There is no closed form for n &gt; 4, so use the card’s solver. Make sure you can say in words what the IRR is: the discount rate at which NPW is zero.</p>",
+      "keynotes": [
+        "The IRR is the rate that makes NPW = 0; accept if IRR > MARR.",
+        "Project A has IRR ≈ 14.96 % and project B 12.59 %, both beating 8 %.",
+        "It is found by trial or a solver; there is no closed form for n > 4."
+      ]
+    },
+    "inc": {
+      "body": "<p>Here is a trap that catches even experienced people. Only one of A and B can be built, so which wins? You might say the one with the larger IRR, but the larger IRR does not always win, and a bigger investment is justified only if its <i>extra</i> money earns enough. So we study the <b>increment</b> B − A.</p><p>The extra investment is 500, for an extra return of 150 a year over four years, and the incremental IRR is ≈ <b>7.71 %</b>. That is below the MARR of 8 %, so the extra 500 is <b>not</b> worth spending: choose A. (This agrees with NPW(A) = 159.24 &gt; NPW(B) = 156.06, even though B has the larger returns.) A rule of thumb for you: compare equal-life options by NPW, and unequal lives by annual worth, which repeats each as if replaced. If the incremental IRR falls below MARR, drop the bigger one.</p>",
+      "keynotes": [
+        "The larger IRR does not always win; a bigger investment is justified only if its extra money earns enough.",
+        "The increment B − A costs an extra 500 for 150 a year, with incremental IRR ≈ 7.71 %, below the MARR of 8 %, so choose A.",
+        "This agrees with NPW(A) = 159.24 > NPW(B) = 156.06.",
+        "Compare equal-life options by NPW and unequal lives by annual worth."
+      ]
+    },
+    "bc": {
+      "body": "<p>Governments building a bridge, as you can imagine, cannot ask “what is the IRR?”, so public projects use a simpler idea: benefits against costs. B/C = PW(benefits)/PW(costs); accept if &gt; 1. For project A, PW(benefits) = 350 × 3.3121 = 1159.2 and PW(costs) = 1000, so B/C = 1159.2/1000 = 1.16, greater than 1: accept at 8 %.</p><p>Then there is <b>payback</b>, the time to recover the investment: simple payback for A = 1000/350 = <b>2.86 years</b>. It is easy to understand and easy to misuse, because it ignores the time value and any cash flows after payback. So use it only as a rough liquidity check. What is its weakness in a sentence? It ignores everything that happens after the money is back.</p>",
+      "keynotes": [
+        "Public projects use B/C = PW(benefits)/PW(costs) and accept if it is greater than 1.",
+        "For project A, B/C = 1159.2/1000 = 1.16, so accept at 8 %.",
+        "Simple payback for A is 1000/350 = 2.86 years; it ignores the time value and cash flows after payback."
+      ]
+    }
+  }
+}

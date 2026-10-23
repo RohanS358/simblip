@@ -1,0 +1,48 @@
+{
+  "title": "Decisions, markets and the circular flow",
+  "subtitle": "Engineers choose between alternatives with limited money. Economics supplies the language: scarcity, demand, supply and the flow of income.",
+  "sections": {
+    "scarcity": {
+      "title": "Scarcity and the economic decision",
+      "body": "<p>Resources (money, time, materials) are limited while wants are not: that is <em class=\"term\">scarcity</em>. Every choice has an <em class=\"term\">opportunity cost</em> — the value of the best alternative given up. Engineering economics compares the <i>monetary</i> consequences of technical alternatives so that the option giving the most benefit per unit of resource is chosen.</p>",
+      "after": "",
+      "steps": "You can spend Rs 100,000 on machine A (return Rs 12,000/yr) or machine B (return Rs 15,000/yr). Choosing A gives up B’s extra return. Opportunity cost of A per year:"
+    },
+    "proc": {
+      "title": "The decision process",
+      "body": "<p>A rational engineering decision follows steps: define the problem, list alternatives (including “do nothing”), estimate cash flows, choose a criterion (present worth, IRR …), compare, consider non-monetary factors, decide, and review the result afterwards.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "demand": {
+      "title": "Demand and supply",
+      "body": "<p>The <b>law of demand</b>: as price rises, quantity demanded falls. The <b>law of supply</b>: as price rises, quantity supplied rises. Where the curves cross is the <b>equilibrium</b>: price and quantity at which the market clears. If the price is above equilibrium there is a surplus and sellers cut prices; below it, a shortage and prices rise.</p>",
+      "after": "",
+      "steps": "Demand Qd = 110 − 2P; supply Qs = 2P − 10. Set them equal. 4P = 120, so P = 30 and Q = 50."
+    },
+    "elastic": {
+      "title": "Elasticity",
+      "body": "<p>Price elasticity of demand E = (%ΔQ)/(%ΔP). |E| &gt; 1: <b>elastic</b> (quantity reacts strongly — luxuries, substitutes available); |E| &lt; 1: <b>inelastic</b> (necessities). A firm facing elastic demand raises revenue by cutting price; with inelastic demand, by raising it.</p>",
+      "after": "",
+      "steps": "Price rises from 20 to 22 (+10 %); quantity falls from 100 to 85 (−15 %). E = −15/10 = −1.5, so |E| > 1: elastic."
+    },
+    "mkt": {
+      "title": "Market structures",
+      "body": "<table><thead><tr><th>Structure</th><th>Sellers</th><th>Price power</th></tr></thead><tbody><tr><td>Perfect competition</td><td>many, identical product</td><td>none (price taker)</td></tr><tr><td>Monopolistic competition</td><td>many, differentiated</td><td>some</td></tr><tr><td>Oligopoly</td><td>few</td><td>strong, interdependent</td></tr><tr><td>Monopoly</td><td>one</td><td>maximum</td></tr></tbody></table>",
+      "after": "",
+      "steps": ""
+    },
+    "gdp": {
+      "title": "National income and the circular flow",
+      "body": "<p>Households supply labour and buy goods; firms hire labour and sell goods; money flows round. <b>GDP</b> = the market value of final goods and services produced in a country in a year; three equal ways to measure it: production (value added), income (wages + profit + rent + interest) and expenditure: GDP = C + I + G + (X − M).</p>",
+      "after": "",
+      "steps": "C = 600, I = 200, G = 150, exports 120, imports 90 (all in billions). GDP = 600 + 200 + 150 + (120 − 90)."
+    },
+    "infl": {
+      "title": "Inflation, growth and real values",
+      "body": "<p>Inflation is a general rise in prices. Real GDP divides nominal GDP by a price index to remove it. A nominal interest rate i relates to the real rate r and inflation f by (1 + i) = (1 + r)(1 + f). Ignoring inflation makes future money look bigger than it is.</p>",
+      "after": "",
+      "steps": "Nominal interest 12 %, inflation 5 %. Real rate = 1.12/1.05 − 1."
+    }
+  }
+}

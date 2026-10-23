@@ -1,0 +1,48 @@
+{
+  "title": "Replacement analysis and risk",
+  "subtitle": "When is an old machine worth keeping, and how sure are we of any of these numbers?",
+  "sections": {
+    "why": {
+      "title": "Why and when to replace",
+      "body": "<p>Assets are replaced because of <b>physical deterioration</b> (rising maintenance), <b>obsolescence</b> (better technology) or changed requirements. The decision compares the current asset, the <em class=\"term\">defender</em>, with the best available replacement, the <em class=\"term\">challenger</em>. Use today’s <i>market value</i> of the defender as its investment — what you forgo by keeping it. What you paid for it long ago is a sunk cost.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ea": {
+      "title": "Comparing by equivalent annual cost",
+      "body": "<p>Defender: market value 20,000 now, 3 more years, operating cost 6,000/yr, salvage 8,000. Challenger: 60,000, 6 years, operating cost 2,000/yr, salvage 10,000. MARR 10 %. Equivalent annual cost EAC = P·(A/P) + AOC − S·(A/F). Defender: <b>Rs 11,625</b>; challenger: <b>Rs 14,480</b>. The lower EAC wins: keep the defender.</p>",
+      "after": "",
+      "steps": "Capital recovery of 60,000 over 6 years at 10 %. Add operating cost, subtract the salvage credit."
+    },
+    "life": {
+      "title": "Economic life",
+      "body": "<p>As an asset ages its maintenance rises and its salvage falls. The <b>economic life</b> is the retention period that minimises the equivalent annual cost. For a 50,000 machine with falling salvage and rising maintenance at 10 %, the annual cost over n years is: 1 yr 24,000; 2 yr 20,429; 3 yr 19,483; 4 yr 19,315; 5 yr 19,542. The minimum is at <b>4 years</b> (Rs 19,315).</p>",
+      "after": "",
+      "steps": "EAC(n) = [P − S·(P/F) + Σ O&M·(P/F)] · (A/P). Evaluate for n = 1…5 and pick the smallest: n = 4."
+    },
+    "ins": {
+      "title": "Replacement over a finite horizon",
+      "body": "<p>Assuming identical replacements forever is a modelling choice. If the planning horizon is finite (a 4-year contract) compare the cash flows over exactly that horizon, including the salvage at its end. Technology that improves rapidly favours shorter horizons and leasing.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "risk": {
+      "title": "Risk and uncertainty",
+      "body": "<p>Every input is an estimate. <b>Sensitivity analysis</b> changes one input at a time (±20 %) to see which matters most; <b>scenario analysis</b> changes sets of inputs together (best / expected / worst); <b>probabilistic analysis</b> gives inputs distributions and finds the distribution of the outcome. The <b>expected value</b> of an outcome is Σ p·x.</p>",
+      "after": "",
+      "steps": "Project NPW: +40,000 with prob 0.3, +10,000 with prob 0.5, −20,000 with prob 0.2. E[NPW] = 0.3·40000 + 0.5·10000 + 0.2·(−20000)."
+    },
+    "norm": {
+      "title": "NPW as a random variable",
+      "body": "<p>If the NPW is roughly normal with mean Rs 12,000 and standard deviation Rs 9,000, the chance of a loss is P(NPW &lt; 0) = Φ(−μ/σ) = Φ(−1.33) ≈ <b>9.12 %</b>. A project can have a positive expected value and still carry a one-in-ten chance of losing money; decision-makers weigh that risk against the return. Adding many independent projects reduces the relative spread — diversification, the central limit theorem at work (means of 30 draws have sd 0.184).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mc": {
+      "title": "Monte Carlo on cash flows",
+      "body": "<p>Give each uncertain input a distribution (demand ~ N(1000, 100), price ~ uniform 40–60), draw values many times, compute the NPW each time, and read the distribution: mean, spread, probability of loss. The error in any estimated probability shrinks like 1/√n, so 10,000 trials give about 1 % precision.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

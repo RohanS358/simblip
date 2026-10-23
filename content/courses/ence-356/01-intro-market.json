@@ -8,7 +8,7 @@
       "locator": "1.1",
       "title": "Scarcity and the economic decision",
       "eyebrow": "Why economics",
-      "body": "<p>Resources (money, time, materials) are limited while wants are not: that is <em class=\"term\">scarcity</em>. Every choice has an <em class=\"term\">opportunity cost</em> — the value of the best alternative given up. Engineering economics compares the <i>monetary</i> consequences of technical alternatives so that the option giving the most benefit per unit of resource is chosen.</p>",
+      "body": "<p>You have Rs 100 and two things you want. You can have one. The moment you pick, the other slips away, and that quiet loss is the starting point of all economics. Resources (money, time, materials) are limited while wants are not: that is <em class=\"term\">scarcity</em>. And every choice carries an <em class=\"term\">opportunity cost</em>, the value of the best alternative given up.</p><p>Engineering economics takes this idea into the workshop. It compares the <i>monetary</i> consequences of technical alternatives, so that the option giving the most benefit per unit of resource is chosen. See it with real numbers: you can spend Rs 100,000 on machine A (return Rs 12,000/yr) or machine B (return Rs 15,000/yr). Choose A and you give up B’s extra return, so the opportunity cost of A, per year, is Rs 15,000. Notice that it is the best alternative you gave up, not the cheap one.</p>",
       "worked": [
         {
           "toc": "Options",
@@ -52,6 +52,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Scarcity means resources are limited while wants are not.",
+        "Opportunity cost is the value of the best alternative given up.",
+        "Choosing machine A (Rs 12,000/yr) over B (Rs 15,000/yr) costs Rs 15,000 a year in opportunity cost, the return of the alternative given up."
       ]
     },
     {
@@ -59,7 +64,7 @@
       "locator": "1.2",
       "title": "The decision process",
       "eyebrow": "A method, not a hunch",
-      "body": "<p>A rational engineering decision follows steps: define the problem, list alternatives (including “do nothing”), estimate cash flows, choose a criterion (present worth, IRR …), compare, consider non-monetary factors, decide, and review the result afterwards.</p>",
+      "body": "<p>Good engineers do not decide by hunch; they follow a method, a little like a doctor working through a diagnosis. A rational engineering decision has steps: define the problem, list alternatives (and never forget “do nothing”), estimate cash flows, choose a criterion (present worth, IRR …), compare, consider non-monetary factors, decide, and review the result afterwards.</p><p>Look at the figure: the last arrow closes the loop, because what you learn afterwards feeds the next decision. Which alternative must you always consider? The boring one, doing nothing. It is the baseline every other option must beat.</p>",
       "questions": [
         {
           "id": "dn",
@@ -99,6 +104,11 @@
           "note": "The last arrow closes the loop.",
           "script": "diagram(\"direction: down\\n(Define the problem) as a\\n[List alternatives incl. do nothing] as b\\n[Estimate cash flows] as c\\n[Choose a criterion and compare] as d\\n<Non-monetary factors change the answer?> as e\\n[Decide] as f\\n[Monitor and learn] as g\\na -> b\\nb -> c\\nc -> d\\nd -> e\\ne -> f : no\\ne -> d : yes, revisit\\nf -> g\\ng -> a : next problem\");"
         }
+      ],
+      "keynotes": [
+        "A rational decision defines the problem, lists alternatives (including doing nothing), estimates cash flows, chooses a criterion, compares, weighs non-monetary factors and decides.",
+        "Review the result afterwards: the last step closes the loop.",
+        "“Do nothing” must always be considered."
       ]
     },
     {
@@ -106,7 +116,7 @@
       "locator": "2.1",
       "title": "Demand and supply",
       "eyebrow": "Markets",
-      "body": "<p>The <b>law of demand</b>: as price rises, quantity demanded falls. The <b>law of supply</b>: as price rises, quantity supplied rises. Where the curves cross is the <b>equilibrium</b>: price and quantity at which the market clears. If the price is above equilibrium there is a surplus and sellers cut prices; below it, a shortage and prices rise.</p>",
+      "body": "<p>Why does the price of mangoes fall in season and soar out of it? Two forces are pulling on every market. The <b>law of demand</b>: as price rises, quantity demanded falls, because buyers walk away. The <b>law of supply</b>: as price rises, quantity supplied rises, because sellers rush in. Where the curves cross is the <b>equilibrium</b>, the price and quantity at which the market clears.</p><p>If the price is above equilibrium there is a surplus and sellers cut prices; below it, a shortage and prices rise. The market nudges itself home. Let’s find the point by algebra: demand Qd = 110 − 2P and supply Qs = 2P − 10. Set them equal, 110 − 2P = 2P − 10, so 4P = 120, giving P = 30 and Q = 50. In the figure the curves meet at Rs 30. At a price above that, what do you expect to see piling up on the shelves?</p>",
       "worked": [
         {
           "toc": "Equate",
@@ -166,6 +176,12 @@
           "prompt": "<p>Qd = 200 − 4P and Qs = 6P − 40. Find the equilibrium price and quantity.</p>",
           "answer": "200 − 4P = 6P − 40 → P = <b>24</b>, Q = 200 − 96 = <b>104</b>."
         }
+      ],
+      "keynotes": [
+        "Law of demand: as price rises, quantity demanded falls; law of supply: as price rises, quantity supplied rises.",
+        "Equilibrium is where the curves cross and the market clears.",
+        "Above equilibrium there is a surplus and prices fall; below it there is a shortage and prices rise.",
+        "Qd = 110 − 2P and Qs = 2P − 10 give P = 30 and Q = 50."
       ]
     },
     {
@@ -173,7 +189,7 @@
       "locator": "2.2",
       "title": "Elasticity",
       "eyebrow": "How sensitive?",
-      "body": "<p>Price elasticity of demand E = (%ΔQ)/(%ΔP). |E| &gt; 1: <b>elastic</b> (quantity reacts strongly — luxuries, substitutes available); |E| &lt; 1: <b>inelastic</b> (necessities). A firm facing elastic demand raises revenue by cutting price; with inelastic demand, by raising it.</p>",
+      "body": "<p>When a shop raises its prices, do customers leave, or do they grumble and stay? It depends on how sensitive they are, and economists have a number for that: price elasticity of demand E = (%ΔQ)/(%ΔP).</p><p>If |E| &gt; 1, demand is <b>elastic</b>: quantity reacts strongly, as with luxuries or goods with substitutes. If |E| &lt; 1, it is <b>inelastic</b>, as with necessities. This matters for revenue. A firm facing elastic demand raises revenue by cutting price; with inelastic demand, by raising it. Work one out: price rises from 20 to 22 (+10 %) and quantity falls from 100 to 85 (−15 %), so E = −15/10 = −1.5. Since |E| &gt; 1, demand is elastic. Then what does |E| = 0.4 tell you? Think of necessities.</p>",
       "worked": [
         {
           "toc": "Changes",
@@ -217,6 +233,12 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Price elasticity of demand is E = (%ΔQ)/(%ΔP).",
+        "|E| > 1 is elastic (luxuries, substitutes available); |E| < 1 is inelastic (necessities).",
+        "Elastic demand: cut price to raise revenue; inelastic demand: raise price.",
+        "A price rise of 10 % with quantity down 15 % gives E = −1.5, which is elastic."
       ]
     },
     {
@@ -224,7 +246,7 @@
       "locator": "2.3",
       "title": "Market structures",
       "eyebrow": "Competition",
-      "body": "<table><thead><tr><th>Structure</th><th>Sellers</th><th>Price power</th></tr></thead><tbody><tr><td>Perfect competition</td><td>many, identical product</td><td>none (price taker)</td></tr><tr><td>Monopolistic competition</td><td>many, differentiated</td><td>some</td></tr><tr><td>Oligopoly</td><td>few</td><td>strong, interdependent</td></tr><tr><td>Monopoly</td><td>one</td><td>maximum</td></tr></tbody></table>",
+      "body": "<p>Not every seller faces the same pressure. A vegetable vendor in a crowded market has no say over price; the only electricity company in town has plenty. The way a market is built decides how much power sellers hold, and here is the whole spectrum in one table.</p><table><thead><tr><th>Structure</th><th>Sellers</th><th>Price power</th></tr></thead><tbody><tr><td>Perfect competition</td><td>many, identical product</td><td>none (price taker)</td></tr><tr><td>Monopolistic competition</td><td>many, differentiated</td><td>some</td></tr><tr><td>Oligopoly</td><td>few</td><td>strong, interdependent</td></tr><tr><td>Monopoly</td><td>one</td><td>maximum</td></tr></tbody></table><p>Read down the table and watch the number of sellers shrink while their power grows. A market with a handful of large firms watching each other, each move answered by a rival, is an oligopoly. Can you name one near you?</p>",
       "questions": [
         {
           "id": "olig",
@@ -256,6 +278,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Perfect competition has many sellers of an identical product and no price power (price taker).",
+        "Monopolistic competition has many differentiated sellers with some price power.",
+        "An oligopoly has few sellers with strong, interdependent power; a monopoly has one seller and maximum power."
       ]
     },
     {
@@ -263,7 +290,7 @@
       "locator": "9.1",
       "title": "National income and the circular flow",
       "eyebrow": "Measuring the whole economy",
-      "body": "<p>Households supply labour and buy goods; firms hire labour and sell goods; money flows round. <b>GDP</b> = the market value of final goods and services produced in a country in a year; three equal ways to measure it: production (value added), income (wages + profit + rent + interest) and expenditure: GDP = C + I + G + (X − M).</p>",
+      "body": "<p>Step back from a single market and look at the whole country. Imagine money as blood: households supply labour and buy goods; firms hire labour and sell goods; and money flows round the circle. One person’s spending is another’s income, as the figure shows.</p><p>The size of that flow in a year is <b>GDP</b>, the market value of final goods and services produced in a country in a year. You can measure it three equal ways: production (value added), income (wages + profit + rent + interest) and expenditure: GDP = C + I + G + (X − M). Try it: C = 600, I = 200, G = 150, exports 120, imports 90 (all in billions). GDP = 600 + 200 + 150 + (120 − 90) = 980. Notice that imports are subtracted, because that spending went to foreign producers.</p>",
       "worked": [
         {
           "toc": "Data",
@@ -322,6 +349,12 @@
           "prompt": "<p>C = 800, I = 250, G = 200, X = 150, M = 200. Find GDP.</p>",
           "answer": "800 + 250 + 200 + (150 − 200) = <b>1200</b>."
         }
+      ],
+      "keynotes": [
+        "GDP is the market value of final goods and services produced in a country in a year.",
+        "It can be measured by production (value added), income (wages + profit + rent + interest) or expenditure.",
+        "Expenditure GDP = C + I + G + (X − M).",
+        "C = 600, I = 200, G = 150, exports 120 and imports 90 give GDP = 980 billion."
       ]
     },
     {
@@ -329,7 +362,7 @@
       "locator": "9.2",
       "title": "Inflation, growth and real values",
       "eyebrow": "Adjusting for prices",
-      "body": "<p>Inflation is a general rise in prices. Real GDP divides nominal GDP by a price index to remove it. A nominal interest rate i relates to the real rate r and inflation f by (1 + i) = (1 + r)(1 + f). Ignoring inflation makes future money look bigger than it is.</p>",
+      "body": "<p>Your grandparents will tell you a cup of tea used to cost almost nothing. That is inflation, a general rise in prices, and it quietly shrinks what money can buy. To compare years fairly, real GDP divides nominal GDP by a price index to remove it.</p><p>Interest rates need the same care. A nominal interest rate i relates to the real rate r and inflation f by (1 + i) = (1 + r)(1 + f). Try it with nominal interest 12 % and inflation 5 %: the real rate = 1.12/1.05 − 1 = 6.67 %. Ignoring inflation makes future money look bigger than it is, so always ask which kind of rupee a number is in. If nominal is 10 % and inflation 4 %, can you estimate the real rate?</p>",
       "worked": [
         {
           "toc": "Data",
@@ -373,6 +406,12 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Inflation is a general rise in prices; real GDP divides nominal GDP by a price index to remove it.",
+        "The nominal rate i, real rate r and inflation f satisfy (1 + i) = (1 + r)(1 + f).",
+        "Nominal 12 % with inflation 5 % gives a real rate of 6.67 %.",
+        "Ignoring inflation makes future money look bigger than it is."
       ]
     }
   ]

@@ -8,7 +8,7 @@
       "locator": "3.1",
       "title": "Kinds of cost",
       "eyebrow": "Sorting costs",
-      "body": "<p><b>Fixed</b> costs do not change with output (rent, insurance); <b>variable</b> costs do (materials, energy). <b>Direct</b> costs trace to a product, <b>indirect</b> (overhead) do not. A <em class=\"term\">sunk cost</em> is already spent and irrecoverable — it must be <i>ignored</i> in a forward-looking decision. <b>Marginal cost</b> is the cost of one more unit.</p>",
+      "body": "<p>Run a small bakery in your mind. The rent is due whether you bake ten loaves or a thousand. The flour, though, depends on how many you bake. That single observation sorts almost every cost you will ever meet. <b>Fixed</b> costs do not change with output (rent, insurance); <b>variable</b> costs do (materials, energy). And separately, <b>direct</b> costs trace to a product, while <b>indirect</b> (overhead) do not.</p><p>Now the most important rule in the chapter: a <em class=\"term\">sunk cost</em> is already spent and irrecoverable, so it must be <i>ignored</i> in a forward-looking decision. It hurts, but it is gone. Say you paid Rs 50,000 for a machine that is now worth Rs 20,000 if sold. The Rs 50,000 is sunk; only the Rs 20,000 matters today. Finally, <b>marginal cost</b> is the cost of one more unit, the question every manager asks before saying yes to one more order.</p>",
       "questions": [
         {
           "id": "sunk",
@@ -40,6 +40,12 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Fixed costs do not change with output (rent, insurance); variable costs do (materials, energy).",
+        "Direct costs trace to a product; indirect (overhead) costs do not.",
+        "A sunk cost is already spent and irrecoverable and must be ignored in a forward-looking decision.",
+        "Marginal cost is the cost of one more unit."
       ]
     },
     {
@@ -47,7 +53,7 @@
       "locator": "3.2",
       "title": "Total, average and marginal cost",
       "eyebrow": "Cost curves",
-      "body": "<p>Total cost TC = FC + VC. Average cost AC = TC/Q falls while marginal cost MC is below it and rises when MC is above it — so MC cuts AC at its minimum (the efficient scale). With FC = 120,000 and variable cost Rs 30 per unit, AC at 4,000 units is 30 + 120,000/4,000 = 60.</p>",
+      "body": "<p>Put the costs together. Total cost TC = FC + VC. Divide by quantity and you get average cost AC = TC/Q. Here is a lovely pattern: AC falls while marginal cost MC is below it and rises when MC is above it, so MC cuts AC at its minimum, the efficient scale. It is just like a running average of your exam marks: a score below the average pulls it down, one above pulls it up.</p><p>Try the numbers. With FC = 120,000 and variable cost Rs 30 per unit, AC at 4,000 units is 30 + 120,000/4,000 = 60. At an output of 6,000, TC = 120,000 + 30 × 6000 = 300,000 and AC = 300,000/6000 = 50. See how average cost fell from 60 to 50? As the figure says, the fixed cost is spread over more units. That is why bigger volumes make things cheaper.</p>",
       "worked": [
         {
           "toc": "Data",
@@ -99,6 +105,12 @@
           "note": "Average cost falls because the fixed cost is spread over more units.",
           "script": "var t = create(\"table\", { headers: \"Units;Total cost;Average cost\", data: [[1000,150000,150],[2000,180000,90],[4000,240000,60],[6000,300000,50],[8000,360000,45]], summary: \"None\" });"
         }
+      ],
+      "keynotes": [
+        "Total cost TC = FC + VC and average cost AC = TC/Q.",
+        "AC falls while MC is below it and rises when MC is above it, so MC cuts AC at its minimum (the efficient scale).",
+        "With FC = 120,000 and Rs 30 variable cost per unit, AC is 60 at 4,000 units and 50 at 6,000.",
+        "Average cost falls because the fixed cost is spread over more units."
       ]
     },
     {
@@ -106,7 +118,7 @@
       "locator": "3.3",
       "title": "Break-even analysis",
       "eyebrow": "Where profit starts",
-      "body": "<p>Revenue = price × quantity; break-even is where revenue equals total cost: Q* = FC/(p − v), the fixed cost divided by the <i>contribution margin</i> per unit. Selling price Rs 50, variable cost Rs 30, FC Rs 120,000: Q* = 120,000/20 = <b>6,000</b> units. Above it profit is (p − v)(Q − Q*).</p>",
+      "body": "<p>Every business owner loses sleep over one question: how many must I sell before I stop losing money? That magic number is the break-even point, where revenue (price × quantity) equals total cost.</p><p>The formula is friendly: Q* = FC/(p − v), the fixed cost divided by the <i>contribution margin</i> per unit, which is what each sale contributes towards paying the fixed bill. Selling price Rs 50, variable cost Rs 30, FC Rs 120,000: the contribution is 50 − 30 = 20, so Q* = 120,000/20 = <b>6,000</b> units. Above it profit is (p − v)(Q − Q*). In the break-even table the profit crosses zero at 6,000 units. And if you cut the fixed costs, do you think the break-even quantity goes up or down?</p>",
       "worked": [
         {
           "toc": "Margin",
@@ -166,6 +178,11 @@
           "prompt": "<p>FC = Rs 90,000, price Rs 45, variable cost Rs 25. Break-even units, and profit at 6,000 units?</p>",
           "answer": "Q* = 90,000/20 = <b>4,500</b>; profit = 20 × (6000 − 4500) = <b>Rs 30,000</b>."
         }
+      ],
+      "keynotes": [
+        "Break-even is where revenue equals total cost: Q* = FC/(p − v), fixed cost over the contribution margin per unit.",
+        "With price Rs 50, variable cost Rs 30 and FC Rs 120,000, the contribution is 20 and Q* = 6,000 units.",
+        "Above break-even, profit is (p − v)(Q − Q*)."
       ]
     },
     {
@@ -173,7 +190,7 @@
       "locator": "8.1",
       "title": "Depreciation: why and what",
       "eyebrow": "Spreading the cost",
-      "body": "<p>An asset loses value with use and time. <em class=\"term\">Depreciation</em> allocates its cost over its life as an expense (it is not a cash outflow — the cash went out when it was bought). <b>Book value</b> = cost − accumulated depreciation; it never drops below <b>salvage value</b>. Depreciation matters for money because it is tax-deductible.</p>",
+      "body": "<p>A truck does not lose all its value on the day you buy it; it fades a little every year. Accounting captures that fade with <em class=\"term\">depreciation</em>, which allocates the asset’s cost over its life as an expense. A subtle but vital point: depreciation is not a cash outflow, because the cash went out when the asset was bought.</p><p>Two terms to know. <b>Book value</b> = cost − accumulated depreciation, and it never drops below the <b>salvage value</b>, so at the end of the asset’s life the book value equals the salvage value. Why does depreciation matter for money at all? Because it is tax-deductible, as you will see in a few pages.</p>",
       "questions": [
         {
           "id": "bv",
@@ -205,6 +222,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Depreciation allocates an asset’s cost over its life as an expense; it is not a cash outflow.",
+        "Book value = cost − accumulated depreciation, and never drops below salvage value.",
+        "Depreciation matters for money because it is tax-deductible."
       ]
     },
     {
@@ -212,7 +234,7 @@
       "locator": "8.2",
       "title": "Straight-line method",
       "eyebrow": "Equal every year",
-      "body": "<p>D = (P − S)/N each year. For P = Rs 100,000, S = Rs 10,000, N = 5: D = <b>18,000</b> per year, book value falling by the same step.</p>",
+      "body": "<p>The simplest way to spread the cost is also the fairest-looking: the same amount every year. Straight-line depreciation is D = (P − S)/N. For P = Rs 100,000, S = Rs 10,000 and N = 5, that is (100,000 − 10,000)/5 = <b>18,000</b> per year, and the book value falls by that same step each year. A straight line on the chart, hence the name.</p>",
       "worked": [
         {
           "toc": "Annual",
@@ -267,6 +289,11 @@
           "prompt": "<p>A Rs 240,000 machine has a 6-year life and Rs 30,000 salvage. Annual straight-line depreciation and book value after year 4?</p>",
           "answer": "D = 210,000/6 = <b>35,000</b>; BV₄ = 240,000 − 4 × 35,000 = <b>100,000</b>."
         }
+      ],
+      "keynotes": [
+        "Straight-line depreciation charges D = (P − S)/N, the same every year.",
+        "With P = Rs 100,000, S = Rs 10,000 and N = 5, D is 18,000 per year.",
+        "Book value falls by the same step each year."
       ]
     },
     {
@@ -274,7 +301,7 @@
       "locator": "8.3",
       "title": "Declining-balance and MACRS",
       "eyebrow": "Front-loaded",
-      "body": "<p>Double declining balance takes a fixed fraction 2/N of the <i>remaining</i> book value each year (ignoring salvage until the end, never going below it): bigger deductions early. Same asset: year 1 40,000, year 2 24,000, year 3 14,400, year 4 8,640, year 5 2,960. MACRS (used for tax in the USA) assigns standard percentage tables per asset class.</p>",
+      "body": "<p>Is a new car worth the same drop in its first year as in its tenth? Of course not; it loses most of its value early. Declining-balance methods copy that reality. Double declining balance takes a fixed fraction 2/N of the <i>remaining</i> book value each year, ignoring salvage until the end and never going below it, so the deductions are bigger early.</p><p>Same asset as before: the rate is 2/N = 2/5 = 40 %. Year 1 on Rs 100,000 gives 40,000 and leaves a book value of 60,000. Year 2 is 40 % of 60,000 = 24,000. Then year 3 14,400, year 4 8,640, year 5 2,960. Compare with straight-line’s flat 18,000, and you can see the front-loading! MACRS (used for tax in the USA) assigns standard percentage tables per asset class. Why would a firm prefer accelerated depreciation? Think about when the tax savings arrive.</p>",
       "worked": [
         {
           "toc": "Rate",
@@ -325,6 +352,12 @@
           "note": "Early years are depreciated faster.",
           "script": "var t = create(\"table\", { headers: \"Year;Depreciation;Book value\", data: [[1,40000,60000],[2,24000,36000],[3,14400,21600],[4,8640,12960],[5,2960,10000]], summary: \"None\" });"
         }
+      ],
+      "keynotes": [
+        "Double declining balance takes 2/N of the remaining book value each year, never going below salvage.",
+        "At 40 % on Rs 100,000 the years give 40,000, 24,000, 14,400, 8,640 and 2,960.",
+        "MACRS, used for tax in the USA, assigns standard percentage tables per asset class.",
+        "Deductions come early, so tax savings arrive sooner."
       ]
     },
     {
@@ -332,7 +365,7 @@
       "locator": "8.4",
       "title": "Income taxes in decisions",
       "eyebrow": "After-tax thinking",
-      "body": "<p>Taxable income = revenue − operating cost − depreciation. Tax = rate × taxable income. After-tax cash flow = (revenue − cost) − tax. Depreciation lowers tax, creating a <b>tax shield</b> of rate × D each year.</p>",
+      "body": "<p>Governments take a bite of profit, so a real decision has to be made after tax. Taxable income = revenue − operating cost − depreciation, and Tax = rate × taxable income. The after-tax cash flow = (revenue − cost) − tax.</p><p>Notice the hidden gift: depreciation lowers taxable income, creating a <b>tax shield</b> of rate × D each year. Work an example. Revenue 80,000, cash costs 30,000, depreciation 18,000, tax rate 30 %. Taxable income = 32,000, tax = 9,600, and after-tax cash flow = 50,000 − 9,600 = 40,400. With D = 18,000 and 30 % tax, the shield is 5,400. Depreciation costs no cash, yet it saves you money.</p>",
       "worked": [
         {
           "toc": "Data",
@@ -383,6 +416,12 @@
           "prompt": "<p>Depreciation is Rs 25,000 a year and the tax rate 35 %. Annual tax shield?</p>",
           "answer": "0.35 × 25,000 = <b>Rs 8,750</b>."
         }
+      ],
+      "keynotes": [
+        "Taxable income = revenue − operating cost − depreciation, and tax = rate × taxable income.",
+        "After-tax cash flow = (revenue − cost) − tax.",
+        "Depreciation creates a tax shield of rate × D each year.",
+        "Revenue 80,000, costs 30,000, depreciation 18,000 and 30 % tax give taxable income 32,000, tax 9,600 and after-tax cash flow 40,400."
       ]
     }
   ]
