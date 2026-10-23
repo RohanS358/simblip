@@ -8,7 +8,7 @@
       "locator": "2.1",
       "title": "Registers and flags",
       "eyebrow": "Inside the CPU",
-      "body": "<p>Registers are the processor’s fastest memory. There are general-purpose ones, a <em class=\"term\">program counter</em>, a <em class=\"term\">stack pointer</em>, and a <em class=\"term\">status register</em> of flags set by the ALU: <b>zero</b> (result was 0), <b>sign</b> (negative), <b>carry</b> (unsigned overflow out of the top bit), <b>parity</b>, <b>auxiliary carry</b>. Conditional jumps test these flags.</p>",
+      "body": "<p>Think of registers as the notes on a chef’s own chopping board: tiny, but within arm’s reach. Registers are the processor’s fastest memory. There are general-purpose ones, a <em class=\"term\">program counter</em>, a <em class=\"term\">stack pointer</em>, and a <em class=\"term\">status register</em> of flags set by the ALU: <b>zero</b> (result was 0), <b>sign</b> (negative), <b>carry</b> (unsigned overflow out of the top bit), <b>parity</b> and <b>auxiliary carry</b>. Conditional jumps test these flags.</p><p>Let’s try one: you add 0FFH + 01H in an 8-bit register and the result wraps to 00H, with a carry out. So both the zero flag and the carry flag are set: Z = 1, CY = 1, as the figure shows.</p>",
       "questions": [
         {
           "id": "carry",
@@ -55,6 +55,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Registers are the processor’s fastest memory: general-purpose ones, a program counter, a stack pointer and a status register of flags.",
+        "Flags set by the ALU: zero, sign, carry (unsigned overflow), parity and auxiliary carry; conditional jumps test them.",
+        "FFH + 1 = 00H with carry out sets Z = 1 and CY = 1."
       ]
     },
     {
@@ -62,7 +67,7 @@
       "locator": "2.2",
       "title": "Stack organisation and reverse Polish notation",
       "eyebrow": "LIFO",
-      "body": "<p>A <em class=\"term\">stack</em> grows in memory from the stack pointer: <b>push</b> writes then moves the pointer, <b>pop</b> moves back and reads. Calls push the return address; returns pop it. A stack machine evaluates <em class=\"term\">reverse Polish notation</em> directly: push operands, and each operator pops two and pushes the result. To evaluate (A+B)×C, write <code>A B + C ×</code> — no parentheses and no precedence rules needed.</p>",
+      "body": "<p>Picture a stack of plates in a canteen: you add to the top, and you take from the top. That is a <em class=\"term\">stack</em>, last in, first out. It grows in memory from the stack pointer: <b>push</b> writes then moves the pointer, <b>pop</b> moves back and reads. Calls push the return address; returns pop it, as in the figure, where CALL pushes the return address and RET pops it.</p><p>A stack machine can also evaluate <em class=\"term\">reverse Polish notation</em> directly: push operands, and each operator pops two and pushes the result. To evaluate (A+B)×C, write <code>A B + C ×</code>, with no parentheses and no precedence rules needed. Try 3 4 + 2 ×: push 3, push 4, then + pops both and pushes 7. Push 2; × pops 2 and 7, pushes 14. And the RPN form of A × (B + C) is A B C + ×.</p>",
       "worked": [
         {
           "toc": "Expression",
@@ -119,6 +124,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A stack grows in memory from the stack pointer: push writes then moves the pointer, pop moves back and reads.",
+        "Calls push the return address and returns pop it.",
+        "Reverse Polish notation: push operands and each operator pops two and pushes the result; 3 4 + 2 × gives 14."
       ]
     },
     {
@@ -126,7 +136,7 @@
       "locator": "2.3",
       "title": "Instruction formats",
       "eyebrow": "Encoding",
-      "body": "<p>An instruction word holds an <em class=\"term\">opcode</em> and zero to three operand fields. <b>Three-address</b> instructions (ADD R1,R2,R3) are compact in program length; <b>two-address</b> overwrite one source; <b>one-address</b> use an implicit accumulator; <b>zero-address</b> use the stack. Fewer addresses make each instruction shorter but need more instructions.</p>",
+      "body": "<p>You can think of an instruction as a short word with a job to name (the <em class=\"term\">opcode</em>) and, optionally, places to find its data. How many places? That is the design choice. <b>Three-address</b> instructions (ADD R1,R2,R3) are compact in program length. <b>Two-address</b> overwrite one source. <b>One-address</b> use an implicit accumulator. <b>Zero-address</b> use the stack. Fewer addresses make each instruction shorter but need more instructions.</p><p>See the trade. Compute X = (A+B)×(C+D) on each machine type. Three-address: ADD R1,A,B; ADD R2,C,D; MUL X,R1,R2, which is 3 instructions. One-address (accumulator): LOAD A; ADD B; STORE T; LOAD C; ADD D; MUL T; STORE X, which is 7. Which format needs no operand fields for arithmetic? The zero-address (stack) format.</p>",
       "worked": [
         {
           "toc": "Task",
@@ -170,6 +180,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "An instruction word holds an opcode and zero to three operand fields.",
+        "Three-address is compact in program length, two-address overwrites one source, one-address uses an implicit accumulator and zero-address uses the stack.",
+        "X = (A+B)×(C+D) takes 3 instructions on a three-address machine and 7 on a one-address machine."
       ]
     },
     {
@@ -177,7 +192,7 @@
       "locator": "2.4",
       "title": "Addressing modes",
       "eyebrow": "Finding the operand",
-      "body": "<p>How does an instruction say where its data is? <em class=\"term\">Immediate</em>: the value is in the instruction (MVI A,05H). <em class=\"term\">Direct</em>: the instruction holds the address (LDA 2050H). <em class=\"term\">Register</em>: the operand is in a register (MOV A,B). <em class=\"term\">Register indirect</em>: a register holds the address (MOV A,M uses HL). <em class=\"term\">Indexed</em>/<em class=\"term\">base-relative</em>: address = register + offset, ideal for arrays. Each trades instruction length and speed for flexibility.</p>",
+      "body": "<p>How does an instruction say where its data is? There are several ways, from pointing to the value itself to pointing to a pointer. <em class=\"term\">Immediate</em>: the value is in the instruction (MVI A,05H). <em class=\"term\">Direct</em>: the instruction holds the address (LDA 2050H). <em class=\"term\">Register</em>: the operand is in a register (MOV A,B). <em class=\"term\">Register indirect</em>: a register holds the address (MOV A,M uses HL). <em class=\"term\">Indexed</em> or <em class=\"term\">base-relative</em>: address = register + offset, ideal for arrays.</p><p>Each trades instruction length and speed for flexibility. If you want to step through an array, indexed addressing makes it easiest, because you simply change the register as you go. The figure runs four of the modes in one program.</p>",
       "questions": [
         {
           "id": "indirect",
@@ -243,6 +258,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Immediate: the value is in the instruction (MVI A,05H); direct: the instruction holds the address (LDA 2050H); register: the operand is in a register (MOV A,B).",
+        "Register indirect: a register holds the address (MOV A,M uses HL); indexed or base-relative: address = register + offset, ideal for arrays.",
+        "Each mode trades instruction length and speed for flexibility."
       ]
     },
     {
@@ -250,7 +270,7 @@
       "locator": "2.5",
       "title": "Interrupts",
       "eyebrow": "Breaking the flow",
-      "body": "<p>An <em class=\"term\">interrupt</em> diverts the CPU to an <em class=\"term\">interrupt service routine</em> (ISR) when a device needs attention, an error occurs, or a timer fires. Between instructions the CPU checks for one; if accepted it saves the program counter and flags, jumps to the ISR (found through a vector table), runs it, and returns to exactly where it left off.</p>",
+      "body": "<p>Your phone rings while you are reading. You bookmark the page, answer, then return to exactly the same line. A CPU does the same thing. An <em class=\"term\">interrupt</em> diverts the CPU to an <em class=\"term\">interrupt service routine</em> (ISR) when a device needs attention, an error occurs, or a timer fires.</p><p>Between instructions the CPU checks for one; if accepted it saves the program counter and flags, jumps to the ISR (found through a vector table), runs it, and returns to exactly where it left off. The interrupted program never notices. So when is an interrupt normally accepted? Between instructions, never in the middle of one.</p>",
       "questions": [
         {
           "id": "when",
@@ -290,6 +310,11 @@
           "note": "The interrupted program never notices.",
           "script": "diagram(\"mode: sequence\\n[Program] as p\\n[CPU] as c\\n[ISR] as i\\np -> c : executing instruction n\\nc -> c : interrupt pending? yes\\nc -> i : save PC + flags, jump to vector\\ni --> c : service device, return\\nc --> p : resume at instruction n+1\");"
         }
+      ],
+      "keynotes": [
+        "An interrupt diverts the CPU to an interrupt service routine when a device needs attention, an error occurs or a timer fires.",
+        "Between instructions the CPU checks for one; if accepted it saves the program counter and flags, jumps to the ISR through a vector table, runs it and returns.",
+        "The interrupted program never notices."
       ]
     },
     {
@@ -297,7 +322,12 @@
       "locator": "2.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Flags record ALU outcomes; jumps read them.</li><li>Stacks serve calls, returns and RPN evaluation.</li><li>Fewer address fields mean shorter instructions but more of them.</li><li>Addressing modes choose how an operand is found.</li></ul>"
+      "body": "<p>One glance back at the chapter.</p><ul><li>Flags record ALU outcomes; jumps read them.</li><li>Stacks serve calls, returns and RPN evaluation.</li><li>Fewer address fields mean shorter instructions but more of them.</li><li>Addressing modes choose how an operand is found.</li></ul>",
+      "keynotes": [
+        "Flags record ALU outcomes and jumps read them.",
+        "Stacks serve calls, returns and RPN evaluation.",
+        "Fewer address fields mean shorter instructions but more of them, and addressing modes choose how an operand is found."
+      ]
     }
   ]
 }

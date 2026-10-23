@@ -1,0 +1,53 @@
+{
+  "subtitle": "Overlap the stages of consecutive instructions like an assembly line, then deal with the times one instruction needs another’s result.",
+  "sections": {
+    "idea": {
+      "body": "<p>Think of a laundry with a washer, a dryer and a folding table. Would you wait until the first load is folded before starting the second wash? Of course not. You keep every machine busy, and that is pipelining. An instruction needs fetch (IF), decode (ID), execute (EX), memory (MEM) and write-back (WB). Done one at a time, four instructions take 20 cycles.</p><p><em class='term'>Pipelining</em> starts the next instruction as soon as the first leaves IF, so a new instruction completes every cycle once the pipe is full. The latency of one instruction is unchanged; <em>throughput</em> improves by up to the number of stages. Four independent instructions finish in 8 cycles, not 20, as the figure shows. Take k = 5 stages and n = 100 instructions with no stalls: the first result arrives after k cycles, then one per cycle, so T = k + (n − 1) = 5 + 99 = 104 cycles, against n·k = 500 unpipelined. The speed-up is 500/104 ≈ 4.8. Does pipelining make a single instruction finish sooner? No, only more of them per second.</p>",
+      "keynotes": [
+        "An instruction needs fetch (IF), decode (ID), execute (EX), memory (MEM) and write-back (WB); done one at a time, four instructions take 20 cycles.",
+        "Pipelining starts the next instruction as soon as the first leaves IF; latency is unchanged but throughput improves by up to the number of stages.",
+        "With k = 5 and n = 100, T = k + (n − 1) = 104 cycles against 500, a speed-up of about 4.8."
+      ]
+    },
+    "hazards": {
+      "body": "<p>An assembly line works beautifully until one worker needs what the previous worker has not finished. In a pipeline that is called a <em class='term'>hazard</em>: something stops the next instruction from proceeding. <b>Structural</b>: two instructions need the same hardware (one memory port for instruction and data). <b>Data</b>: an instruction needs a result not yet written (<code>lw r1…</code> then <code>add r3,r1,…</code>). <b>Control</b>: a branch changes the next fetch address before it is known.</p><p>You have three cures: <em class='term'>stall</em> (insert bubbles), <em class='term'>forward</em> results early, or predict. Compare the figures. Without forwarding the dependent instructions wait: 6 stall cycles, 14 cycles in all. With forwarding only the load-use gap costs a cycle: 1 stall, 9 cycles. Even with forwarding, a load followed by an instruction using it still stalls one cycle, because the data only exists after the memory stage.</p>",
+      "keynotes": [
+        "A hazard stops the next instruction from proceeding: structural (same hardware), data (result not yet written) or control (a branch changes the fetch address).",
+        "The cures are to stall (insert bubbles), forward results early, or predict.",
+        "Without forwarding the example takes 6 stalls and 14 cycles; with forwarding only the load-use gap costs 1 stall and 9 cycles."
+      ]
+    },
+    "forward": {
+      "body": "<p>Let’s count bubbles, because this is what examiners love. Take dependent ALU instructions back-to-back with no forwarding: the consumer must wait until the producer has written the register file, costing 2 bubbles. With forwarding: 0. A load followed by its consumer: 1 bubble even with forwarding. Toggle the two cards above and count the clock numbers to check for yourself. When the register file is written in the first half of WB and read in the second half of ID, two dependent ALU instructions back-to-back with no forwarding need 2 bubbles.</p>",
+      "keynotes": [
+        "Dependent ALU instructions back-to-back without forwarding cost 2 bubbles.",
+        "With forwarding the cost is 0 bubbles.",
+        "A load followed by its consumer costs 1 bubble even with forwarding."
+      ]
+    },
+    "branch": {
+      "body": "<p>A branch is a fork in the road, and the pipeline has already started walking before it knows which way to go. Until a branch is resolved the fetch unit does not know which instruction is next. You can stall until resolved; <em class='term'>predict not taken</em> and flush if wrong; use a <em class='term'>branch delay slot</em> (execute the following instruction regardless); or use dynamic prediction with a history table, which is right over 90% of the time on real programs.</p><p>A wrong guess flushes the instructions fetched since the branch, costing their cycles. Put numbers on it: 20% of instructions are branches, 30% of them are mispredicted, and each mispredict costs 2 cycles. The extra CPI = 0.2 × 0.3 × 2 = 0.12, so CPI = 1 + 0.12 = 1.12. Instructions fetched after a mispredicted branch are discarded.</p>",
+      "keynotes": [
+        "Options for branches: stall until resolved, predict not taken and flush if wrong, a branch delay slot, or dynamic prediction with a history table (right over 90% of the time).",
+        "A wrong guess flushes the instructions fetched since the branch, costing their cycles.",
+        "With 20% branches, 30% mispredicted and 2 cycles each, the extra CPI is 0.12 and CPI = 1.12."
+      ]
+    },
+    "vector": {
+      "body": "<p>One pipeline not enough? Use several lanes. <em class='term'>SIMD</em> / vector machines apply one instruction to many data items at once (adding two vectors of 8 numbers in one step). <em class='term'>Superscalar</em> CPUs issue several instructions per cycle. And <em class='term'>memory interleaving</em> spreads consecutive addresses over several banks so a vector can be fetched one element per bank per cycle.</p><p>Matrix multiplication is the classic beneficiary: each row-column dot product is independent, so you can do them side by side. SIMD stands for single instruction, multiple data.</p>",
+      "keynotes": [
+        "SIMD / vector machines apply one instruction to many data items at once; superscalar CPUs issue several instructions per cycle.",
+        "Memory interleaving spreads consecutive addresses over several banks so a vector can be fetched one element per bank per cycle.",
+        "Matrix multiplication is the classic beneficiary because each dot product is independent."
+      ]
+    },
+    "summary": {
+      "body": "<p>Three lines, and you can answer almost any pipeline question.</p><ul><li>Pipelining raises throughput, not latency.</li><li>Hazards: structural, data, control; fixes: stall, forward, predict.</li><li>CPI = 1 + stall cycles per instruction.</li></ul>",
+      "keynotes": [
+        "Pipelining raises throughput, not latency.",
+        "Hazards are structural, data and control, fixed by stalling, forwarding or predicting.",
+        "CPI = 1 + stall cycles per instruction."
+      ]
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "subtitle": "Three ways to talk to a device, and how many processors are connected and kept in agreement.",
+  "sections": {
+    "prog": {
+      "body": "<p>Imagine waiting for a letter by standing at the letterbox all day, checking every few seconds. You would get nothing else done. That is <em class='term'>programmed I/O</em>: the CPU issues a command and then <em>polls</em> the device’s status register until it is ready, then moves the data itself. It is simple but wastes the CPU: a keyboard polled at full speed spends virtually all its time looking at nothing. The repeated polls are wasted cycles, as the figure shows. So the main drawback is that the CPU is kept busy waiting.</p>",
+      "keynotes": [
+        "With programmed I/O the CPU issues a command and then polls the device’s status register until it is ready, then moves the data itself.",
+        "It is simple but wastes the CPU on repeated polls.",
+        "A keyboard polled at full speed spends virtually all its time looking at nothing."
+      ]
+    },
+    "int": {
+      "body": "<p>A better plan: ask the postman to ring the bell. Meanwhile you can do other things. In interrupt-driven I/O the CPU starts the operation and goes on running other instructions. When the device is ready it raises an interrupt; the CPU finishes its current instruction, saves state, runs a service routine that moves the word, and returns.</p><p>Efficiency is much better, since there is no polling, but every word still costs an interrupt, which is too expensive for disks. Its advantage over programmed I/O is that the CPU is free while the device works.</p>",
+      "keynotes": [
+        "In interrupt-driven I/O the CPU starts the operation and runs other instructions; the device raises an interrupt when ready.",
+        "The CPU finishes its current instruction, saves state, runs a service routine that moves the word, and returns.",
+        "Every word still costs an interrupt, which is too expensive for disks."
+      ]
+    },
+    "dma": {
+      "body": "<p>What if you could hire an assistant to carry the whole box of letters in, and only tell you when it was done? That is <em class='term'>DMA</em>. A <em class='term'>DMA controller</em> is given the memory address, the count and the direction, then transfers the whole block between device and memory by itself, stealing bus cycles (“cycle stealing”) from the CPU, and interrupts once at the end.</p><p>See the saving. Transfer a 4 KB block from a device that gives one 4-byte word per transfer. Interrupt-driven I/O needs one interrupt per word: 4096/4 = 1024 interrupts. DMA needs 1. The CPU only starts and finishes the transfer, as the figure shows. A DMA block transfer causes one interrupt.</p>",
+      "keynotes": [
+        "A DMA controller is given the memory address, the count and the direction, transfers the whole block by itself, stealing bus cycles from the CPU, and interrupts once at the end.",
+        "One interrupt per block instead of one per word.",
+        "A 4 KB block at 4 bytes per word needs 1024 interrupts with interrupt-driven I/O but only 1 with DMA."
+      ]
+    },
+    "chan": {
+      "body": "<p>For big systems, even DMA is not enough, so you give the I/O its own small brain. An <em class='term'>I/O channel</em> is a small processor that runs its own I/O program, freeing the CPU further (mainframes); a front-end processor does the same for communications. The channel differs from a DMA controller because it executes its own program of I/O instructions, not just a single block transfer.</p><p>External interfaces are point-to-point (USB, SATA) or multipoint buses (SCSI). You will notice that serial links are replacing wide parallel ones, because they scale in speed.</p>",
+      "keynotes": [
+        "An I/O channel is a small processor that runs its own I/O program, freeing the CPU further (mainframes).",
+        "A front-end processor does the same for communications.",
+        "External interfaces are point-to-point (USB, SATA) or multipoint buses (SCSI); serial links are replacing wide parallel ones because they scale in speed."
+      ]
+    },
+    "mp": {
+      "body": "<p>When one processor is not enough, you add more, and the question becomes how to connect them. A tightly-coupled <em class='term'>multiprocessor</em> shares memory. Processors are joined by a time-shared <b>common bus</b> (cheap, one at a time), <b>multiport memory</b>, a <b>crossbar switch</b> (any processor to any memory, n² crosspoints), a <b>multistage network</b> (log₂ n stages of small switches) or a <b>hypercube</b> (n = 2ᵈ nodes, each with d neighbours). Arbitration decides who wins a contested resource.</p><p>Compare costs: a crossbar for 8 processors and 8 memories needs 8 × 8 = 64 crosspoints, while an omega network needs (n/2) log₂ n 2×2 switches, which is 4 · 3 = 12. A common bus is cheap, but only one transfer happens at a time. And how many neighbours has each node of a 4-dimensional hypercube? Four.</p>",
+      "keynotes": [
+        "A tightly-coupled multiprocessor shares memory.",
+        "Interconnects: a common bus (cheap, one at a time), multiport memory, a crossbar (n² crosspoints), a multistage network (log₂ n stages) or a hypercube (n = 2ᵈ nodes, each with d neighbours).",
+        "A crossbar for 8 processors needs 64 crosspoints while an omega network needs 12 switches."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two sentences carry the chapter.</p><ul><li>Polling wastes CPU; interrupts free it; DMA moves whole blocks with one interrupt.</li><li>Interconnect choice trades cost against simultaneous transfers.</li></ul>",
+      "keynotes": [
+        "Polling wastes the CPU, interrupts free it, and DMA moves whole blocks with one interrupt.",
+        "Interconnect choice trades cost against simultaneous transfers."
+      ]
+    }
+  }
+}

@@ -8,7 +8,7 @@
       "locator": "5.1",
       "title": "Signed integers",
       "eyebrow": "Negative numbers",
-      "body": "<p><em class=\"term\">Sign–magnitude</em> spends one bit on the sign (two zeros, awkward adders). <em class=\"term\">1's complement</em> inverts all bits (still two zeros). <em class=\"term\">2's complement</em> is universal: invert and add 1. There is one zero, addition works the same for signed and unsigned numbers, and an <em>n</em>-bit word covers −2ⁿ⁻¹ … 2ⁿ⁻¹−1. To widen a number, copy the sign bit leftwards (sign extension).</p>",
+      "body": "<p>A computer has no minus sign, only bits. So how does it store −5? There were several attempts, and you should know why the winner won. <em class=\"term\">Sign–magnitude</em> spends one bit on the sign (two zeros, awkward adders). <em class=\"term\">1's complement</em> inverts all bits (still two zeros). <em class=\"term\">2's complement</em> is universal: invert and add 1.</p><p>Why does it win? There is one zero, addition works the same for signed and unsigned numbers, and an <em>n</em>-bit word covers −2ⁿ⁻¹ … 2ⁿ⁻¹−1. To widen a number, copy the sign bit leftwards (sign extension). Make −5 in 8 bits: start with +5 = 00000101, invert every bit, then add 1: 11111010 + 1 = 11111011. The figure shows all three encodings side by side. The range of an 8-bit two’s-complement integer is −128 to 127.</p>",
       "worked": [
         {
           "toc": "Positive",
@@ -67,6 +67,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Sign–magnitude spends one bit on the sign (two zeros); 1's complement inverts all bits (still two zeros); 2's complement inverts and adds 1.",
+        "2's complement has one zero, addition works the same for signed and unsigned numbers, and an n-bit word covers −2ⁿ⁻¹ … 2ⁿ⁻¹−1.",
+        "−5 in 8 bits is 11111011, and sign extension copies the sign bit leftwards."
       ]
     },
     {
@@ -74,7 +79,7 @@
       "locator": "5.2",
       "title": "Addition, subtraction and overflow",
       "eyebrow": "The adder",
-      "body": "<p>Subtraction is addition of the two’s complement: A − B = A + (¬B) + 1, so one adder does both. <b>Overflow</b> occurs when the true result does not fit: adding two positives gives a negative (or two negatives a positive). Hardware detects it as “carry into the sign bit ≠ carry out of the sign bit”. The carry flag is for unsigned overflow; the overflow flag is for signed.</p>",
+      "body": "<p>Here is something elegant: your ALU never needs a separate subtractor. Subtraction is addition of the two’s complement: A − B = A + (¬B) + 1, so one adder does both. The trouble starts when the true answer does not fit. <b>Overflow</b> occurs when the result is out of range: adding two positives gives a negative (or two negatives a positive).</p><p>Hardware detects it as “carry into the sign bit ≠ carry out of the sign bit”. The carry flag is for unsigned overflow; the overflow flag is for signed. Try 100 + 50 in 8-bit two’s complement: 01100100 + 00110010 = 10010110. Two positives gave a negative pattern (−106): signed overflow. Can adding a positive and a negative number overflow? Never, because the result always lies between the two.</p>",
       "worked": [
         {
           "toc": "Sum",
@@ -119,6 +124,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Subtraction is addition of the two's complement: A − B = A + (¬B) + 1, so one adder does both.",
+        "Overflow occurs when the true result does not fit; hardware detects it as carry into the sign bit ≠ carry out of the sign bit.",
+        "The carry flag is for unsigned overflow and the overflow flag for signed; 100 + 50 in 8 bits gives 10010110, which is −106."
       ]
     },
     {
@@ -126,7 +136,7 @@
       "locator": "5.3",
       "title": "Multiplication: shift-and-add and Booth",
       "eyebrow": "Multiplying",
-      "body": "<p>Schoolbook binary multiplication adds a shifted copy of the multiplicand for each 1 in the multiplier. <em class=\"term\">Booth's algorithm</em> multiplies signed numbers directly and skips runs of 1s: it inspects pairs of multiplier bits (Q₀, Q₋₁) — 10 subtracts M, 01 adds M, 00/11 do nothing — then shifts arithmetically right. Watch 7 × (−3) with 4 bits: the answer -21 appears as 11101011.</p>",
+      "body": "<p>Schoolbook binary multiplication is easy, as you know: add a shifted copy of the multiplicand for each 1 in the multiplier. But negative numbers make it fiddly. <em class=\"term\">Booth's algorithm</em> multiplies signed numbers directly and skips runs of 1s. It inspects pairs of multiplier bits (Q₀, Q₋₁): 10 subtracts M, 01 adds M, and 00/11 do nothing; then it shifts arithmetically right.</p><p>Watch 7 × (−3) with 4 bits in the figure: the answer -21 appears as 11101011. The bit pair Q₀Q₋₁ = 10 means the start of a run of 1s, so subtract the multiplicand.</p>",
       "questions": [
         {
           "id": "boothpair",
@@ -190,6 +200,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Schoolbook binary multiplication adds a shifted copy of the multiplicand for each 1 in the multiplier.",
+        "Booth's algorithm multiplies signed numbers directly and skips runs of 1s: pair 10 subtracts M, 01 adds M, 00 and 11 do nothing, then shift arithmetically right.",
+        "7 × (−3) with 4 bits gives −21 as 11101011."
       ]
     },
     {
@@ -197,7 +212,7 @@
       "locator": "5.4",
       "title": "Division",
       "eyebrow": "Dividing",
-      "body": "<p>Restoring division mirrors long division: shift the remainder left bringing down the next dividend bit, subtract the divisor, and if the result is negative restore (add back) and record a 0, otherwise record a 1. Non-restoring division avoids the restore step by adding instead of subtracting in the next cycle. Either takes one step per quotient bit.</p>",
+      "body": "<p>Division is long division, just in binary. Restoring division mirrors it: shift the remainder left bringing down the next dividend bit, subtract the divisor, and if the result is negative restore (add back) and record a 0; otherwise record a 1. Non-restoring division avoids the restore step by adding instead of subtracting in the next cycle. Either takes one step per quotient bit.</p><p>Divide 7 (0111) by 2 (0010) with 4 bits. By repeated subtract/restore you get the quotient bits 0011 with remainder 1, which is 7 = 3 × 2 + 1. In restoring division, the divisor is added back whenever the subtraction leaves a negative result.</p>",
       "worked": [
         {
           "toc": "Task",
@@ -241,6 +256,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Restoring division shifts the remainder left, subtracts the divisor, and restores (adds back) and records 0 if the result is negative, otherwise records 1.",
+        "Non-restoring division avoids the restore step by adding instead of subtracting in the next cycle.",
+        "Dividing 7 (0111) by 2 (0010) gives quotient 0011 and remainder 1."
       ]
     },
     {
@@ -248,7 +268,7 @@
       "locator": "5.5",
       "title": "Floating point: IEEE 754",
       "eyebrow": "Fractions",
-      "body": "<p>A floating-point number is ±1.f × 2ᵉ stored as <b>sign | biased exponent | fraction</b>. Single precision uses 1 + 8 + 23 bits with bias 127; double uses 1 + 11 + 52 with bias 1023. The leading 1 is implicit. Step through 5.75: it is 101.11₂ = 1.0111 × 2², the exponent stored is 2 + 127 = 129, and the hex word is <b>40B80000</b>.</p>",
+      "body": "<p>How can 32 bits hold, as you might wonder, both the distance to the Sun and the width of an atom? With a trick borrowed from scientific notation. A floating-point number is ±1.f × 2ᵉ stored as <b>sign | biased exponent | fraction</b>. Single precision uses 1 + 8 + 23 bits with bias 127; double uses 1 + 11 + 52 with bias 1023. The leading 1 is implicit.</p><p>Step through 5.75 in the figure: it is 101.11₂ = 1.0111 × 2², the exponent stored is 2 + 127 = 129, and the hex word is <b>40B80000</b>. A second example is −0.15625, which becomes 0xBE200000. Why is the exponent stored with a bias? So that both positive and negative exponents are stored as plain unsigned numbers, which makes comparing floats easy.</p>",
       "questions": [
         {
           "id": "bias",
@@ -312,6 +332,11 @@
           "prompt": "<p>Encode −0.15625 in IEEE 754 single precision.</p>",
           "answer": "−0.15625 = −1.25 × 2⁻³. Sign 1, exponent −3 + 127 = 124, fraction .01₂. Word = <b>0xBE200000</b>."
         }
+      ],
+      "keynotes": [
+        "A floating-point number is ±1.f × 2ᵉ stored as sign | biased exponent | fraction; single precision uses 1 + 8 + 23 bits with bias 127, double 1 + 11 + 52 with bias 1023.",
+        "The leading 1 is implicit.",
+        "5.75 = 101.11₂ = 1.0111 × 2², exponent 2 + 127 = 129, hex word 40B80000."
       ]
     },
     {
@@ -319,7 +344,7 @@
       "locator": "5.6",
       "title": "Floating-point arithmetic",
       "eyebrow": "Operations",
-      "body": "<p>To <b>add</b>: align the exponents by shifting the smaller number right, add the significands, normalise, round. To <b>multiply</b>: add exponents (subtract one bias), multiply significands, normalise. Division subtracts exponents. Because results are rounded, floating-point addition is not associative, and subtracting nearly equal numbers loses digits (cancellation).</p>",
+      "body": "<p>Adding two floating-point numbers feels simple but hides a lot of work. To <b>add</b>: align the exponents by shifting the smaller number right, add the significands, normalise, round. To <b>multiply</b>: add exponents (subtract one bias), multiply significands, normalise. Division subtracts exponents.</p><p>Beware the consequences of rounding. Floating-point addition is not associative, and subtracting nearly equal numbers loses digits (cancellation). You should never test two floats for exact equality. The first step of floating-point addition is to align the exponents.</p>",
       "questions": [
         {
           "id": "align",
@@ -351,6 +376,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "To add: align the exponents by shifting the smaller number right, add the significands, normalise, round.",
+        "To multiply: add exponents (subtract one bias), multiply significands, normalise; division subtracts exponents.",
+        "Rounding makes floating-point addition non-associative, and subtracting nearly equal numbers loses digits (cancellation)."
       ]
     }
   ]

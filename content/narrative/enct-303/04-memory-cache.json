@@ -1,0 +1,54 @@
+{
+  "subtitle": "Fast memory is small, big memory is slow. A cache makes the big slow one look fast by remembering what you just used.",
+  "sections": {
+    "hier": {
+      "body": "<p>Think of your desk, your bookshelf and the library across town. The desk is tiny but instant; the library holds everything but takes a trip. You keep what you need most on the desk. Computers do exactly this, because no memory is fast, large and cheap at once. They stack them: registers (sub-ns, bytes), cache (ns, KB–MB), main memory (≈100 ns, GB), disk/SSD (µs–ms, TB).</p><p>Why does it work? Because of <em class='term'>locality</em>: <em class='term'>temporal</em> (what you used you will use again) and <em class='term'>spatial</em> (what is near what you used will be used). The hierarchy moves data in blocks so neighbours come along. Each level is a cache for the one below, as the figure says. Looping over an array element by element is fast on a cache mainly because of spatial locality.</p>",
+      "keynotes": [
+        "No memory is fast, large and cheap at once, so computers stack registers (sub-ns, bytes), cache (ns, KB–MB), main memory (≈100 ns, GB) and disk/SSD (µs–ms, TB).",
+        "It works because of locality: temporal (what you used you will use again) and spatial (what is near what you used will be used).",
+        "The hierarchy moves data in blocks so neighbours come along."
+      ]
+    },
+    "mapping": {
+      "body": "<p>When a block comes into the cache, where may it sit? You have three choices. There are three answers. In exactly one line: <em class='term'>direct-mapped</em>, which is cheap, but blocks that map to the same line keep evicting each other (<em class='term'>conflict misses</em>). In any line: <em class='term'>fully associative</em>, which is flexible but expensive to search. In any line within one set: <em class='term'>set-associative</em> (e.g. 2-way), the usual compromise. An address splits into <b>tag | index | offset</b>; the index picks the set, the tag is compared with each line in it, the offset picks the byte.</p><p>Watch the same 5 addresses <code>0 8 0 6 8</code> into a 4-line cache: direct-mapped gets <b>5</b> misses, 2-way <b>4</b>, fully associative <b>3</b>. In the first figure, addresses 0 and 8 both map to line 0 and keep evicting each other; in the 2-way cache they coexist. Now size one: a 32-bit address, 4 KB direct-mapped cache with 16-byte blocks. Offset bits = log₂16 = 4. Lines = 4096/16 = 256, so index bits = 8, and the tag = 32 − 8 − 4 = 20 bits. That is why the direct-mapped cache misses on the second reference to address 0: address 8 evicted it.</p>",
+      "keynotes": [
+        "Direct-mapped places a block in exactly one line (cheap, but conflict misses); fully associative allows any line (flexible, expensive to search); set-associative allows any line within one set.",
+        "An address splits into tag | index | offset: the index picks the set, the tag is compared and the offset picks the byte.",
+        "Addresses 0 8 0 6 8 into a 4-line cache give 5 misses direct-mapped, 4 for 2-way and 3 fully associative.",
+        "A 32-bit address with a 4 KB direct-mapped cache and 16-byte blocks has 4 offset bits, 8 index bits and a 20-bit tag."
+      ]
+    },
+    "policy": {
+      "body": "<p>When the set is full and a new block arrives, someone has to leave. The replacement policy picks the victim: <em class='term'>LRU</em> (least recently used), <em class='term'>FIFO</em>, or random. And what about writes? <em class='term'>Write-through</em> updates memory every time (simple, slow; often with a write buffer). <em class='term'>Write-back</em> marks the line dirty and writes memory only on eviction (fast, but more complicated).</p><p>On a write miss you also choose: <em class='term'>write-allocate</em> loads the block first, while <em class='term'>no-write-allocate</em> writes straight to memory. What does a write-back cache save compared with write-through? Many memory writes: repeated updates to the same line cost one write on eviction.</p>",
+      "keynotes": [
+        "Replacement picks a victim when a set is full: LRU (least recently used), FIFO or random.",
+        "Write-through updates memory every time; write-back marks the line dirty and writes memory only on eviction.",
+        "On a write miss, write-allocate loads the block first and no-write-allocate writes straight to memory."
+      ]
+    },
+    "amat": {
+      "body": "<p>Is a cache worth it? Let’s put a number on it. Average memory access time: AMAT = hit time + miss rate × miss penalty. With a 1-cycle hit, a 100-cycle penalty and the fully associative run above (40% hits, so a miss rate of 0.6), AMAT is 1 + 0.6 × 100 = <b>61</b> cycles. A cache with a 90% hit rate would give 1 + 0.1 × 100 = <b>11</b>. Same machine, a very different story.</p><p>Multi-level caches nest the formula: the L1 miss penalty is the L2 access time. The AMAT of the fully associative run appears in the figure’s results. Try one yourself: hit time 2 ns, miss rate 5%, miss penalty 80 ns gives 2 + 0.05 × 80 = 6 ns.</p>",
+      "keynotes": [
+        "AMAT = hit time + miss rate × miss penalty.",
+        "With a 1-cycle hit, a 100-cycle penalty and 40% hits AMAT is 61 cycles; a 90% hit rate gives 1 + 0.1 × 100 = 11.",
+        "Multi-level caches nest the formula: the L1 miss penalty is the L2 access time."
+      ]
+    },
+    "ext": {
+      "body": "<p>What is memory physically made of? SRAM (flip-flops) is fast and used for caches. DRAM (a capacitor plus a transistor, refreshed constantly) is denser and used for main memory, in DDR DIMM/SODIMM modules. ROM and flash hold firmware. Externally you have magnetic disk, SSD, optical and tape; RAID levels 1–5 add redundancy (see the OS course for a worked RAID 5 parity example).</p><p>Why does DRAM need refreshing? Because the charge on its tiny capacitor leaks away, so every cell must be rewritten again and again.</p>",
+      "keynotes": [
+        "SRAM (flip-flops) is fast and used for caches; DRAM (a capacitor plus transistor, refreshed constantly) is denser and used for main memory.",
+        "ROM and flash hold firmware.",
+        "External memory includes magnetic disk, SSD, optical and tape; RAID levels 1–5 add redundancy."
+      ]
+    },
+    "summary": {
+      "body": "<p>Three lines, and you can explain any cache.</p><ul><li>Locality makes a small fast memory effective.</li><li>Direct, set-associative and fully associative trade cost against conflict misses.</li><li>AMAT = hit + miss rate × penalty.</li></ul>",
+      "keynotes": [
+        "Locality makes a small fast memory effective.",
+        "Direct, set-associative and fully associative mappings trade cost against conflict misses.",
+        "AMAT = hit time + miss rate × penalty."
+      ]
+    }
+  }
+}

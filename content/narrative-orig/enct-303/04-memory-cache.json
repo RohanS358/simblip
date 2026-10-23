@@ -1,0 +1,42 @@
+{
+  "title": "Memory hierarchy and caches",
+  "subtitle": "Fast memory is small, big memory is slow — a cache makes the big slow one look fast by remembering what you just used.",
+  "sections": {
+    "hier": {
+      "title": "The hierarchy",
+      "body": "<p>No memory is fast, large and cheap at once, so computers stack them: registers (sub-ns, bytes), cache (ns, KB–MB), main memory (≈100 ns, GB), disk/SSD (µs–ms, TB). It works because of <em class=\"term\">locality</em>: <em class=\"term\">temporal</em> (what you used you will use again) and <em class=\"term\">spatial</em> (what is near what you used will be used). The hierarchy moves data in blocks so neighbours come along.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mapping": {
+      "title": "Mapping: where may a block go?",
+      "body": "<p>A block of memory can be placed in: exactly one line (<em class=\"term\">direct-mapped</em>: cheap, but blocks that map to the same line keep evicting each other — <em class=\"term\">conflict misses</em>); any line (<em class=\"term\">fully associative</em>: flexible, expensive to search); or any line within one set (<em class=\"term\">set-associative</em>, e.g. 2-way: the usual compromise). An address splits into <b>tag | index | offset</b>; the index picks the set, the tag is compared with each line in it, the offset picks the byte.</p><p>Same 5 addresses <code>0 8 0 6 8</code> into a 4-line cache: direct-mapped gets <b>5</b> misses, 2-way <b>4</b>, fully associative <b>3</b>.</p>",
+      "after": "",
+      "steps": "A 32-bit address, 4 KB direct-mapped cache with 16-byte blocks. Offset bits = log₂16 = 4. Lines = 4096/16 = 256 → index bits = 8. Tag = 32 − 8 − 4 = 20 bits."
+    },
+    "policy": {
+      "title": "Replacement and write policies",
+      "body": "<p>When a set is full, replacement picks a victim: <em class=\"term\">LRU</em> (least recently used), <em class=\"term\">FIFO</em>, or random. On a write: <em class=\"term\">write-through</em> updates memory every time (simple, slow; often with a write buffer); <em class=\"term\">write-back</em> marks the line dirty and writes memory only on eviction (fast; complicated). On a write miss: <em class=\"term\">write-allocate</em> loads the block first, <em class=\"term\">no-write-allocate</em> writes straight to memory.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "amat": {
+      "title": "Average memory access time",
+      "body": "<p>AMAT = hit time + miss rate × miss penalty. With a 1-cycle hit, 100-cycle penalty and the fully associative run above (40% hits) AMAT is <b>61</b> cycles — a cache with a 90% hit rate would give 1 + 0.1 × 100 = <b>11</b>. Multi-level caches nest the formula: the L1 miss penalty is the L2 access time.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ext": {
+      "title": "Semiconductor and external memory",
+      "body": "<p>SRAM (flip-flops) is fast and used for caches; DRAM (a capacitor plus transistor, refreshed constantly) is denser and used for main memory, in DDR DIMM/SODIMM modules. ROM/flash hold firmware. Externally: magnetic disk, SSD, optical and tape; RAID levels 1–5 add redundancy (see the OS course for a worked RAID 5 parity example).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Locality makes a small fast memory effective.</li><li>Direct, set-associative and fully associative trade cost against conflict misses.</li><li>AMAT = hit + miss rate × penalty.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

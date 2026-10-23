@@ -1,0 +1,42 @@
+{
+  "title": "Registers, stacks and addressing modes",
+  "subtitle": "Instructions are bit patterns; the CPU’s registers, flags and addressing modes decide what they can reach.",
+  "sections": {
+    "regs": {
+      "title": "Registers and flags",
+      "body": "<p>Registers are the processor’s fastest memory. There are general-purpose ones, a <em class=\"term\">program counter</em>, a <em class=\"term\">stack pointer</em>, and a <em class=\"term\">status register</em> of flags set by the ALU: <b>zero</b> (result was 0), <b>sign</b> (negative), <b>carry</b> (unsigned overflow out of the top bit), <b>parity</b>, <b>auxiliary carry</b>. Conditional jumps test these flags.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "stack": {
+      "title": "Stack organisation and reverse Polish notation",
+      "body": "<p>A <em class=\"term\">stack</em> grows in memory from the stack pointer: <b>push</b> writes then moves the pointer, <b>pop</b> moves back and reads. Calls push the return address; returns pop it. A stack machine evaluates <em class=\"term\">reverse Polish notation</em> directly: push operands, and each operator pops two and pushes the result. To evaluate (A+B)×C, write <code>A B + C ×</code> — no parentheses and no precedence rules needed.</p>",
+      "after": "",
+      "steps": "Evaluate 3 4 + 2 × in RPN with a stack. Push 3, push 4, then + pops both and pushes 7. Push 2; × pops 2 and 7, pushes 14."
+    },
+    "formats": {
+      "title": "Instruction formats",
+      "body": "<p>An instruction word holds an <em class=\"term\">opcode</em> and zero to three operand fields. <b>Three-address</b> instructions (ADD R1,R2,R3) are compact in program length; <b>two-address</b> overwrite one source; <b>one-address</b> use an implicit accumulator; <b>zero-address</b> use the stack. Fewer addresses make each instruction shorter but need more instructions.</p>",
+      "after": "",
+      "steps": "Compute X = (A+B)×(C+D) on each machine type. Three-address: ADD R1,A,B; ADD R2,C,D; MUL X,R1,R2 → 3 instructions. One-address (accumulator): LOAD A; ADD B; STORE T; LOAD C; ADD D; MUL T; STORE X → 7."
+    },
+    "modes": {
+      "title": "Addressing modes",
+      "body": "<p>How does an instruction say where its data is? <em class=\"term\">Immediate</em>: the value is in the instruction (MVI A,05H). <em class=\"term\">Direct</em>: the instruction holds the address (LDA 2050H). <em class=\"term\">Register</em>: the operand is in a register (MOV A,B). <em class=\"term\">Register indirect</em>: a register holds the address (MOV A,M uses HL). <em class=\"term\">Indexed</em>/<em class=\"term\">base-relative</em>: address = register + offset, ideal for arrays. Each trades instruction length and speed for flexibility.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "interrupts": {
+      "title": "Interrupts",
+      "body": "<p>An <em class=\"term\">interrupt</em> diverts the CPU to an <em class=\"term\">interrupt service routine</em> (ISR) when a device needs attention, an error occurs, or a timer fires. Between instructions the CPU checks for one; if accepted it saves the program counter and flags, jumps to the ISR (found through a vector table), runs it, and returns to exactly where it left off.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Flags record ALU outcomes; jumps read them.</li><li>Stacks serve calls, returns and RPN evaluation.</li><li>Fewer address fields mean shorter instructions but more of them.</li><li>Addressing modes choose how an operand is found.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

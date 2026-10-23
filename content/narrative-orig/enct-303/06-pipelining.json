@@ -1,0 +1,42 @@
+{
+  "title": "Pipelines and hazards",
+  "subtitle": "Overlap the stages of consecutive instructions like an assembly line — then deal with the times one instruction needs another’s result.",
+  "sections": {
+    "idea": {
+      "title": "The assembly-line idea",
+      "body": "<p>An instruction needs fetch (IF), decode (ID), execute (EX), memory (MEM) and write-back (WB). Done one at a time, four instructions take 20 cycles. <em class=\"term\">Pipelining</em> starts the next instruction as soon as the first leaves IF, so a new instruction completes every cycle once the pipe is full. Latency of one instruction is unchanged; <em>throughput</em> improves by up to the number of stages.</p>",
+      "after": "",
+      "steps": "k = 5 stages, n = 100 instructions, no stalls. First result after k cycles, then one per cycle: k + (n − 1) cycles. Unpipelined: n·k. Speed-up."
+    },
+    "hazards": {
+      "title": "Hazards",
+      "body": "<p>A <em class=\"term\">hazard</em> stops the next instruction from proceeding. <b>Structural</b>: two instructions need the same hardware (one memory port for instruction and data). <b>Data</b>: an instruction needs a result not yet written (<code>lw r1…</code> then <code>add r3,r1,…</code>). <b>Control</b>: a branch changes the next fetch address before it is known. The cure is to <em class=\"term\">stall</em> (insert bubbles), <em class=\"term\">forward</em> results early, or predict.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "forward": {
+      "title": "Forwarding and stalling in numbers",
+      "body": "<p>Dependent ALU instructions back-to-back, no forwarding: the consumer must wait until the producer has written the register file, costing 2 bubbles. With forwarding: 0. A load followed by its consumer: 1 bubble even with forwarding. Toggle the two cards above and count the clock numbers to check.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "branch": {
+      "title": "Branches and the RISC pipeline",
+      "body": "<p>Until a branch is resolved the fetch unit does not know which instruction is next. Options: stall until resolved; <em class=\"term\">predict not taken</em> and flush if wrong; <em class=\"term\">branch delay slot</em> (execute the following instruction regardless); or dynamic prediction with a history table, which is right over 90% of the time on real programs. A wrong guess flushes the instructions fetched since the branch, costing their cycles.</p>",
+      "after": "",
+      "steps": "20% of instructions are branches, 30% of them mispredicted, each mispredict costs 2 cycles. Extra CPI = 0.2 × 0.3 × 2."
+    },
+    "vector": {
+      "title": "Parallel and vector processing",
+      "body": "<p><em class=\"term\">SIMD</em> / vector machines apply one instruction to many data items at once (adding two vectors of 8 numbers in one step); <em class=\"term\">superscalar</em> CPUs issue several instructions per cycle; <em class=\"term\">memory interleaving</em> spreads consecutive addresses over several banks so a vector can be fetched one element per bank per cycle. Matrix multiplication is the classic beneficiary: each row-column dot product is independent.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Pipelining raises throughput, not latency.</li><li>Hazards: structural, data, control; fixes: stall, forward, predict.</li><li>CPI = 1 + stall cycles per instruction.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
