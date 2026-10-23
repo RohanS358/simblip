@@ -8,7 +8,7 @@
       "locator": "3.1",
       "title": "Functional and non-functional",
       "eyebrow": "What vs how well",
-      "body": "<p><b>Functional</b> requirements say what the system does (“a user can reset a password by email”). <b>Non-functional</b> requirements constrain how: performance, security, usability, availability, portability. A good requirement is <em class=\"term\">testable</em>: “responds in under 2 s for 95 % of requests” not “fast”.</p>",
+      "body": "<p>Imagine ordering a car. “It must have four wheels and an engine” is one kind of requirement; “it must be fast and safe” is another, and the second kind is where the arguments start. <b>Functional</b> requirements say what the system does (“a user can reset a password by email”). <b>Non-functional</b> requirements constrain how well: performance, security, usability, availability, portability.</p><p>Here is the rule that saves projects: a good requirement is <em class=\"term\">testable</em>. Write “responds in under 2 s for 95 % of requests”, not “fast”. Can you test “fast”? No. So “the site must handle 1000 users at once” is a non-functional requirement, and a testable one.</p>",
       "questions": [
         {
           "id": "nf",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Functional requirements say what the system does; non-functional requirements constrain how: performance, security, usability, availability, portability.",
+        "A good requirement is testable: “responds in under 2 s for 95 % of requests”, not “fast”.",
+        "“The site must handle 1000 users at once” is a non-functional requirement."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "3.2",
       "title": "Eliciting requirements",
       "eyebrow": "Finding out",
-      "body": "<p>Techniques: interviews, questionnaires, observation, workshops, prototypes, studying existing documents. Stakeholders disagree; requirements must be negotiated and prioritised (e.g. MoSCoW: must, should, could, won’t).</p>",
+      "body": "<p>Where do requirements come from? From people, and people rarely say what they mean on the first try. So you dig: interviews, questionnaires, observation, workshops, prototypes, and studying existing documents. And stakeholders disagree, so requirements must be negotiated and prioritised (e.g. MoSCoW: must, should, could, won’t).</p><p>The loop in the figure is elicit, draft, review, baseline, and you may go round it several times. In MoSCoW, “won’t” means not this time: it is agreed to be out of scope for now, not forgotten.</p>",
       "questions": [
         {
           "id": "moscow",
@@ -87,6 +92,11 @@
           "note": "Elicit, draft, review, baseline.",
           "script": "diagram(\"mode: sequence\\n[Analyst] as a\\n[Stakeholder] as s\\n[Requirements doc] as d\\na -> s : interview\\ns --> a : needs and pains\\na -> d : draft requirements\\na -> s : review\\ns --> a : corrections\\na -> d : baseline\\n@0 a -> s : interview\\n@1 s -> a : needs and pains\\n@2 a -> d : draft requirements\\n@3 a -> s : review\\n@4 s -> a : corrections\\n@5 a -> d : baseline\");"
         }
+      ],
+      "keynotes": [
+        "Elicitation techniques: interviews, questionnaires, observation, workshops, prototypes and studying existing documents.",
+        "Stakeholders disagree, so requirements must be negotiated and prioritised, for example with MoSCoW: must, should, could, won’t.",
+        "The loop is elicit, draft, review, baseline."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "3.3",
       "title": "Use cases and user stories",
       "eyebrow": "Capturing behaviour",
-      "body": "<p>A <em class=\"term\">use case</em> describes an actor achieving a goal in steps, with alternate flows for failures. A <b>user story</b>: “As a <i>role</i> I want <i>goal</i> so that <i>benefit</i>”, with acceptance criteria. Stories are small and estimated in points.</p>",
+      "body": "<p>How do you write down behaviour so that both customers and developers understand it? Two popular ways. A <em class=\"term\">use case</em> describes an actor achieving a goal in steps, with alternate flows for failures. A <b>user story</b> fits on a sticky note: “As a <i>role</i> I want <i>goal</i> so that <i>benefit</i>”, with acceptance criteria. Stories are small and estimated in points.</p><p>A good user story ends with its benefit, the “so that…”, because that tells you why the feature matters. The use case in the figure appears as a card, step by step.</p>",
       "questions": [
         {
           "id": "us",
@@ -134,6 +144,11 @@
           "note": "A use case as a card.",
           "script": "diagram(\"{Use case: Withdraw cash | actor: Customer ; goal: get money | pre: has card ; post: balance reduced}\");"
         }
+      ],
+      "keynotes": [
+        "A use case describes an actor achieving a goal in steps, with alternate flows for failures.",
+        "A user story reads “As a role I want goal so that benefit”, with acceptance criteria; stories are small and estimated in points.",
+        "A good user story ends with its benefit."
       ]
     },
     {
@@ -141,7 +156,7 @@
       "locator": "3.4",
       "title": "The SRS",
       "eyebrow": "The document",
-      "body": "<p>A Software Requirements Specification (IEEE 830/29148) contains: introduction (purpose, scope, definitions), overall description (users, constraints), specific requirements (functional, external interfaces, performance, design constraints), and appendices. It must be complete, consistent, unambiguous, verifiable and traceable.</p>",
+      "body": "<p>At some point the requirements need a home, and you will write it, a document everyone can point to. That is the Software Requirements Specification (IEEE 830/29148). It contains an introduction (purpose, scope, definitions), an overall description (users, constraints), specific requirements (functional, external interfaces, performance, design constraints), and appendices.</p><p>A good SRS is complete, consistent, unambiguous, verifiable and traceable. Spot the ambiguous one for yourself: “the system shall be user-friendly” is ambiguous, because two readers will picture two different things.</p>",
       "questions": [
         {
           "id": "srsq",
@@ -173,6 +188,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The SRS (IEEE 830/29148) has an introduction, an overall description, specific requirements and appendices.",
+        "Specific requirements cover functional needs, external interfaces, performance and design constraints.",
+        "It must be complete, consistent, unambiguous, verifiable and traceable."
       ]
     },
     {
@@ -180,7 +200,7 @@
       "locator": "3.5",
       "title": "Validation and change",
       "eyebrow": "Keeping them right",
-      "body": "<p>Validate by reviews, prototypes and test-case writing. Requirements change; manage change with a recorded process: request → impact analysis → approval → update and trace. Traceability links each requirement to design, code and tests.</p>",
+      "body": "<p>Requirements are never finished, because the world keeps changing. You validate them by reviews, prototypes and test-case writing. And when they change, which they will, you manage change with a recorded process: request → impact analysis → approval → update and trace. Traceability links each requirement to design, code and tests.</p><p>Measure the churn. A project has 120 requirements; 24 change after baseline. Volatility = 24/120 = 20%. High volatility suggests the requirements were poorly understood, or the business is unstable, so you should expect risk.</p>",
       "worked": [
         {
           "toc": "Data",
@@ -231,6 +251,11 @@
           "prompt": "<p>200 requirements, 30 changed. Volatility?</p>",
           "answer": "30/200 = <b>15 %</b>."
         }
+      ],
+      "keynotes": [
+        "Validate requirements by reviews, prototypes and test-case writing.",
+        "Manage change with a recorded process: request, impact analysis, approval, update and trace; traceability links each requirement to design, code and tests.",
+        "24 changes out of 120 requirements is a volatility of 20%."
       ]
     },
     {
@@ -238,7 +263,7 @@
       "locator": "3.6",
       "title": "Sizing from requirements: function points",
       "eyebrow": "Measure before you build",
-      "body": "<p>Function points count user-visible functions: external inputs (EI), outputs (EO), inquiries (EQ), internal files (ILF), external interfaces (EIF), each weighted by complexity. Unadjusted FP = Σ count × weight; multiply by a value adjustment factor (0.65–1.35).</p>",
+      "body": "<p>How big is a project, before you have written a single line of code? Counting lines is impossible, so function points count what the user can see: external inputs (EI), outputs (EO), inquiries (EQ), internal files (ILF) and external interfaces (EIF), each weighted by complexity. Unadjusted FP = Σ count × weight; multiply by a value adjustment factor (0.65–1.35).</p><p>Work it out with average weights EI 4, EO 5, EQ 4, ILF 10, EIF 7 and counts EI 10, EO 6, EQ 5, ILF 4, EIF 2. UFP = 40 + 30 + 20 + 40 + 14 = 144. Function points are useful because they measure size from the requirements, independent of programming language.</p>",
       "worked": [
         {
           "toc": "Counts",
@@ -282,6 +307,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Function points count user-visible functions: external inputs, outputs, inquiries, internal files and external interfaces, each weighted by complexity.",
+        "Unadjusted FP = Σ count × weight; multiply by a value adjustment factor (0.65–1.35).",
+        "With the average weights and the given counts, UFP = 40 + 30 + 20 + 40 + 14 = 144."
       ]
     }
   ]

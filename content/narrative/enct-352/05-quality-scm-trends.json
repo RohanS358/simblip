@@ -1,0 +1,53 @@
+{
+  "subtitle": "Keeping software good after the first release: quality assurance, version control, and pipelines that ship safely.",
+  "sections": {
+    "qa": {
+      "body": "<p>You cannot test quality into a product at the end, any more than you can inspect a cake into tastiness after baking. Quality assurance (QA) prevents defects through process (standards, reviews, audits); quality control (QC) detects them (testing). Standards include ISO 9001, CMMI levels and the ISO/IEC 25010 attributes.</p><p>And here is a nice surprise: reviews, such as inspections and walkthroughs, find defects earlier than tests. A code review is an example of quality assurance.</p>",
+      "keynotes": [
+        "Quality assurance (QA) prevents defects through process (standards, reviews, audits); quality control (QC) detects them by testing.",
+        "Standards include ISO 9001, CMMI levels and ISO/IEC 25010 attributes.",
+        "Reviews (inspections and walkthroughs) find defects earlier than tests."
+      ]
+    },
+    "cost": {
+      "body": "<p>Why are engineers so keen on finding bugs early? Because the price grows like compound interest. A defect costs roughly 1 unit to fix at requirements, ~10 in design/coding and ~100 after release. A bug costing 1 h if found in requirements costs ~10× more in coding and ~100× after release: 1 h → 10 h → 100 h.</p><p>Hence reviews, static analysis and unit tests are worth their effort. Late-found defects are costly because more work has been built on top of them, and more users are affected.</p>",
+      "keynotes": [
+        "A defect costs roughly 1 unit to fix at requirements, ~10 in design or coding and ~100 after release.",
+        "A bug costing 1 h in requirements costs 10 h in coding and 100 h after release.",
+        "Reviews, static analysis and unit tests are worth their effort."
+      ]
+    },
+    "maint": {
+      "body": "<p>Releasing is not the end; for most software it is the beginning of the longest and most expensive phase. Maintenance comes in four kinds: <b>corrective</b> (fix bugs), <b>adaptive</b> (new environment), <b>perfective</b> (new features or performance) and <b>preventive</b> (refactor). Perfective is usually the largest share.</p><p>Eventually old systems become a burden, and legacy systems are re-engineered or replaced when cost exceeds value. So porting software to a new operating system is adaptive maintenance.</p>",
+      "keynotes": [
+        "Maintenance has four kinds: corrective (fix bugs), adaptive (new environment), perfective (new features or performance) and preventive (refactor).",
+        "Perfective is usually the largest share.",
+        "Legacy systems are re-engineered or replaced when cost exceeds value."
+      ]
+    },
+    "scm": {
+      "body": "<p>When several people edit the same files, how do you avoid stepping on each other? Configuration management tracks every version of every item, and today that means Git. Commit small changes, branch for features, and merge via review. A common flow keeps <code>main</code> releasable: a feature branch is merged by pull request after tests pass.</p><p>In the figure, main only ever receives reviewed work. Why merge by pull request? Because a second pair of eyes and the automated tests protect the branch everyone depends on.</p>",
+      "keynotes": [
+        "Configuration management tracks every version of every item; with Git commit small changes, branch for features and merge via review.",
+        "A common flow keeps main releasable and merges a feature branch by pull request after tests pass.",
+        "Main only ever receives reviewed work."
+      ]
+    },
+    "ci": {
+      "body": "<p>What if every change you push was built and tested the moment you pushed it? That is <b>CI</b>, continuous integration. <b>Continuous delivery</b> goes further: every passing build is deployable at a click, and <b>continuous deployment</b> releases automatically. Small, frequent releases are easier to test and to roll back.</p><p>The pipeline in the figure stops at the first failure, and nothing after it runs. So in a CI pipeline a failing unit test should stop the pipeline and block the merge or release.</p>",
+      "keynotes": [
+        "CI: every push is built and tested automatically.",
+        "Continuous delivery makes every passing build deployable at a click; continuous deployment releases automatically.",
+        "Small, frequent releases are easier to test and to roll back."
+      ]
+    },
+    "devops": {
+      "body": "<p>For years, developers wrote code and threw it over a wall for operations to run, and everyone blamed the other side. DevOps breaks the wall: it joins development and operations through infrastructure as code, containers, monitoring and fast feedback. Other trends you will meet: microservices, cloud-native, AI-assisted coding (review its output like a junior’s), DevSecOps (security in the pipeline), and low-code platforms.</p><p>See the effect on speed. If deploy frequency rises from 1 per month to 1 per day, that is about 30× more releases, each far smaller and easier to roll back. Infrastructure as code means describing servers and networks in files that you version and review like any other code.</p>",
+      "keynotes": [
+        "DevOps joins development and operations: infrastructure as code, containers, monitoring and fast feedback.",
+        "Other trends are microservices, cloud-native, AI-assisted coding, DevSecOps and low-code platforms.",
+        "Deploy frequency rising from 1 per month to 1 per day is about 30× more releases, each smaller and easier to roll back."
+      ]
+    }
+  }
+}

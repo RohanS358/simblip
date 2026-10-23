@@ -1,14 +1,14 @@
 {
   "title": "Coding and testing",
   "kicker": "ENCT 352 · Software Engineering · Chapter 6",
-  "subtitle": "Testing cannot prove a program correct — but well-chosen tests find most of the bugs, cheaply.",
+  "subtitle": "Testing cannot prove a program correct, but well-chosen tests find most of the bugs, cheaply.",
   "sections": [
     {
       "id": "std",
       "locator": "6.1",
       "title": "Coding practice",
       "eyebrow": "Write for the next reader",
-      "body": "<p>Follow a coding standard: meaningful names, small functions, comments that say <i>why</i>, consistent layout, no duplicated logic. Code review catches defects and spreads knowledge. Refactoring improves structure without changing behaviour — safely, only with tests.</p>",
+      "body": "<p>Six months from now, you will open your own code and wonder who wrote it. Be kind to that person. Follow a coding standard: meaningful names, small functions, comments that say <i>why</i>, consistent layout, no duplicated logic. Code review catches defects and spreads knowledge across the team.</p><p>And when the structure needs tidying, use refactoring: it improves structure without changing behaviour, and it is safe only with tests behind you. Refactoring changes the structure of the code, never what it does.</p>",
       "questions": [
         {
           "id": "ref",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Follow a coding standard: meaningful names, small functions, comments that say why, consistent layout and no duplicated logic.",
+        "Code review catches defects and spreads knowledge.",
+        "Refactoring improves structure without changing behaviour, safely only with tests."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "6.2",
       "title": "Levels of testing",
       "eyebrow": "Small to large",
-      "body": "<p><b>Unit</b> tests check one function; <b>integration</b> tests check modules together; <b>system</b> tests check the whole against requirements; <b>acceptance</b> tests are run by the customer. The test pyramid says: many fast unit tests, fewer integration tests, very few slow end-to-end tests.</p>",
+      "body": "<p>You test a car by checking a bolt, then the engine, then driving the whole car. Software tests grow in the same way. <b>Unit</b> tests check one function. <b>Integration</b> tests check modules together. <b>System</b> tests check the whole against requirements. <b>Acceptance</b> tests are run by the customer.</p><p>The test pyramid is the shape to remember: many fast unit tests, fewer integration tests, and very few slow end-to-end tests. The wider the layer, the more tests, as the figure shows. So the most numerous tests should be the unit tests.</p>",
       "questions": [
         {
           "id": "pyr",
@@ -87,6 +92,11 @@
           "note": "The wider the layer, the more tests.",
           "script": "diagram(\"direction: down\\n[Few: end-to-end / acceptance] as e\\n[Some: integration] as i\\n[Many: unit] as u\\ne -> i\\ni -> u\");"
         }
+      ],
+      "keynotes": [
+        "Unit tests check one function, integration tests check modules together, system tests check the whole against requirements and acceptance tests are run by the customer.",
+        "The test pyramid says: many fast unit tests, fewer integration tests, very few slow end-to-end tests.",
+        "The wider the layer of the pyramid, the more tests it holds, so unit tests should be the most numerous."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "6.3",
       "title": "Black-box techniques",
       "eyebrow": "Test from the spec",
-      "body": "<p><b>Equivalence partitioning</b>: split inputs into classes that should behave alike and test one of each. <b>Boundary value analysis</b>: bugs cluster at edges, so test min, min+1, max−1, max and just outside. A field accepting ages 18–60 has partitions &lt;18, 18–60, &gt;60 and boundaries 17, 18, 19, 59, 60, 61.</p>",
+      "body": "<p>You cannot test every possible input, so you choose cleverly. In black-box testing you look only at the specification. <b>Equivalence partitioning</b> splits inputs into classes that should behave alike and tests one of each. <b>Boundary value analysis</b> goes where the bugs live: at the edges, so test min, min+1, max−1, max and just outside.</p><p>A field accepting ages 18–60 has partitions &lt;18, 18–60, &gt;60 and boundaries 17, 18, 19, 59, 60, 61. In the two-value form, you test just below, on, and above each end: 17, 18, 60, 61, which is 4 tests. Bugs love an off-by-one error, and boundaries are exactly where you catch it.</p>",
       "worked": [
         {
           "toc": "Ends",
@@ -145,6 +155,11 @@
           "prompt": "<p>A quantity field accepts 1–10. List boundary values.</p>",
           "answer": "<b>0, 1, 2, 9, 10, 11</b> (three-value form) — 0 and 11 are invalid."
         }
+      ],
+      "keynotes": [
+        "Equivalence partitioning splits inputs into classes that should behave alike and tests one of each.",
+        "Boundary value analysis tests min, min+1, max−1, max and just outside, because bugs cluster at edges.",
+        "For ages 18–60 the boundary tests include 17, 18, 60 and 61, which is 4 tests in the two-value form."
       ]
     },
     {
@@ -152,7 +167,7 @@
       "locator": "6.4",
       "title": "White-box and cyclomatic complexity",
       "eyebrow": "Test from the code",
-      "body": "<p>Coverage measures how much code the tests execute: statement, branch, path. Cyclomatic complexity V(G) = E − N + 2 (or decisions + 1) counts independent paths — the minimum number of test cases for basis-path coverage. V(G) above about 10 marks code that should be split.</p>",
+      "body": "<p>Now open the box and look inside. White-box testing uses the code itself. Coverage measures how much code the tests execute: statement, branch, path. And cyclomatic complexity V(G) = E − N + 2 (or decisions + 1) counts independent paths, the minimum number of test cases for basis-path coverage. V(G) above about 10 marks code that should be split.</p><p>Count it with me. Two if-statements mean decisions = 2, so independent paths = 2 + 1, giving V(G) = 3, as the control-flow graph shows. A function with one loop and two ifs has three decisions, so V(G) = 4. Do you see why? Every decision adds one more path.</p>",
       "worked": [
         {
           "toc": "Decisions",
@@ -204,6 +219,11 @@
           "note": "Two decisions, so V(G) = 3.",
           "script": "diagram(\"direction: down\\n[Start] as s\\n[if a > 0] as d1\\n[if b > 0] as d2\\n[End] as e\\ns -> d1\\nd1 -> d2 : yes\\nd1 -> e : no\\nd2 -> e\");"
         }
+      ],
+      "keynotes": [
+        "Coverage measures how much code the tests execute: statement, branch and path.",
+        "Cyclomatic complexity V(G) = E − N + 2 (or decisions + 1) counts independent paths, the minimum tests for basis-path coverage; above about 10 the code should be split.",
+        "Two if-statements give decisions = 2 and V(G) = 3."
       ]
     },
     {
@@ -211,7 +231,7 @@
       "locator": "6.5",
       "title": "Test-driven development",
       "eyebrow": "Red, green, refactor",
-      "body": "<p>Write a failing test (red), write just enough code to pass (green), then clean up (refactor), and repeat. The tests document behaviour and let you change code fearlessly.</p>",
+      "body": "<p>What if you wrote the test before the code? Test-driven development does exactly that, in a loop of minutes. Write a failing test (red), write just enough code to pass (green), then clean up (refactor), and repeat. The tests document behaviour and let you change code fearlessly. In TDD the first step is to write a failing test.</p>",
       "questions": [
         {
           "id": "tddq",
@@ -251,6 +271,11 @@
           "note": "A tight loop of minutes.",
           "script": "diagram(\"direction: right\\n[Write failing test] as r\\n[Make it pass] as g\\n[Refactor] as f\\nr -> g : red\\ng -> f : green\\nf -> r : next behaviour\\n@0 r -> g\\n@1 g -> f\\n@2 f -> r\\nloop 3\");"
         }
+      ],
+      "keynotes": [
+        "TDD is red (write a failing test), green (write just enough code to pass), refactor (clean up), repeat.",
+        "The tests document behaviour and let you change code fearlessly.",
+        "The first step is to write a failing test."
       ]
     },
     {
@@ -258,7 +283,7 @@
       "locator": "6.6",
       "title": "Debugging and reliability",
       "eyebrow": "After it fails",
-      "body": "<p>Reproduce, isolate (bisect the input or the history), find the cause, fix, add a regression test. Reliability is measured by MTBF; availability = MTBF/(MTBF + MTTR).</p>",
+      "body": "<p>Your test failed, and the real work begins. A method keeps you calm: reproduce, isolate (bisect the input or the history), find the cause, fix, and add a regression test so it never returns. And how reliable is the system? Reliability is measured by MTBF, and availability = MTBF/(MTBF + MTTR).</p><p>Try the numbers. MTBF = 500 h and MTTR = 5 h gives availability = 500/505 = 0.990. Halving repair time (MTTR) mainly improves availability, because the system is down for less time after each failure.</p>",
       "worked": [
         {
           "toc": "Data",
@@ -309,6 +334,11 @@
           "prompt": "<p>MTBF 900 h, MTTR 10 h. Availability?</p>",
           "answer": "900/910 = <b>98.9 %</b>."
         }
+      ],
+      "keynotes": [
+        "Debugging: reproduce, isolate (bisect the input or the history), find the cause, fix, add a regression test.",
+        "Reliability is measured by MTBF; availability = MTBF/(MTBF + MTTR).",
+        "MTBF = 500 h and MTTR = 5 h give availability 500/505 = 0.990."
       ]
     }
   ]

@@ -1,0 +1,42 @@
+{
+  "title": "Coding and testing",
+  "subtitle": "Testing cannot prove a program correct — but well-chosen tests find most of the bugs, cheaply.",
+  "sections": {
+    "std": {
+      "title": "Coding practice",
+      "body": "<p>Follow a coding standard: meaningful names, small functions, comments that say <i>why</i>, consistent layout, no duplicated logic. Code review catches defects and spreads knowledge. Refactoring improves structure without changing behaviour — safely, only with tests.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "levels": {
+      "title": "Levels of testing",
+      "body": "<p><b>Unit</b> tests check one function; <b>integration</b> tests check modules together; <b>system</b> tests check the whole against requirements; <b>acceptance</b> tests are run by the customer. The test pyramid says: many fast unit tests, fewer integration tests, very few slow end-to-end tests.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "bb": {
+      "title": "Black-box techniques",
+      "body": "<p><b>Equivalence partitioning</b>: split inputs into classes that should behave alike and test one of each. <b>Boundary value analysis</b>: bugs cluster at edges, so test min, min+1, max−1, max and just outside. A field accepting ages 18–60 has partitions &lt;18, 18–60, &gt;60 and boundaries 17, 18, 19, 59, 60, 61.</p>",
+      "after": "",
+      "steps": "Valid range 18–60. Boundary tests (two-value form): below, on, above each end. Test values: 17, 18, 60, 61."
+    },
+    "wb": {
+      "title": "White-box and cyclomatic complexity",
+      "body": "<p>Coverage measures how much code the tests execute: statement, branch, path. Cyclomatic complexity V(G) = E − N + 2 (or decisions + 1) counts independent paths — the minimum number of test cases for basis-path coverage. V(G) above about 10 marks code that should be split.</p>",
+      "after": "",
+      "steps": "Two if-statements: decisions = 2. Independent paths = 2 + 1."
+    },
+    "tdd": {
+      "title": "Test-driven development",
+      "body": "<p>Write a failing test (red), write just enough code to pass (green), then clean up (refactor), and repeat. The tests document behaviour and let you change code fearlessly.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "dbg": {
+      "title": "Debugging and reliability",
+      "body": "<p>Reproduce, isolate (bisect the input or the history), find the cause, fix, add a regression test. Reliability is measured by MTBF; availability = MTBF/(MTBF + MTTR).</p>",
+      "after": "",
+      "steps": "MTBF = 500 h, MTTR = 5 h. Availability = 500/505."
+    }
+  }
+}

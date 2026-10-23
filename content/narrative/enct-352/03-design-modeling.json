@@ -1,0 +1,53 @@
+{
+  "subtitle": "Draw the system before you build it: boxes for structure, sequences for behaviour.",
+  "sections": {
+    "arch": {
+      "body": "<p>Before an architect lays a single brick, they draw the plan of the whole building. Software architecture is the same: the major components and how they communicate. You will meet several common styles: <b>layered</b> (UI → business → data), <b>client–server</b>, <b>MVC</b>, <b>pipe-and-filter</b>, <b>microservices</b> and <b>event-driven</b>. Each trades simplicity, scalability and independence.</p><p>In the layered picture each layer talks only to the one below. So in a strict layered style, the UI may call the business layer, and never reach past it to the data layer directly.</p>",
+      "keynotes": [
+        "Architecture is the major components and how they communicate.",
+        "Common styles: layered (UI → business → data), client–server, MVC, pipe-and-filter, microservices and event-driven.",
+        "Each style trades simplicity, scalability and independence; in a strict layered style each layer talks only to the one below."
+      ]
+    },
+    "mvc": {
+      "body": "<p>MVC deserves another look because you will use it constantly. The Model holds data and rules, the View renders, and the Controller handles input and coordinates. The controller never builds HTML itself, as the figure says. The reward: changing the UI does not touch the rules. So where do business rules belong? In the Model, so you can redesign the screens without fear.</p>",
+      "keynotes": [
+        "The Model holds data and rules, the View renders, and the Controller handles input and coordinates.",
+        "Changing the UI does not touch the rules.",
+        "Business rules belong in the Model."
+      ]
+    },
+    "uc": {
+      "body": "<p>A use case diagram answers one question at a glance: who does what with the system? Actors (people or systems) sit outside a system boundary; ovals are use cases; lines show participation. Two relationships connect use cases: <i>include</i> (mandatory sub-behaviour) and <i>extend</i> (optional behaviour).</p><p>In the figure, placing an order always includes paying, because you cannot place an order without paying. If “Place order” always needs “Pay”, the relationship is include.</p>",
+      "keynotes": [
+        "Actors (people or systems) sit outside a system boundary; ovals are use cases; lines show participation.",
+        "Include means mandatory sub-behaviour and extend means optional.",
+        "“Place order” always needs “Pay”, so the relationship is include."
+      ]
+    },
+    "class": {
+      "body": "<p>If a use case diagram is who and what, a class diagram is the skeleton underneath. Boxes hold a name, attributes and operations. Lines show association (with multiplicity), aggregation or composition (whole–part), and inheritance (is-a).</p><p>Learn to read multiplicity the way you read a sentence. “One customer, many orders” is written 1 to 0..*: each customer has zero or more orders, and each order belongs to exactly one customer, as the figure shows.</p>",
+      "keynotes": [
+        "A class diagram shows boxes with a name, attributes and operations.",
+        "Lines show association (with multiplicity), aggregation or composition (whole–part) and inheritance (is-a).",
+        "“1 to 0..*” between Customer and Order means one customer has many orders."
+      ]
+    },
+    "seq": {
+      "body": "<p>Structure is static; what about how things happen over time? A sequence diagram tells one story from one scenario of one use case. Lifelines run downward, arrows are messages in order, and dashed arrows are returns. Replay the checkout scenario in the figure and watch control pass between objects, like a baton in a relay. A dashed arrow back in a sequence diagram is a return message.</p>",
+      "keynotes": [
+        "Lifelines run downward and arrows are messages in order.",
+        "Dashed arrows are returns.",
+        "A sequence diagram shows one scenario of one use case."
+      ]
+    },
+    "dfd": {
+      "body": "<p>Two more diagrams complete your toolkit. A data flow diagram follows the data: processes (circles), stores (open rectangles), external entities (squares) and data flows. It has <b>levels</b>: level 0 is the context diagram, with the whole system as one bubble. An <b>activity diagram</b> shows the control flow of a process with decisions and parallel forks.</p><p>Here is a sanity check for your DFDs. A process with 3 inputs and 1 output must change data, not just pass it on, otherwise it is not a process. And a data store in a DFD may not connect directly to an external entity; it must go through a process.</p>",
+      "keynotes": [
+        "A DFD shows processes (circles), stores (open rectangles), external entities (squares) and data flows; level 0 is the context diagram.",
+        "An activity diagram shows the control flow of a process with decisions and parallel forks.",
+        "A process with 3 inputs and 1 output must change data, otherwise it is not a process."
+      ]
+    }
+  }
+}

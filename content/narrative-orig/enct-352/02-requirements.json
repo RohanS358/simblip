@@ -1,0 +1,42 @@
+{
+  "title": "Requirements",
+  "subtitle": "The cheapest bug to fix is the one caught before any code: get the right thing specified.",
+  "sections": {
+    "kinds": {
+      "title": "Functional and non-functional",
+      "body": "<p><b>Functional</b> requirements say what the system does (“a user can reset a password by email”). <b>Non-functional</b> requirements constrain how: performance, security, usability, availability, portability. A good requirement is <em class=\"term\">testable</em>: “responds in under 2 s for 95 % of requests” not “fast”.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "elic": {
+      "title": "Eliciting requirements",
+      "body": "<p>Techniques: interviews, questionnaires, observation, workshops, prototypes, studying existing documents. Stakeholders disagree; requirements must be negotiated and prioritised (e.g. MoSCoW: must, should, could, won’t).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "story": {
+      "title": "Use cases and user stories",
+      "body": "<p>A <em class=\"term\">use case</em> describes an actor achieving a goal in steps, with alternate flows for failures. A <b>user story</b>: “As a <i>role</i> I want <i>goal</i> so that <i>benefit</i>”, with acceptance criteria. Stories are small and estimated in points.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "srs": {
+      "title": "The SRS",
+      "body": "<p>A Software Requirements Specification (IEEE 830/29148) contains: introduction (purpose, scope, definitions), overall description (users, constraints), specific requirements (functional, external interfaces, performance, design constraints), and appendices. It must be complete, consistent, unambiguous, verifiable and traceable.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "valid": {
+      "title": "Validation and change",
+      "body": "<p>Validate by reviews, prototypes and test-case writing. Requirements change; manage change with a recorded process: request → impact analysis → approval → update and trace. Traceability links each requirement to design, code and tests.</p>",
+      "after": "",
+      "steps": "A project has 120 requirements; 24 change after baseline. Volatility = 24/120."
+    },
+    "fp": {
+      "title": "Sizing from requirements: function points",
+      "body": "<p>Function points count user-visible functions: external inputs (EI), outputs (EO), inquiries (EQ), internal files (ILF), external interfaces (EIF), each weighted by complexity. Unadjusted FP = Σ count × weight; multiply by a value adjustment factor (0.65–1.35).</p>",
+      "after": "",
+      "steps": "Average weights: EI 4, EO 5, EQ 4, ILF 10, EIF 7. Counts: EI 10, EO 6, EQ 5, ILF 4, EIF 2. UFP = 40 + 30 + 20 + 40 + 14."
+    }
+  }
+}

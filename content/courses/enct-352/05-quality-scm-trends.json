@@ -8,7 +8,7 @@
       "locator": "7.1",
       "title": "Quality assurance",
       "eyebrow": "Building quality in",
-      "body": "<p>Quality assurance (QA) prevents defects through process (standards, reviews, audits); quality control (QC) detects them (testing). Standards: ISO 9001, CMMI levels, ISO/IEC 25010 attributes. Reviews — inspections and walkthroughs — find defects earlier than tests.</p>",
+      "body": "<p>You cannot test quality into a product at the end, any more than you can inspect a cake into tastiness after baking. Quality assurance (QA) prevents defects through process (standards, reviews, audits); quality control (QC) detects them (testing). Standards include ISO 9001, CMMI levels and the ISO/IEC 25010 attributes.</p><p>And here is a nice surprise: reviews, such as inspections and walkthroughs, find defects earlier than tests. A code review is an example of quality assurance.</p>",
       "questions": [
         {
           "id": "qaq",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Quality assurance (QA) prevents defects through process (standards, reviews, audits); quality control (QC) detects them by testing.",
+        "Standards include ISO 9001, CMMI levels and ISO/IEC 25010 attributes.",
+        "Reviews (inspections and walkthroughs) find defects earlier than tests."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "7.2",
       "title": "The cost of late bugs",
       "eyebrow": "Why early matters",
-      "body": "<p>A defect costs roughly 1 unit to fix at requirements, ~10 in design/coding, ~100 after release. Hence reviews, static analysis and unit tests are worth their effort.</p>",
+      "body": "<p>Why are engineers so keen on finding bugs early? Because the price grows like compound interest. A defect costs roughly 1 unit to fix at requirements, ~10 in design/coding and ~100 after release. A bug costing 1 h if found in requirements costs ~10× more in coding and ~100× after release: 1 h → 10 h → 100 h.</p><p>Hence reviews, static analysis and unit tests are worth their effort. Late-found defects are costly because more work has been built on top of them, and more users are affected.</p>",
       "worked": [
         {
           "toc": "Ratio",
@@ -97,6 +102,11 @@
           "prompt": "<p>A project finds 60 defects in review and 20 in testing; 10 escape. Defect removal efficiency?</p>",
           "answer": "DRE = (60 + 20)/(60 + 20 + 10) = <b>88.9 %</b>."
         }
+      ],
+      "keynotes": [
+        "A defect costs roughly 1 unit to fix at requirements, ~10 in design or coding and ~100 after release.",
+        "A bug costing 1 h in requirements costs 10 h in coding and 100 h after release.",
+        "Reviews, static analysis and unit tests are worth their effort."
       ]
     },
     {
@@ -104,7 +114,7 @@
       "locator": "7.3",
       "title": "Maintenance",
       "eyebrow": "After release",
-      "body": "<p>Four kinds: <b>corrective</b> (fix bugs), <b>adaptive</b> (new environment), <b>perfective</b> (new features/performance), <b>preventive</b> (refactor). Perfective is usually the largest share. Legacy systems are re-engineered or replaced when cost exceeds value.</p>",
+      "body": "<p>Releasing is not the end; for most software it is the beginning of the longest and most expensive phase. Maintenance comes in four kinds: <b>corrective</b> (fix bugs), <b>adaptive</b> (new environment), <b>perfective</b> (new features or performance) and <b>preventive</b> (refactor). Perfective is usually the largest share.</p><p>Eventually old systems become a burden, and legacy systems are re-engineered or replaced when cost exceeds value. So porting software to a new operating system is adaptive maintenance.</p>",
       "questions": [
         {
           "id": "mt",
@@ -136,6 +146,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Maintenance has four kinds: corrective (fix bugs), adaptive (new environment), perfective (new features or performance) and preventive (refactor).",
+        "Perfective is usually the largest share.",
+        "Legacy systems are re-engineered or replaced when cost exceeds value."
       ]
     },
     {
@@ -143,7 +158,7 @@
       "locator": "8.1",
       "title": "Version control and branching",
       "eyebrow": "Managing change",
-      "body": "<p>Configuration management tracks every version of every item. With Git: commit small changes, branch for features, merge via review. A common flow: <code>main</code> stays releasable; a feature branch is merged by pull request after tests pass.</p>",
+      "body": "<p>When several people edit the same files, how do you avoid stepping on each other? Configuration management tracks every version of every item, and today that means Git. Commit small changes, branch for features, and merge via review. A common flow keeps <code>main</code> releasable: a feature branch is merged by pull request after tests pass.</p><p>In the figure, main only ever receives reviewed work. Why merge by pull request? Because a second pair of eyes and the automated tests protect the branch everyone depends on.</p>",
       "questions": [
         {
           "id": "mrg",
@@ -183,6 +198,11 @@
           "note": "main only ever receives reviewed work.",
           "script": "diagram(\"mode: sequence\\n[Developer] as d\\n[Feature branch] as f\\n[Reviewer] as r\\n[main] as m\\nd -> f : commit\\nd -> r : pull request\\nr --> d : comments\\nd -> f : fix commit\\nr -> m : approve and merge\\n@0 d -> f : commit\\n@1 d -> r : pull request\\n@2 r -> d : comments\\n@3 d -> f : fix commit\\n@4 r -> m : approve and merge\");"
         }
+      ],
+      "keynotes": [
+        "Configuration management tracks every version of every item; with Git commit small changes, branch for features and merge via review.",
+        "A common flow keeps main releasable and merges a feature branch by pull request after tests pass.",
+        "Main only ever receives reviewed work."
       ]
     },
     {
@@ -190,7 +210,7 @@
       "locator": "9.1",
       "title": "Continuous integration and delivery",
       "eyebrow": "Ship safely and often",
-      "body": "<p><b>CI</b>: every push is built and tested automatically. <b>Continuous delivery</b>: every passing build is deployable at a click; <b>continuous deployment</b> releases automatically. Small, frequent releases are easier to test and to roll back.</p>",
+      "body": "<p>What if every change you push was built and tested the moment you pushed it? That is <b>CI</b>, continuous integration. <b>Continuous delivery</b> goes further: every passing build is deployable at a click, and <b>continuous deployment</b> releases automatically. Small, frequent releases are easier to test and to roll back.</p><p>The pipeline in the figure stops at the first failure, and nothing after it runs. So in a CI pipeline a failing unit test should stop the pipeline and block the merge or release.</p>",
       "questions": [
         {
           "id": "cid",
@@ -230,6 +250,11 @@
           "note": "A failing stage stops the token; nothing after it runs.",
           "script": "diagram(\"direction: right\\n[Commit] as c\\n[Build] as b\\n[Unit tests] as u\\n[Integration tests] as i\\n[Deploy staging] as s\\n[Deploy production] as p\\nc -> b\\nb -> u\\nu -> i\\ni -> s\\ns -> p\\n@0 c -> b\\n@1 b -> u\\n@2 u -> i\\n@3 i -> s\\n@4 s -> p\\nloop 2\");"
         }
+      ],
+      "keynotes": [
+        "CI: every push is built and tested automatically.",
+        "Continuous delivery makes every passing build deployable at a click; continuous deployment releases automatically.",
+        "Small, frequent releases are easier to test and to roll back."
       ]
     },
     {
@@ -237,7 +262,7 @@
       "locator": "9.2",
       "title": "DevOps and recent trends",
       "eyebrow": "Looking ahead",
-      "body": "<p>DevOps joins development and operations: infrastructure as code, containers, monitoring, fast feedback. Other trends: microservices, cloud-native, AI-assisted coding (review its output like a junior’s), DevSecOps (security in the pipeline), low-code platforms.</p>",
+      "body": "<p>For years, developers wrote code and threw it over a wall for operations to run, and everyone blamed the other side. DevOps breaks the wall: it joins development and operations through infrastructure as code, containers, monitoring and fast feedback. Other trends you will meet: microservices, cloud-native, AI-assisted coding (review its output like a junior’s), DevSecOps (security in the pipeline), and low-code platforms.</p><p>See the effect on speed. If deploy frequency rises from 1 per month to 1 per day, that is about 30× more releases, each far smaller and easier to roll back. Infrastructure as code means describing servers and networks in files that you version and review like any other code.</p>",
       "worked": [
         {
           "toc": "Before/after",
@@ -281,6 +306,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "DevOps joins development and operations: infrastructure as code, containers, monitoring and fast feedback.",
+        "Other trends are microservices, cloud-native, AI-assisted coding, DevSecOps and low-code platforms.",
+        "Deploy frequency rising from 1 per month to 1 per day is about 30× more releases, each smaller and easier to roll back."
       ]
     }
   ]

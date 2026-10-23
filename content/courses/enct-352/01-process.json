@@ -8,7 +8,7 @@
       "locator": "1.1",
       "title": "Why software engineering",
       "eyebrow": "The problem",
-      "body": "<p>Software is <em class=\"term\">complex</em>, changes constantly and is invisible, so large projects fail for management reasons more often than technical ones: unclear requirements, poor estimates, weak testing. <em class=\"term\">Software engineering</em> applies systematic, measurable methods to develop, operate and maintain software. Key attributes of good software: <b>maintainable, dependable, efficient, usable</b>.</p>",
+      "body": "<p>Here is a surprising fact: most big software projects do not fail because the programmers cannot code. They fail because nobody agreed on what to build, the estimates were wishful, or the testing came too late. Software is <em class=\"term\">complex</em>, changes constantly and is invisible, so you cannot just look at it to see if it is on track.</p><p><em class=\"term\">Software engineering</em> applies systematic, measurable methods to develop, operate and maintain software. What makes software good? Four attributes: <b>maintainable, dependable, efficient, usable</b>. Most of the lifetime cost depends on maintainability, because software spends far more of its life being changed than being written.</p>",
       "questions": [
         {
           "id": "attr",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Software is complex, changes constantly and is invisible, so large projects fail for management reasons more often than technical ones.",
+        "Software engineering applies systematic, measurable methods to develop, operate and maintain software.",
+        "Key attributes of good software are maintainable, dependable, efficient and usable."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "1.2",
       "title": "Waterfall",
       "eyebrow": "Plan-driven",
-      "body": "<p>Phases run in sequence: requirements → design → implementation → testing → deployment → maintenance, each signed off before the next. Good when requirements are stable and well understood (e.g. safety-critical specs). Weakness: a mistake found late is expensive, and the customer sees nothing until the end.</p>",
+      "body": "<p>Picture a real waterfall, and you will understand this model: the water goes down, and it never climbs back up. That is the oldest process model. Phases run in sequence, requirements → design → implementation → testing → deployment → maintenance, each signed off before the next.</p><p>When does it work? When requirements are stable and well understood, as in safety-critical specs. The weakness is plain: a mistake found late is expensive, and the customer sees nothing until the end. In the figure the token flows one way, and there is no loop back. So waterfall suits projects whose requirements are stable and clear from the start.</p>",
       "questions": [
         {
           "id": "wf",
@@ -87,6 +92,11 @@
           "note": "The token flows one way; there is no loop back.",
           "script": "diagram(\"direction: right\\n[Requirements] as r\\n[Design] as d\\n[Implementation] as i\\n[Testing] as t\\n[Deploy] as p\\nr -> d\\nd -> i\\ni -> t\\nt -> p\\n@0 r -> d\\n@1 d -> i\\n@2 i -> t\\n@3 t -> p\\nloop 1\");"
         }
+      ],
+      "keynotes": [
+        "Waterfall phases run in sequence, each signed off before the next: requirements, design, implementation, testing, deployment, maintenance.",
+        "It is good when requirements are stable and well understood, such as safety-critical specs.",
+        "A mistake found late is expensive, and the customer sees nothing until the end."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "1.3",
       "title": "Incremental and spiral",
       "eyebrow": "Learn as you build",
-      "body": "<p><b>Incremental</b>: deliver working slices; each increment adds features and gets feedback. <b>Spiral</b>: each loop = plan → risk analysis → build prototype → evaluate; risk drives the next loop, so it suits large, uncertain projects. <b>Prototyping</b> builds a throw-away model to clarify requirements.</p>",
+      "body": "<p>What if you do not know exactly what you are building? Then you learn as you go. <b>Incremental</b> development delivers working slices; each increment adds features and gets feedback. The <b>spiral</b> model loops: plan → risk analysis → build prototype → evaluate, and risk drives the next loop, so it suits large, uncertain projects. <b>Prototyping</b> builds a throw-away model to clarify requirements, like sketching a house before you pour concrete.</p><p>Each trip around the spiral reduces risk, as the figure shows. So the spiral model is driven by risk: you tackle the scariest unknown first.</p>",
       "questions": [
         {
           "id": "sp",
@@ -134,6 +144,11 @@
           "note": "Each trip around the loop reduces risk.",
           "script": "diagram(\"direction: right\\n[Plan] as p\\n[Risk analysis] as r\\n[Build] as b\\n[Evaluate] as e\\np -> r\\nr -> b\\nb -> e\\ne -> p : next loop\\n@0 p -> r\\n@1 r -> b\\n@2 b -> e\\n@3 e -> p\\nloop 3\");"
         }
+      ],
+      "keynotes": [
+        "Incremental development delivers working slices; each increment adds features and gets feedback.",
+        "The spiral loop is plan, risk analysis, build prototype, evaluate; risk drives the next loop, so it suits large, uncertain projects.",
+        "Prototyping builds a throw-away model to clarify requirements."
       ]
     },
     {
@@ -141,7 +156,7 @@
       "locator": "1.4",
       "title": "Agile and Scrum",
       "eyebrow": "Short cycles",
-      "body": "<p>The Agile manifesto values working software, customer collaboration and responding to change over plans and paperwork. <b>Scrum</b>: a product owner keeps a prioritised backlog; every 1–4 week sprint the team pulls items, holds a daily stand-up, delivers an increment, then runs a review and retrospective. <b>XP</b> adds practices: pair programming, test-first, continuous integration.</p>",
+      "body": "<p>In 2001 a group of developers got tired of heavy plans and wrote the Agile manifesto, which values working software, customer collaboration and responding to change over plans and paperwork. Short cycles are its heartbeat, and you will feel it in Scrum.</p><p><b>Scrum</b> makes it concrete: a product owner keeps a prioritised backlog; every 1–4 week sprint the team pulls items, holds a daily stand-up, delivers an increment, then runs a review and retrospective. <b>XP</b> adds practices: pair programming, test-first, continuous integration. Replay one sprint in the figure. At the end of a sprint the team should have a working increment that could be shown to the customer.</p>",
       "questions": [
         {
           "id": "scrum",
@@ -181,6 +196,11 @@
           "note": "One sprint, replayed.",
           "script": "diagram(\"mode: sequence\\n[Product owner] as po\\n[Team] as t\\n[Stakeholders] as s\\npo -> t : sprint backlog\\nt -> t : daily stand-up\\nt -> po : working increment\\npo -> s : sprint review\\ns --> po : feedback\\npo -> t : next sprint\\n@0 po -> t : sprint backlog\\n@1 t -> t : daily stand-up\\n@2 t -> po : working increment\\n@3 po -> s : sprint review\\n@4 s -> po : feedback\");"
         }
+      ],
+      "keynotes": [
+        "The Agile manifesto values working software, customer collaboration and responding to change over plans and paperwork.",
+        "In Scrum a product owner keeps a prioritised backlog; every 1–4 week sprint the team pulls items, holds a daily stand-up, delivers an increment, then runs a review and retrospective.",
+        "XP adds pair programming, test-first and continuous integration."
       ]
     },
     {
@@ -188,7 +208,7 @@
       "locator": "1.5",
       "title": "Effort estimation: COCOMO",
       "eyebrow": "Numbers",
-      "body": "<p>Basic COCOMO (organic projects): effort E = 2.4·(KLOC)^1.05 person-months, development time T = 2.5·E^0.38 months. It is an estimate from size, so it is only as good as the size guess.</p>",
+      "body": "<p>How long will it take, and how many people will you need? Managers always ask, and COCOMO gives you a number to start with. Basic COCOMO (organic projects): effort E = 2.4·(KLOC)^1.05 person-months, and development time T = 2.5·E^0.38 months. It is an estimate from size, so it is only as good as the size guess.</p><p>Try a 32 KLOC organic project. Effort: E = 2.4·32^1.05 = 91 person-months. Time: T = 2.5·91^0.38 = 14 months. Average team size = E/T = 91/14 ≈ 6.5 people. Notice the exponent is a little above 1: doubling code size raises effort by slightly more than double, about 2.1 times, since 2^1.05 ≈ 2.07.</p>",
       "worked": [
         {
           "toc": "Effort",
@@ -245,6 +265,11 @@
           "prompt": "<p>A 10 KLOC organic project. Find the effort.</p>",
           "answer": "2.4·10^1.05 = 2.4 × 11.22 = <b>26.9 person-months</b>."
         }
+      ],
+      "keynotes": [
+        "Basic COCOMO (organic projects): effort E = 2.4·(KLOC)^1.05 person-months and development time T = 2.5·E^0.38 months.",
+        "For a 32 KLOC project E = 91 person-months, T = 14 months and the average team is about 6.5.",
+        "An estimate from size is only as good as the size guess."
       ]
     },
     {
@@ -252,7 +277,7 @@
       "locator": "1.6",
       "title": "Choosing a process",
       "eyebrow": "Fit to the project",
-      "body": "<table><thead><tr><th>Situation</th><th>Lean towards</th></tr></thead><tbody><tr><td>Fixed, well-known requirements</td><td>Waterfall</td></tr><tr><td>Changing requirements, keen users</td><td>Agile / Scrum</td></tr><tr><td>Large, risky, novel</td><td>Spiral</td></tr><tr><td>Need early feedback on UI</td><td>Prototyping</td></tr></tbody></table>",
+      "body": "<p>There is no best process, only the best fit. Ask yourself what you know about the project, and the answer points to a model.</p><table><thead><tr><th>Situation</th><th>Lean towards</th></tr></thead><tbody><tr><td>Fixed, well-known requirements</td><td>Waterfall</td></tr><tr><td>Changing requirements, keen users</td><td>Agile / Scrum</td></tr><tr><td>Large, risky, novel</td><td>Spiral</td></tr><tr><td>Need early feedback on UI</td><td>Prototyping</td></tr></tbody></table><p>A start-up unsure what customers want should prefer an agile approach, learning quickly from real users.</p>",
       "questions": [
         {
           "id": "ch",
@@ -284,6 +309,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Fixed, well-known requirements lean towards waterfall; changing requirements and keen users lean towards Agile / Scrum.",
+        "Large, risky, novel projects lean towards the spiral model; a need for early UI feedback leans towards prototyping.",
+        "A start-up unsure what customers want should prefer an agile approach."
       ]
     }
   ]

@@ -1,0 +1,42 @@
+{
+  "title": "Architecture and UML models",
+  "subtitle": "Draw the system before you build it: boxes for structure, sequences for behaviour.",
+  "sections": {
+    "arch": {
+      "title": "Architectural styles",
+      "body": "<p>Architecture = the major components and how they communicate. Common styles: <b>layered</b> (UI → business → data), <b>client–server</b>, <b>MVC</b>, <b>pipe-and-filter</b>, <b>microservices</b>, <b>event-driven</b>. Each trades simplicity, scalability and independence.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mvc": {
+      "title": "MVC request path",
+      "body": "<p>Model holds data and rules, View renders, Controller handles input and coordinates. Changing the UI does not touch the rules.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "uc": {
+      "title": "Use case diagrams",
+      "body": "<p>Actors (people or systems) sit outside a system boundary; ovals are use cases; lines show participation; <i>include</i> (mandatory sub-behaviour) and <i>extend</i> (optional) relate use cases.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "class": {
+      "title": "Class diagrams",
+      "body": "<p>Boxes with name, attributes, operations; lines show association (with multiplicity), aggregation/composition (whole–part), inheritance (is-a).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "seq": {
+      "title": "Sequence diagrams",
+      "body": "<p>Lifelines run downward; arrows are messages in order; dashed arrows are returns. They show one scenario of one use case.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "dfd": {
+      "title": "Data flow and activity diagrams",
+      "body": "<p>A DFD shows processes (circles), stores (open rectangles), external entities (squares) and data flows; it has <b>levels</b> — level 0 is the context diagram. An <b>activity diagram</b> shows the control flow of a process with decisions and parallel forks.</p>",
+      "after": "",
+      "steps": "A DFD process has 3 inputs and 1 output: it must change data, not just pass it on — otherwise it is not a process."
+    }
+  }
+}

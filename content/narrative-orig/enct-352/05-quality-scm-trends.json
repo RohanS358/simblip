@@ -1,0 +1,42 @@
+{
+  "title": "Quality, version control and delivery",
+  "subtitle": "Keeping software good after the first release: quality assurance, version control, and pipelines that ship safely.",
+  "sections": {
+    "qa": {
+      "title": "Quality assurance",
+      "body": "<p>Quality assurance (QA) prevents defects through process (standards, reviews, audits); quality control (QC) detects them (testing). Standards: ISO 9001, CMMI levels, ISO/IEC 25010 attributes. Reviews — inspections and walkthroughs — find defects earlier than tests.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "cost": {
+      "title": "The cost of late bugs",
+      "body": "<p>A defect costs roughly 1 unit to fix at requirements, ~10 in design/coding, ~100 after release. Hence reviews, static analysis and unit tests are worth their effort.</p>",
+      "after": "",
+      "steps": "A bug costing 1 h if found in requirements costs ~10× more in coding and ~100× after release. So 1 h → 10 h → 100 h."
+    },
+    "maint": {
+      "title": "Maintenance",
+      "body": "<p>Four kinds: <b>corrective</b> (fix bugs), <b>adaptive</b> (new environment), <b>perfective</b> (new features/performance), <b>preventive</b> (refactor). Perfective is usually the largest share. Legacy systems are re-engineered or replaced when cost exceeds value.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "scm": {
+      "title": "Version control and branching",
+      "body": "<p>Configuration management tracks every version of every item. With Git: commit small changes, branch for features, merge via review. A common flow: <code>main</code> stays releasable; a feature branch is merged by pull request after tests pass.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ci": {
+      "title": "Continuous integration and delivery",
+      "body": "<p><b>CI</b>: every push is built and tested automatically. <b>Continuous delivery</b>: every passing build is deployable at a click; <b>continuous deployment</b> releases automatically. Small, frequent releases are easier to test and to roll back.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "devops": {
+      "title": "DevOps and recent trends",
+      "body": "<p>DevOps joins development and operations: infrastructure as code, containers, monitoring, fast feedback. Other trends: microservices, cloud-native, AI-assisted coding (review its output like a junior’s), DevSecOps (security in the pipeline), low-code platforms.</p>",
+      "after": "",
+      "steps": "Deploy frequency rises from 1 per month to 1 per day. That is about 30× more releases, each far smaller and easier to roll back."
+    }
+  }
+}

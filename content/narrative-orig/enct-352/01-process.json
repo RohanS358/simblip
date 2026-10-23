@@ -1,0 +1,42 @@
+{
+  "title": "Software process models",
+  "subtitle": "Building software is not just coding: a process decides what is built, in what order, and how surprises are handled.",
+  "sections": {
+    "why": {
+      "title": "Why software engineering",
+      "body": "<p>Software is <em class=\"term\">complex</em>, changes constantly and is invisible, so large projects fail for management reasons more often than technical ones: unclear requirements, poor estimates, weak testing. <em class=\"term\">Software engineering</em> applies systematic, measurable methods to develop, operate and maintain software. Key attributes of good software: <b>maintainable, dependable, efficient, usable</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "water": {
+      "title": "Waterfall",
+      "body": "<p>Phases run in sequence: requirements → design → implementation → testing → deployment → maintenance, each signed off before the next. Good when requirements are stable and well understood (e.g. safety-critical specs). Weakness: a mistake found late is expensive, and the customer sees nothing until the end.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "iter": {
+      "title": "Incremental and spiral",
+      "body": "<p><b>Incremental</b>: deliver working slices; each increment adds features and gets feedback. <b>Spiral</b>: each loop = plan → risk analysis → build prototype → evaluate; risk drives the next loop, so it suits large, uncertain projects. <b>Prototyping</b> builds a throw-away model to clarify requirements.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "agile": {
+      "title": "Agile and Scrum",
+      "body": "<p>The Agile manifesto values working software, customer collaboration and responding to change over plans and paperwork. <b>Scrum</b>: a product owner keeps a prioritised backlog; every 1–4 week sprint the team pulls items, holds a daily stand-up, delivers an increment, then runs a review and retrospective. <b>XP</b> adds practices: pair programming, test-first, continuous integration.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "est": {
+      "title": "Effort estimation: COCOMO",
+      "body": "<p>Basic COCOMO (organic projects): effort E = 2.4·(KLOC)^1.05 person-months, development time T = 2.5·E^0.38 months. It is an estimate from size, so it is only as good as the size guess.</p>",
+      "after": "",
+      "steps": "A 32 KLOC organic project. Effort: Time. Average team size = E/T."
+    },
+    "choose": {
+      "title": "Choosing a process",
+      "body": "<table><thead><tr><th>Situation</th><th>Lean towards</th></tr></thead><tbody><tr><td>Fixed, well-known requirements</td><td>Waterfall</td></tr><tr><td>Changing requirements, keen users</td><td>Agile / Scrum</td></tr><tr><td>Large, risky, novel</td><td>Spiral</td></tr><tr><td>Need early feedback on UI</td><td>Prototyping</td></tr></tbody></table>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
