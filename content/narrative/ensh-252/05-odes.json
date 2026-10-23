@@ -1,0 +1,53 @@
+{
+  "subtitle": "Step along the solution of dy/dx = f(x, y), using the slope once, twice, or four times per step.",
+  "sections": {
+    "ivp": {
+      "body": "<p>Picture a ball rolling down a hill where you know exactly how steeply the ground slopes at each point, and you know where the ball starts. Can you work out its whole path? That is an initial value problem. You solve y′ = f(x, y) with y(x₀) = y₀. Numerical methods produce y at x₀, x₀ + h, x₀ + 2h, … and <em class='term'>one-step</em> methods use only the last point.</p><p>Our running example is y′ = x + y, y(0) = 1, whose exact solution y = 2eˣ − x − 1 gives y(1) = <b>3.43656</b> to compare with. An initial value problem gives the equation plus the starting value of the solution.</p>",
+      "keynotes": [
+        "An initial value problem solves y′ = f(x, y) with y(x₀) = y₀, producing y at x₀, x₀ + h, x₀ + 2h, …",
+        "One-step methods use only the last point.",
+        "The running example y′ = x + y, y(0) = 1 has exact solution y = 2eˣ − x − 1 and y(1) = 3.43656."
+      ]
+    },
+    "euler": {
+      "body": "<p>The simplest method is the one you would invent yourself: walk along the tangent. y<sub>n+1</sub> = yₙ + h·f(xₙ, yₙ). It is simple, but each step has error O(h²) and the total error is O(h), so Euler is first order. Halving h halves the error.</p><p>Try y′ = x + y, y₀ = 1, h = 0.1. The slope at (0, 1) is 1, so y₁ = 1 + 0.1·1 = 1.1; then the slope at (0.1, 1.1) is 1.2, so y₂ = 1.1 + 0.12 = 1.22. For y(1) you get <b>3.18748</b> with h = 0.1 and <b>3.3066</b> with h = 0.05, against the exact 3.43656. In the figure grey is exact, blue is Euler, and the gap grows.</p>",
+      "keynotes": [
+        "Euler’s method is y(n+1) = yₙ + h·f(xₙ, yₙ), walking along the tangent; it is first order, with total error O(h).",
+        "From (0, 1) with h = 0.1: y₁ = 1.1 and y₂ = 1.22.",
+        "y(1) is 3.18748 with h = 0.1 and 3.3066 with h = 0.05, against the exact 3.43656."
+      ]
+    },
+    "heun": {
+      "body": "<p>Euler looks only at the start of the step; can we look at the end too? Heun’s method predicts with Euler, then averages the slope at the start and at the predicted end: k₁ = f(xₙ, yₙ), k₂ = f(xₙ + h, yₙ + hk₁), y<sub>n+1</sub> = yₙ + (h/2)(k₁ + k₂). It is second-order: y(1) = <b>3.42816</b> with h = 0.1, far closer than Euler. It is the trapezoid rule applied to the ODE.</p><p>One step from (0, 1), h = 0.1. k₁ = f(0, 1) = 1. The predictor y* = 1.1. k₂ = f(0.1, 1.1) = 1.2; y₁ = 1 + 0.05(1 + 1.2) = 1.11. In the figure Heun hugs the exact curve. Heun improves on Euler by averaging two slopes.</p>",
+      "keynotes": [
+        "Heun predicts with Euler, then averages the slopes at the start and at the predicted end: y(n+1) = yₙ + (h/2)(k₁ + k₂).",
+        "It is second order: y(1) = 3.42816 with h = 0.1, far closer than Euler.",
+        "One step from (0, 1) with h = 0.1 gives y₁ = 1 + 0.05(1 + 1.2) = 1.11."
+      ]
+    },
+    "rk4": {
+      "body": "<p>If two slopes are good, four are better, as you might guess. The classic RK4: k₁ = f(xₙ, yₙ); k₂ = f(xₙ + h/2, yₙ + hk₁/2); k₃ = f(xₙ + h/2, yₙ + hk₂/2); k₄ = f(xₙ + h, yₙ + hk₃); y<sub>n+1</sub> = yₙ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄).</p><p>It is fourth-order, with error ∝ h⁴: y(1) = <b>3.43656</b> at h = 0.1, agreeing with the exact 3.43656 to five digits. See Euler, Heun and RK4 against the exact curve in the figure. Each step costs four evaluations, but RK4 reaches a given accuracy with far larger h, and that is why it is so popular.</p>",
+      "keynotes": [
+        "RK4 uses four slopes: y(n+1) = yₙ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄).",
+        "It is fourth order with error ∝ h⁴: y(1) = 3.43656 at h = 0.1, agreeing with the exact value to five digits.",
+        "Each step costs four evaluations, but it reaches a given accuracy with far larger h."
+      ]
+    },
+    "step": {
+      "body": "<p>Make h too large and, as you will see, strange things happen. Too large an h is inaccurate and, for equations like y′ = −50y, unstable: the explicit Euler method blows up when h &gt; 2/50. Try y′ = −50y, y(0) = 1, Euler with h = 0.05: y₁ = y₀(1 − 50·0.05) = −1.5. The true solution decays to 0, but the numerical one grows in magnitude. That is instability.</p><p>Adaptive methods shrink h where the solution changes quickly (Runge–Kutta–Fehlberg compares orders 4 and 5). <em class='term'>Stiff</em> problems, with very different time scales, need implicit methods that stay stable at large steps.</p>",
+      "keynotes": [
+        "Too large an h is inaccurate and, for y′ = −50y, unstable: explicit Euler blows up when h > 2/50.",
+        "With h = 0.05, y₁ = y₀(1 − 50·0.05) = −1.5, growing in magnitude while the true solution decays.",
+        "Adaptive methods shrink h where the solution changes quickly; stiff problems need implicit methods."
+      ]
+    },
+    "systems": {
+      "body": "<p>What about second-order equations like a swinging spring? You turn them into first-order ones. Turn them into two first-order ones. A higher-order ODE becomes a first-order system: y″ = f(x, y, y′) → let u = y, v = y′; then u′ = v, v′ = f(x, u, v). All the methods apply componentwise to the vector (u, v).</p><p>Write y″ + y = 0 as a system: u′ = v, v′ = −u. One Euler step from (1, 0) gives u₁ = 1, v₁ = −h. This is how the notebook’s physics engine advances every body: position and velocity together.</p>",
+      "keynotes": [
+        "A higher-order ODE becomes a first-order system: let u = y and v = y′, then u′ = v and v′ = f(x, u, v).",
+        "All methods apply componentwise to the vector (u, v).",
+        "y″ + y = 0 becomes u′ = v, v′ = −u, and one Euler step from (1, 0) gives u₁ = 1, v₁ = −h."
+      ]
+    }
+  }
+}

@@ -8,7 +8,7 @@
       "locator": "6.1",
       "title": "Kinds of PDE",
       "eyebrow": "Classification",
-      "body": "<p>Second-order linear PDEs Auₓₓ + Buₓᵧ + Cuᵧᵧ = … are <em class=\"term\">elliptic</em> (B² − 4AC &lt; 0: Laplace, Poisson — steady states), <em class=\"term\">parabolic</em> (= 0: heat equation — diffusion) or <em class=\"term\">hyperbolic</em> (&gt; 0: wave equation — propagation). The type decides which numerical scheme is stable and what boundary or initial data are needed.</p>",
+      "body": "<p>Partial differential equations come in three personalities, and knowing which one you have decides how you solve it. Second-order linear PDEs Auₓₓ + Buₓᵧ + Cuᵧᵧ = … are <em class=\"term\">elliptic</em> (B² − 4AC &lt; 0: Laplace, Poisson, steady states), <em class=\"term\">parabolic</em> (= 0: the heat equation, diffusion) or <em class=\"term\">hyperbolic</em> (&gt; 0: the wave equation, propagation).</p><p>The type decides which numerical scheme is stable and what boundary or initial data are needed. Classify uₜ = α uₓₓ: write it as α uₓₓ − uₜ = 0, with only one second derivative (A = α, B = C = 0), so B² − 4AC = 0. The 1-D heat equation is parabolic.</p>",
       "worked": [
         {
           "toc": "Parabolic",
@@ -48,6 +48,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Second-order linear PDEs are elliptic (B² − 4AC < 0: Laplace, Poisson), parabolic (= 0: heat equation) or hyperbolic (> 0: wave equation).",
+        "The type decides which numerical scheme is stable and what boundary or initial data are needed.",
+        "The 1-D heat equation uₜ = α uₓₓ has A = α and B = C = 0, so B² − 4AC = 0: parabolic."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "6.2",
       "title": "Finite-difference approximations",
       "eyebrow": "Derivatives to differences",
-      "body": "<p>Central differences on a grid with spacing h: uₓ ≈ (uᵢ₊₁ − uᵢ₋₁)/(2h), uₓₓ ≈ (uᵢ₊₁ − 2uᵢ + uᵢ₋₁)/h². In time, uₜ ≈ (uᵢⁿ⁺¹ − uᵢⁿ)/Δt. Each approximation has a known truncation error.</p>",
+      "body": "<p>How do you teach a computer calculus? You replace each derivative by a difference between neighbouring grid values. Central differences on a grid with spacing h: uₓ ≈ (uᵢ₊₁ − uᵢ₋₁)/(2h), uₓₓ ≈ (uᵢ₊₁ − 2uᵢ + uᵢ₋₁)/h². In time, uₜ ≈ (uᵢⁿ⁺¹ − uᵢⁿ)/Δt. Each approximation has a known truncation error.</p><p>Test the second difference on u = x² at x = 2 with h = 0.5: u(1.5) = 2.25, u(2) = 4, u(2.5) = 6.25. Then uₓₓ ≈ (2.25 − 8 + 6.25)/0.25 = 2, which is exact. The central second-difference of a parabola is exact.</p>",
       "worked": [
         {
           "toc": "Values",
@@ -99,6 +104,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Central differences on a grid with spacing h: uₓ ≈ (uᵢ₊₁ − uᵢ₋₁)/(2h) and uₓₓ ≈ (uᵢ₊₁ − 2uᵢ + uᵢ₋₁)/h².",
+        "In time, uₜ ≈ (uᵢⁿ⁺¹ − uᵢⁿ)/Δt.",
+        "For u = x² at x = 2 with h = 0.5 the second difference is (2.25 − 8 + 6.25)/0.25 = 2, exact."
       ]
     },
     {
@@ -106,7 +116,7 @@
       "locator": "6.3",
       "title": "The explicit scheme for the heat equation",
       "eyebrow": "Marching in time",
-      "body": "<p>uᵢⁿ⁺¹ = uᵢⁿ + r(uᵢ₋₁ⁿ − 2uᵢⁿ + uᵢ₊₁ⁿ), r = αΔt/Δx². Each new value is a weighted average of a point and its neighbours. A rod with ends at 100 and 0 starts at 0 and relaxes toward the straight line: after 400 steps the middle reads <b>49.997</b> (steady value 50). The scheme is stable only if r ≤ ½.</p>",
+      "body": "<p>Now you can watch heat flow along a metal rod, one time step at a time. The explicit scheme is uᵢⁿ⁺¹ = uᵢⁿ + r(uᵢ₋₁ⁿ − 2uᵢⁿ + uᵢ₊₁ⁿ), r = αΔt/Δx². Each new value is a weighted average of a point and its neighbours. A rod with ends at 100 and 0 starts at 0 and relaxes toward the straight line: after 400 steps the middle reads <b>49.997</b> (steady value 50).</p><p>Try one node: neighbours 100 and 0, itself at 0, r = 0.25. New value = 0 + 0.25(100 − 0 + 0) = 25. The scheme is stable only if r ≤ ½. If r exceeds 0.5, the numbers oscillate and blow up. The successive profiles in the figure show the heat diffusing along the rod.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -171,6 +181,11 @@
           "prompt": "<p>Why does the simulator refuse r = 0.6? What can you change?</p>",
           "answer": "The explicit scheme is stable only for αΔt/Δx² ≤ ½. Reduce the time step Δt (or increase Δx) until r ≤ 0.5."
         }
+      ],
+      "keynotes": [
+        "In the explicit scheme each new value is a weighted average of a point and its neighbours, with r = αΔt/Δx².",
+        "A rod with ends at 100 and 0 relaxes towards the straight line: after 400 steps the middle reads 49.997 (steady value 50).",
+        "The scheme is stable only if r ≤ ½."
       ]
     },
     {
@@ -178,7 +193,7 @@
       "locator": "6.4",
       "title": "Laplace’s equation: relaxation",
       "eyebrow": "Steady state",
-      "body": "<p>∇²u = 0 becomes uᵢⱼ = ¼(uᵢ₊₁,ⱼ + uᵢ₋₁,ⱼ + uᵢ,ⱼ₊₁ + uᵢ,ⱼ₋₁): every interior value is the average of its four neighbours. Start with a guess, set the boundary values, and repeatedly replace each point by the average (Gauss–Seidel iteration) until nothing changes. This is exactly the electrostatic potential in a box with fixed-voltage walls.</p>",
+      "body": "<p>When nothing changes in time any more, as you will find, the heat equation becomes Laplace’s equation, and it has a very friendly numerical meaning: every interior value is the average of its four neighbours. ∇²u = 0 becomes uᵢⱼ = ¼(uᵢ₊₁,ⱼ + uᵢ₋₁,ⱼ + uᵢ,ⱼ₊₁ + uᵢ,ⱼ₋₁).</p><p>Start with a guess, set the boundary values, and repeatedly replace each point by the average (Gauss–Seidel iteration) until nothing changes. This is exactly the electrostatic potential in a box with fixed-voltage walls. Try a 3×3 grid with the top edge 100 and other edges 0: for the single interior point, u = ¼(100 + 0 + 0 + 0) = 25. At a solution of Laplace’s equation each interior point equals the average of its four neighbours.</p>",
       "worked": [
         {
           "toc": "Setup",
@@ -222,6 +237,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Laplace’s equation ∇²u = 0 becomes uᵢⱼ = ¼(uᵢ₊₁,ⱼ + uᵢ₋₁,ⱼ + uᵢ,ⱼ₊₁ + uᵢ,ⱼ₋₁): every interior value is the average of its four neighbours.",
+        "Start with a guess, set the boundary values and repeatedly average (Gauss–Seidel iteration) until nothing changes; this is the electrostatic potential in a box with fixed-voltage walls.",
+        "For a 3×3 grid with the top edge 100 and other edges 0, the single interior point is ¼(100 + 0 + 0 + 0) = 25."
       ]
     },
     {
@@ -229,7 +249,7 @@
       "locator": "6.5",
       "title": "Implicit schemes and accuracy",
       "eyebrow": "Beyond explicit",
-      "body": "<p>The implicit (backward-time) scheme and Crank–Nicolson evaluate the spatial differences at the new time level. Each step solves a tridiagonal linear system (Gaussian elimination in O(n)), but they are stable for any step size, so the time step is chosen for accuracy only. Crank–Nicolson is second-order in time.</p>",
+      "body": "<p>The explicit scheme has a leash: r ≤ ½ ties your time step to the grid. Can you cut it? The implicit (backward-time) scheme and Crank–Nicolson evaluate the spatial differences at the new time level. Each step solves a tridiagonal linear system (Gaussian elimination in O(n)), but they are stable for any step size, so you can choose the time step for accuracy only. Crank–Nicolson is second-order in time. Implicit schemes are attractive because they stay stable at large time steps.</p>",
       "questions": [
         {
           "id": "impl",
@@ -261,6 +281,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The implicit (backward-time) scheme and Crank–Nicolson evaluate the spatial differences at the new time level.",
+        "Each step solves a tridiagonal linear system (Gaussian elimination in O(n)), but they are stable for any step size.",
+        "Crank–Nicolson is second-order in time."
       ]
     },
     {
@@ -268,7 +293,11 @@
       "locator": "6.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Central differences turn PDEs into arithmetic on a grid.</li><li>Explicit heat scheme needs r ≤ ½; Laplace relaxes to the neighbour average.</li></ul>"
+      "body": "<p>Two lines to remember.</p><ul><li>Central differences turn PDEs into arithmetic on a grid.</li><li>Explicit heat scheme needs r ≤ ½; Laplace relaxes to the neighbour average.</li></ul>",
+      "keynotes": [
+        "Central differences turn PDEs into arithmetic on a grid.",
+        "The explicit heat scheme needs r ≤ ½ and Laplace relaxes to the neighbour average."
+      ]
     }
   ]
 }

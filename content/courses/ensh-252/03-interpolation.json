@@ -8,7 +8,7 @@
       "locator": "3.1",
       "title": "The interpolation problem",
       "eyebrow": "Filling gaps",
-      "body": "<p>Given points (x₀,y₀)…(xₙ,yₙ) find a function p with p(xᵢ) = yᵢ, then use it to estimate values between the points. Exactly one polynomial of degree ≤ n passes through n+1 points with distinct x’s — every method (Lagrange, Newton, divided differences) finds the <em>same</em> polynomial in a different form.</p>",
+      "body": "<p>You measured the temperature at noon, 1 pm and 3 pm. What was it at 2 pm? You never measured it, but you can make a smart guess by drawing a curve through your readings. That is interpolation. Given points (x₀,y₀)…(xₙ,yₙ) we find a function p with p(xᵢ) = yᵢ, then use it to estimate values between the points.</p><p>Here is a lovely fact: exactly one polynomial of degree ≤ n passes through n+1 points with distinct x’s. Every method (Lagrange, Newton, divided differences) finds the <em>same</em> polynomial in a different form. So through 4 points with distinct x there is exactly one polynomial of degree ≤ 3.</p>",
       "questions": [
         {
           "id": "uniq",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Interpolation finds a function p with p(xᵢ) = yᵢ and uses it to estimate values between the points.",
+        "Exactly one polynomial of degree ≤ n passes through n+1 points with distinct x’s.",
+        "Lagrange, Newton and divided differences find the same polynomial in different forms."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "3.2",
       "title": "Lagrange form",
       "eyebrow": "Weighted blend",
-      "body": "<p>P(x) = Σ yᵢ·Lᵢ(x), where Lᵢ(x) = ∏<sub>j≠i</sub> (x − xⱼ)/(xᵢ − xⱼ) equals 1 at xᵢ and 0 at all other nodes. Simple to write, awkward to extend: adding a point changes every term. For the points (0,1), (1,3), (2,2), (3,5) the value at x = 1.5 is <b>2.4375</b>.</p>",
+      "body": "<p>Lagrange has a beautiful idea: build the curve as a blend of simple pieces, each one switched on at exactly one point. P(x) = Σ yᵢ·Lᵢ(x), where Lᵢ(x) = ∏<sub>j≠i</sub> (x − xⱼ)/(xᵢ − xⱼ) equals 1 at xᵢ and 0 at all other nodes. It is simple to write, but awkward to extend: adding a point changes every term.</p><p>For the points (0,1), (1,3), (2,2), (3,5) the value at x = 1.5 is <b>2.4375</b>. Compare linear interpolation between (1, 3) and (2, 2) at x = 1.5: P(1.5) = 3 + (1.5−1)/(2−1) · (2−3) = 2.5. The cubic through all four points gives 2.4375, because it uses more information. And Lᵢ(xᵢ) equals 1 at its own node.</p>",
       "worked": [
         {
           "toc": "Two points",
@@ -106,6 +111,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Lagrange form: P(x) = Σ yᵢ·Lᵢ(x), where Lᵢ(x) equals 1 at xᵢ and 0 at all other nodes.",
+        "It is simple to write but awkward to extend, since adding a point changes every term.",
+        "For (0,1), (1,3), (2,2), (3,5) the value at x = 1.5 is 2.4375, against 2.5 from linear interpolation between (1, 3) and (2, 2)."
       ]
     },
     {
@@ -113,7 +123,7 @@
       "locator": "3.3",
       "title": "Newton divided differences",
       "eyebrow": "Easy to extend",
-      "body": "<p>P(x) = c₀ + c₁(x − x₀) + c₂(x − x₀)(x − x₁) + … The coefficients cₖ are divided differences f[x₀…xₖ] computed in a triangle: f[xᵢ,xᵢ₊₁] = (yᵢ₊₁ − yᵢ)/(xᵢ₊₁ − xᵢ), then differences of differences. A new point only adds one term. The value at 1.5 is the same, <b>2.4375</b>.</p>",
+      "body": "<p>Newton’s form fixes Lagrange’s weakness, and you will find it easier to use: it is easy to extend. P(x) = c₀ + c₁(x − x₀) + c₂(x − x₀)(x − x₁) + … The coefficients cₖ are divided differences f[x₀…xₖ] computed in a triangle: f[xᵢ,xᵢ₊₁] = (yᵢ₊₁ − yᵢ)/(xᵢ₊₁ − xᵢ), then differences of differences. A new point only adds one term. The value at 1.5 is the same, <b>2.4375</b>.</p><p>Do a small one. Points (0,1), (1,3), (2,2). First differences: (3−1)/1 = 2 and (2−3)/1 = −1. Second difference: (−1 − 2)/(2 − 0) = −1.5. So P(x) = 1 + 2x − 1.5x(x − 1). Check P(2) = 1 + 4 − 3 = 2 ✓. The advantage of Newton’s form is that adding a data point just adds one more term.</p>",
       "worked": [
         {
           "toc": "First",
@@ -181,6 +191,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Newton’s form is P(x) = c₀ + c₁(x − x₀) + c₂(x − x₀)(x − x₁) + …, with coefficients that are divided differences computed in a triangle.",
+        "A new point only adds one term, and the value at 1.5 is the same 2.4375.",
+        "For (0,1), (1,3), (2,2): f[0,1] = 2, f[1,2] = −1, f[0,1,2] = −1.5 and P(x) = 1 + 2x − 1.5x(x − 1)."
       ]
     },
     {
@@ -188,7 +203,7 @@
       "locator": "3.4",
       "title": "Error and the trouble with high degree",
       "eyebrow": "Caveats",
-      "body": "<p>The error at x is f⁽ⁿ⁺¹⁾(ξ)/(n+1)! · ∏(x − xᵢ): small when the nodes are close to x and the function is smooth. Using many equally spaced nodes can make things worse near the ends (Runge’s phenomenon), so practice uses low-degree pieces (splines) or Chebyshev nodes instead of one high-degree polynomial.</p>",
+      "body": "<p>More points must mean a better curve, surely? Not always, and this is a famous trap. The error at x is f⁽ⁿ⁺¹⁾(ξ)/(n+1)! · ∏(x − xᵢ): small when the nodes are close to x and the function is smooth. But using many equally spaced nodes can make things worse near the ends (Runge’s phenomenon): the curve wiggles wildly. So in practice you use low-degree pieces (splines) or Chebyshev nodes instead of one high-degree polynomial. Avoid one high-degree polynomial through many equally spaced points because it oscillates near the ends.</p>",
       "questions": [
         {
           "id": "runge",
@@ -220,6 +235,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The error at x is f⁽ⁿ⁺¹⁾(ξ)/(n+1)! · ∏(x − xᵢ): small when the nodes are close to x and the function is smooth.",
+        "Many equally spaced nodes can make things worse near the ends (Runge’s phenomenon).",
+        "Practice uses low-degree pieces (splines) or Chebyshev nodes instead of one high-degree polynomial."
       ]
     },
     {
@@ -227,7 +247,7 @@
       "locator": "3.5",
       "title": "Piecewise linear and splines",
       "eyebrow": "Practical choices",
-      "body": "<p>Join the points with straight segments (piecewise linear: continuous, corners at the data) or with cubic pieces matching slope and curvature at each point (cubic spline: smooth). Tables of trigonometric values use linear interpolation between entries; drawing programs use splines.</p>",
+      "body": "<p>So what do engineers actually use, and what will you? Two practical choices. Join the points with straight segments (piecewise linear: continuous, with corners at the data), or with cubic pieces matching slope and curvature at each point (cubic spline: smooth). Tables of trigonometric values use linear interpolation between entries; drawing programs use splines.</p><p>Try the table. sin 30° = 0.5000 and sin 40° = 0.6428. Estimate sin 34° by linear interpolation: 0.5 + (4/10)(0.1428) = 0.5571. Linear interpolation between table entries is exact when the function is a straight line.</p>",
       "worked": [
         {
           "toc": "Table",
@@ -271,6 +291,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Piecewise linear interpolation joins points with straight segments: continuous, with corners at the data.",
+        "A cubic spline uses cubic pieces matching slope and curvature at each point, so it is smooth; tables use linear interpolation and drawing programs use splines.",
+        "From sin 30° = 0.5000 and sin 40° = 0.6428, linear interpolation gives sin 34° ≈ 0.5571."
       ]
     },
     {
@@ -278,7 +303,11 @@
       "locator": "3.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>One unique polynomial of degree ≤ n through n+1 points; Lagrange and Newton are two forms.</li><li>Use low-degree pieces for many points.</li></ul>"
+      "body": "<p>Two lines to take away.</p><ul><li>One unique polynomial of degree ≤ n through n+1 points; Lagrange and Newton are two forms.</li><li>Use low-degree pieces for many points.</li></ul>",
+      "keynotes": [
+        "There is one unique polynomial of degree ≤ n through n+1 points; Lagrange and Newton are two forms.",
+        "Use low-degree pieces for many points."
+      ]
     }
   ]
 }

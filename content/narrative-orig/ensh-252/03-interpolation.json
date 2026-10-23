@@ -1,0 +1,42 @@
+{
+  "title": "Polynomial interpolation",
+  "subtitle": "Given a handful of measurements, find a curve through all of them and read values in between.",
+  "sections": {
+    "why": {
+      "title": "The interpolation problem",
+      "body": "<p>Given points (x₀,y₀)…(xₙ,yₙ) find a function p with p(xᵢ) = yᵢ, then use it to estimate values between the points. Exactly one polynomial of degree ≤ n passes through n+1 points with distinct x’s — every method (Lagrange, Newton, divided differences) finds the <em>same</em> polynomial in a different form.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "lag": {
+      "title": "Lagrange form",
+      "body": "<p>P(x) = Σ yᵢ·Lᵢ(x), where Lᵢ(x) = ∏<sub>j≠i</sub> (x − xⱼ)/(xᵢ − xⱼ) equals 1 at xᵢ and 0 at all other nodes. Simple to write, awkward to extend: adding a point changes every term. For the points (0,1), (1,3), (2,2), (3,5) the value at x = 1.5 is <b>2.4375</b>.</p>",
+      "after": "",
+      "steps": "Linear interpolation between (1, 3) and (2, 2) at x = 1.5. = 2.5 — the cubic through all four points gives a different value, using more information."
+    },
+    "newton": {
+      "title": "Newton divided differences",
+      "body": "<p>P(x) = c₀ + c₁(x − x₀) + c₂(x − x₀)(x − x₁) + … The coefficients cₖ are divided differences f[x₀…xₖ] computed in a triangle: f[xᵢ,xᵢ₊₁] = (yᵢ₊₁ − yᵢ)/(xᵢ₊₁ − xᵢ), then differences of differences. A new point only adds one term. The value at 1.5 is the same, <b>2.4375</b>.</p>",
+      "after": "",
+      "steps": "Points (0,1), (1,3), (2,2). First differences: (3−1)/1 = 2 and (2−3)/1 = −1. Second difference: (−1 − 2)/(2 − 0). P(x) = 1 + 2x − 1.5x(x − 1). Check P(2) = 1 + 4 − 3 = 2 ✓."
+    },
+    "err": {
+      "title": "Error and the trouble with high degree",
+      "body": "<p>The error at x is f⁽ⁿ⁺¹⁾(ξ)/(n+1)! · ∏(x − xᵢ): small when the nodes are close to x and the function is smooth. Using many equally spaced nodes can make things worse near the ends (Runge’s phenomenon), so practice uses low-degree pieces (splines) or Chebyshev nodes instead of one high-degree polynomial.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "spl": {
+      "title": "Piecewise linear and splines",
+      "body": "<p>Join the points with straight segments (piecewise linear: continuous, corners at the data) or with cubic pieces matching slope and curvature at each point (cubic spline: smooth). Tables of trigonometric values use linear interpolation between entries; drawing programs use splines.</p>",
+      "after": "",
+      "steps": "sin 30° = 0.5000 and sin 40° = 0.6428 from a table. Estimate sin 34°. Linear interpolation."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>One unique polynomial of degree ≤ n through n+1 points; Lagrange and Newton are two forms.</li><li>Use low-degree pieces for many points.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "subtitle": "Most equations cannot be solved with algebra. Numerical methods creep up on the answer instead, and they differ enormously in how fast.",
+  "sections": {
+    "why": {
+      "body": "<p>Try solving x³ − x − 2 = 0 with the tricks you learned at school. Go on, I’ll wait. You won’t find a neat formula, and the same is true for cos x = x. Most real equations have no tidy answer, so we do something cleverer: we sneak up on the root.</p><p>Step one is <em class='term'>locating</em> a root. If f is continuous and f(a), f(b) have opposite signs, a root lies between them (the intermediate value theorem), because the graph must cross the axis to get from below to above. Step two is refining by iteration. Two errors matter: the <em class='term'>truncation error</em> of the method and the <em class='term'>round-off error</em> of the machine; accuracy is often stated as the tolerance at which iteration stops. Test f(x) = x³ − x − 2: f(1) = −2 and f(2) = 4. Opposite signs, so a root lies in [1, 2].</p>",
+      "keynotes": [
+        "Most equations, such as x³ − x − 2 = 0 or cos x = x, have no formula, so we locate a root and refine it by iteration.",
+        "If f is continuous and f(a), f(b) have opposite signs, a root lies between them (intermediate value theorem); here f(1) = −2 and f(2) = 4 put a root in [1, 2].",
+        "Two errors matter: the truncation error of the method and the round-off error of the machine; iteration stops at a tolerance."
+      ]
+    },
+    "bis": {
+      "body": "<p>Guess a number between 1 and 100 and I’ll say “higher” or “lower”. You would pick 50, then 25 or 75, halving each time. That is bisection. Take the midpoint c; keep the half whose ends still have opposite signs. Each step halves the interval: after n steps the error is ≤ (b − a)/2ⁿ. It is guaranteed to converge, but slowly, gaining one binary digit per step.</p><p>For x³ − x − 2 on [1, 2] it reaches <b>1.5214</b> in <b>21</b> iterations to tolerance 10⁻⁶. How many steps do you need in theory? From an interval of length 1 you want 1/2ⁿ &lt; 10⁻⁶, so n &gt; log₂(10⁶) ≈ 19.9, that is 20 iterations. The violet lines in the figure mark the shrinking bracket.</p>",
+      "keynotes": [
+        "Bisection takes the midpoint c and keeps the half whose ends still have opposite signs; after n steps the error is ≤ (b − a)/2ⁿ.",
+        "It is guaranteed to converge, but slowly, gaining one binary digit per step.",
+        "For x³ − x − 2 on [1, 2] it reaches 1.5214 in 21 iterations to tolerance 10⁻⁶; the theory says n > log₂(10⁶) ≈ 19.9, so 20."
+      ]
+    },
+    "falsi": {
+      "body": "<p>Bisection is polite but, as you may have noticed, it ignores information: it never asks how big f is at the ends. If f(a) is tiny and f(b) is huge, the root is surely nearer a. False position (regula falsi) uses that. Draw the chord between (a, f(a)) and (b, f(b)) and take where it crosses the axis: c = (a·f(b) − b·f(a)) / (f(b) − f(a)). Keep the sub-interval with the sign change, as in bisection.</p><p>Because it uses the size of f, it is usually faster (<b>13</b> iterations here), though one end can stay stuck for a convex function. Each point in the figure is where a chord meets the axis. False position differs from bisection in that it uses the function values, not just their signs.</p>",
+      "keynotes": [
+        "False position draws the chord between (a, f(a)) and (b, f(b)) and takes where it crosses the axis: c = (a·f(b) − b·f(a)) / (f(b) − f(a)).",
+        "It keeps the sub-interval with the sign change, as in bisection.",
+        "It is usually faster (13 iterations here), though one end can stay stuck for a convex function."
+      ]
+    },
+    "newton": {
+      "body": "<p>Now for the fastest idea in the chapter, and you will enjoy it. From a guess xₙ, draw the tangent to f and let it hit the axis: x<sub>n+1</sub> = xₙ − f(xₙ)/f′(xₙ). Near a simple root the convergence is quadratic: the number of correct digits roughly doubles each step. The price: it needs f′, a good start, and it fails where f′ ≈ 0.</p><p>Find √2 from x₀ = 1 using f = x² − 2, f′ = 2x. x₁ = 1 − (1 − 2)/2 = 1.5, then x₂ = 1.5 − (2.25 − 2)/3 = 1.41667. It takes <b>5</b> iterations to 10⁻⁹; x³ − x − 2 from 1.5 takes <b>3</b>. In the figure the residuals collapse: 10⁻¹, 10⁻³, 10⁻⁷… Quadratic convergence means the error is roughly squared at every step.</p>",
+      "keynotes": [
+        "Newton–Raphson draws the tangent and lets it hit the axis: x(n+1) = xₙ − f(xₙ)/f′(xₙ).",
+        "Near a simple root convergence is quadratic: the number of correct digits roughly doubles each step; it needs f′, a good start and fails where f′ ≈ 0.",
+        "Finding √2 from x₀ = 1 gives 1.5 then 1.41667 and takes 5 iterations to 10⁻⁹; x³ − x − 2 from 1.5 takes 3."
+      ]
+    },
+    "secant": {
+      "body": "<p>What if computing the derivative is hard or impossible? Replace f′ by the slope through the last two points, and you get the secant method: x<sub>n+1</sub> = xₙ − f(xₙ)(xₙ − x<sub>n−1</sub>)/(f(xₙ) − f(x<sub>n−1</sub>)). You need no derivative and no bracket, just two starting guesses; the order of convergence is ≈ 1.618.</p><p>Here it takes <b>7</b> iterations. Compare the four methods on the same equation in the figures: they all land on the root ≈ <b>1.5214</b>, just at different speeds. The secant method needs two starting guesses, no derivative.</p>",
+      "keynotes": [
+        "The secant method replaces f′ by the slope through the last two points and needs no derivative and no bracket, only two starting guesses.",
+        "Its order of convergence is ≈ 1.618.",
+        "Here it takes 7 iterations and finds the root ≈ 1.5214."
+      ]
+    },
+    "cmp": {
+      "body": "<p>Which method should you pick? There is no single winner, so here is the full comparison in one place.</p><table><thead><tr><th>Method</th><th>Needs</th><th>Order</th><th>Guaranteed?</th></tr></thead><tbody><tr><td>Bisection</td><td>bracket</td><td>1 (linear, ½)</td><td>yes</td></tr><tr><td>False position</td><td>bracket</td><td>≥ 1</td><td>yes</td></tr><tr><td>Newton</td><td>f, f′, good guess</td><td>2</td><td>no</td></tr><tr><td>Secant</td><td>two guesses</td><td>1.618</td><td>no</td></tr></tbody></table><p>Practical recipe: bracket with bisection until close, then finish with Newton. Slow and safe first, fast and risky last. Which method is certain to converge if you have a bracket? Bisection (and false position).</p>",
+      "keynotes": [
+        "Bisection and false position need a bracket and are guaranteed to converge.",
+        "Newton (order 2) needs f, f′ and a good guess; the secant method (order 1.618) needs two guesses; neither is guaranteed.",
+        "Practical recipe: bracket with bisection until close, then finish with Newton."
+      ]
+    }
+  }
+}

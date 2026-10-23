@@ -1,0 +1,42 @@
+{
+  "title": "Gauss elimination, Jacobi and Gauss–Seidel",
+  "subtitle": "Solving Ax = b two ways: a fixed number of steps (direct), or creeping closer each pass (iterative).",
+  "sections": {
+    "gauss": {
+      "title": "Gaussian elimination",
+      "body": "<p>Write the system as an augmented matrix [A | b]. <em class=\"term\">Forward elimination</em> subtracts multiples of a pivot row to put zeros below the diagonal, giving an upper-triangular system; <em class=\"term\">back-substitution</em> then solves from the last unknown upward. Cost ≈ n³/3 multiplications. For 2x + y − z = 8, −3x − y + 2z = −11, −2x + y + 2z = −3 the solution is x, y, z = <b>2 3 -1</b>.</p>",
+      "after": "",
+      "steps": "Eliminate x from row 2 using row 1: multiplier m = −3/2 (after any row swap). Back-substitute: the last row gives z = −1, then y = 3, then x = 2."
+    },
+    "sing": {
+      "title": "When elimination fails",
+      "body": "<p>If a zero pivot remains after pivoting, the matrix is singular: the system has no solution or infinitely many. x + y = 2, 2x + 2y = 4 has infinitely many (the rows are dependent); x + y = 2, x + y = 3 has none. Ill-conditioned systems (nearly singular) give wildly different answers for tiny changes in the data — a property of the problem, not the method.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "iter": {
+      "title": "Jacobi and Gauss–Seidel",
+      "body": "<p>For large sparse systems iteration is cheaper. Solve each equation for its own unknown: xᵢ = (bᵢ − Σⱼ≠ᵢ aᵢⱼxⱼ)/aᵢᵢ. <em class=\"term\">Jacobi</em> updates every unknown from the <em>previous</em> iterate; <em class=\"term\">Gauss–Seidel</em> uses each new value immediately, usually converging about twice as fast. Both converge if the matrix is <em class=\"term\">diagonally dominant</em> (|aᵢᵢ| &gt; Σ|aᵢⱼ| on every row). For 10x − y + 2z = 6, −x + 11y − z = 25, 2x − y + 10z = −11 (dominant: <b>yes</b>) the answer is <b>1.04327 2.26923 -1.08173</b> after 12 Gauss–Seidel sweeps.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "cmp": {
+      "title": "Direct versus iterative",
+      "body": "<p>Direct methods (elimination, LU) give an answer after a fixed amount of work and handle any non-singular matrix, but cost O(n³) and fill in zeros. Iterative methods cost O(n) per sweep for sparse matrices and can stop at the accuracy you need, but may not converge. Real solvers use LU for moderate sizes and preconditioned Krylov methods for huge sparse ones.</p>",
+      "after": "",
+      "steps": "A system with n = 10 000 unknowns, 5 non-zeros per row. One Gauss–Seidel sweep ≈ 5×10⁴ operations; elimination ≈ n³/3 ≈ 3×10¹¹. Even 100 sweeps are far cheaper."
+    },
+    "lu": {
+      "title": "LU factorisation",
+      "body": "<p>Gaussian elimination records its multipliers: A = LU with L lower-triangular (multipliers below a unit diagonal) and U the upper-triangular result. To solve Ax = b: solve Ly = b by forward substitution, then Ux = y by back-substitution. Factor once, then solve for many right-hand sides cheaply.</p>",
+      "after": "",
+      "steps": "A = [[2, 1], [4, 5]]. Multiplier m₂₁ = 4/2 = 2. Eliminate: row 2 − 2·row 1 gives [0, 3]."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Elimination + pivoting is direct; Jacobi/Seidel iterate and need diagonal dominance.</li><li>LU reuses the work across right-hand sides.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

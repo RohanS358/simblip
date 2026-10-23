@@ -1,0 +1,42 @@
+{
+  "title": "Finite differences for heat and Laplace equations",
+  "subtitle": "Replace derivatives by differences on a grid and a partial differential equation becomes arithmetic.",
+  "sections": {
+    "classes": {
+      "title": "Kinds of PDE",
+      "body": "<p>Second-order linear PDEs Auₓₓ + Buₓᵧ + Cuᵧᵧ = … are <em class=\"term\">elliptic</em> (B² − 4AC &lt; 0: Laplace, Poisson — steady states), <em class=\"term\">parabolic</em> (= 0: heat equation — diffusion) or <em class=\"term\">hyperbolic</em> (&gt; 0: wave equation — propagation). The type decides which numerical scheme is stable and what boundary or initial data are needed.</p>",
+      "after": "",
+      "steps": "Classify uₜ = α uₓₓ: write it as α uₓₓ − uₜ = 0, with only one second derivative (A = α, B = C = 0)."
+    },
+    "fd": {
+      "title": "Finite-difference approximations",
+      "body": "<p>Central differences on a grid with spacing h: uₓ ≈ (uᵢ₊₁ − uᵢ₋₁)/(2h), uₓₓ ≈ (uᵢ₊₁ − 2uᵢ + uᵢ₋₁)/h². In time, uₜ ≈ (uᵢⁿ⁺¹ − uᵢⁿ)/Δt. Each approximation has a known truncation error.</p>",
+      "after": "",
+      "steps": "u = x² at x = 2 with h = 0.5: u(1.5) = 2.25, u(2) = 4, u(2.5) = 6.25. Second difference."
+    },
+    "heat": {
+      "title": "The explicit scheme for the heat equation",
+      "body": "<p>uᵢⁿ⁺¹ = uᵢⁿ + r(uᵢ₋₁ⁿ − 2uᵢⁿ + uᵢ₊₁ⁿ), r = αΔt/Δx². Each new value is a weighted average of a point and its neighbours. A rod with ends at 100 and 0 starts at 0 and relaxes toward the straight line: after 400 steps the middle reads <b>49.997</b> (steady value 50). The scheme is stable only if r ≤ ½.</p>",
+      "after": "",
+      "steps": "Interior node with neighbours 100 and 0, itself at 0, r = 0.25. New value = 0 + 0.25(100 − 0 + 0)."
+    },
+    "lap": {
+      "title": "Laplace’s equation: relaxation",
+      "body": "<p>∇²u = 0 becomes uᵢⱼ = ¼(uᵢ₊₁,ⱼ + uᵢ₋₁,ⱼ + uᵢ,ⱼ₊₁ + uᵢ,ⱼ₋₁): every interior value is the average of its four neighbours. Start with a guess, set the boundary values, and repeatedly replace each point by the average (Gauss–Seidel iteration) until nothing changes. This is exactly the electrostatic potential in a box with fixed-voltage walls.</p>",
+      "after": "",
+      "steps": "A 3×3 grid, top edge 100, other edges 0. Find the centre value by symmetry with all four neighbours averaging in. For the single interior point: u = ¼(100 + 0 + 0 + 0)."
+    },
+    "crank": {
+      "title": "Implicit schemes and accuracy",
+      "body": "<p>The implicit (backward-time) scheme and Crank–Nicolson evaluate the spatial differences at the new time level. Each step solves a tridiagonal linear system (Gaussian elimination in O(n)), but they are stable for any step size, so the time step is chosen for accuracy only. Crank–Nicolson is second-order in time.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Central differences turn PDEs into arithmetic on a grid.</li><li>Explicit heat scheme needs r ≤ ½; Laplace relaxes to the neighbour average.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
