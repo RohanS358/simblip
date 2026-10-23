@@ -1,0 +1,52 @@
+{
+  "subtitle": "How many conversations share one wire, and how a call finds its way across a network.",
+  "sections": {
+    "fdm": {
+      "body": "<p>Wires are expensive. Digging a trench for every phone call would be absurd, so we make many conversations share one line. <em class='term'>Multiplexing</em> combines many signals onto one medium, and there are several ways to share.</p><p><em class='term'>FDM</em> gives each signal its own frequency band (radio stations, cable TV) with guard bands between them, so neighbours don’t leak into each other. <em class='term'>TDM</em> gives each signal the whole channel for a short time slot in rotation, like speakers taking turns. Synchronous TDM wastes slots when a source is idle; statistical TDM allocates slots on demand. <em class='term'>WDM</em> is FDM for light: each colour carries a channel on one fibre.</p><p>Do a sum: a T1 line multiplexes 24 voice channels, each 64 kb/s, plus 8 kb/s framing. 24 × 64 = 1536 kb/s, and adding 8 kb/s framing gives 1544 kb/s. Why does FDM need guard bands? Real filters are not perfectly sharp.</p>",
+      "keynotes": [
+        "FDM gives each signal its own frequency band with guard bands between them; TDM gives each signal the whole channel for a short time slot in rotation.",
+        "Synchronous TDM wastes slots when a source is idle; statistical TDM allocates slots on demand; WDM is FDM for light.",
+        "A T1 line carries 24 × 64 = 1536 kb/s plus 8 kb/s framing, a total of 1544 kb/s."
+      ]
+    },
+    "dsl": {
+      "body": "<p>How can your home phone line also give you broadband? It was always copper wire that could carry far more than a voice. <em class='term'>ADSL</em> uses the copper pair in three frequency bands: voice (0–4 kHz), upstream and a much wider downstream band. It is asymmetric because home users download more than they upload.</p><p>The trick inside is discrete multitone: the band is split into 4 kHz sub-channels, each modulated with as many bits as its own signal-to-noise ratio allows. The further you live from the exchange, the slower it gets. What does the “A” in ADSL stand for? Asymmetric.</p>",
+      "keynotes": [
+        "ADSL uses the copper pair in three frequency bands: voice (0–4 kHz), upstream and a wider downstream band.",
+        "It is asymmetric because home users download more than they upload.",
+        "Discrete multitone splits the band into 4 kHz sub-channels, each carrying as many bits as its SNR allows; speed falls with distance from the exchange."
+      ]
+    },
+    "ss": {
+      "body": "<p>Here is a counter-intuitive trick: use far more bandwidth than you need, on purpose. Why? To hide in the noise and resist jamming. <em class='term'>Spread spectrum</em> comes in two flavours: <em class='term'>FHSS</em> hops the carrier among frequencies in a pseudo-random sequence, while <em class='term'>DSSS</em> multiplies each bit by a fast chipping code.</p><p>In <em class='term'>CDMA</em> every user has a different orthogonal code and all transmit at once on the same band; the receiver recovers one user by correlating with that user’s code, and the others average to zero. Take two users with orthogonal codes c₁ = (+1 +1 +1 +1) and c₂ = (+1 −1 +1 −1). User 1 sends bit +1, user 2 sends bit −1. The channel carries the sum c₁ − c₂ = (0, 2, 0, 2). User 1’s receiver correlates with c₁ and divides by 4: (0+2+0+2)/4 = +1. For user 2: correlate with c₂, (0·1 + 2·(−1) + 0·1 + 2·(−1))/4 = −1 ✓. Each receiver picks out its own user by correlating with that user’s code.</p>",
+      "keynotes": [
+        "Spread spectrum deliberately uses far more bandwidth than needed: FHSS hops the carrier among frequencies in a pseudo-random sequence; DSSS multiplies each bit by a fast chipping code.",
+        "In CDMA every user has a different orthogonal code and all transmit at once; the receiver correlates with that user’s code and the others average to zero.",
+        "With c₁ = (+1 +1 +1 +1) and c₂ = (+1 −1 +1 −1), the channel carries (0, 2, 0, 2), and correlating gives +1 for user 1 and −1 for user 2."
+      ]
+    },
+    "sw": {
+      "body": "<p>How does a call get from you to a friend across a whole network of links? There are three philosophies. <em class='term'>Circuit switching</em> reserves a path for the whole call (the telephone): guaranteed rate, set-up delay, idle capacity wasted. <em class='term'>Message switching</em> stores and forwards whole messages. <em class='term'>Packet switching</em> cuts data into packets routed separately: efficient for bursty traffic, with variable delay.</p><p>Packet switching comes in two flavours: <em class='term'>datagram</em> (each packet routed independently, and may arrive out of order) and <em class='term'>virtual circuit</em> (a path is set up first; packets follow it in order).</p><p>See the difference in numbers. Send a 1.5 MB file over 4 hops of 1 Mb/s each, ignoring propagation, as 1000 packets of 1500 B. Store-and-forward message switching retransmits the whole file at each hop: 4 × 12 s = 48 s. Packet switching pipelines: the first hop takes 12 s, then the last packet needs 3 more hop-times of 12 ms, so ≈ 12.04 s. Why is packet switching better for bursty data? Because capacity is shared, so nobody pays for idle silence.</p>",
+      "keynotes": [
+        "Circuit switching reserves a path for the whole call; message switching stores and forwards whole messages; packet switching routes packets separately.",
+        "Datagram routes each packet independently (may arrive out of order); virtual circuit sets up a path first and packets follow it in order.",
+        "A 1.5 MB file over 4 hops of 1 Mb/s takes 4 × 12 = 48 s by message switching but about 12.04 s by packet switching."
+      ]
+    },
+    "dev": {
+      "body": "<p>What does a switch look like inside? A crossbar switch connects any input to any output with n² crosspoints, a grid of tiny gates. That is simple but gets huge, so multistage (Banyan/Clos) networks use fewer small switches at the price of possible blocking. A packet switch adds buffers to hold packets contending for the same output, like cars queuing at a junction. An n × n crossbar needs n² crosspoints.</p>",
+      "keynotes": [
+        "A crossbar switch connects any input to any output with n² crosspoints.",
+        "Multistage (Banyan/Clos) networks use fewer small switches at the price of possible blocking.",
+        "A packet switch adds buffers to hold packets contending for the same output."
+      ]
+    },
+    "summary": {
+      "body": "<p>One line each.</p><ul><li>FDM splits frequency, TDM splits time, WDM splits colour, CDMA splits by code.</li><li>Circuit switching reserves; packet switching shares.</li></ul>",
+      "keynotes": [
+        "FDM splits frequency, TDM splits time, WDM splits colour and CDMA splits by code.",
+        "Circuit switching reserves; packet switching shares."
+      ]
+    }
+  }
+}

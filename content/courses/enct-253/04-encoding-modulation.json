@@ -1,14 +1,14 @@
 {
   "title": "Encoding, sampling and modulation",
   "kicker": "ENCT 253 · Data Communication · Chapter 4",
-  "subtitle": "The four ways of turning information into signals — every combination of analog/digital data and signal.",
+  "subtitle": "The four ways of turning information into signals: every combination of analog/digital data and signal.",
   "sections": [
     {
       "id": "dd",
       "locator": "4.1",
       "title": "Digital data, digital signal: line codes",
       "eyebrow": "Baseband",
-      "body": "<p><em class=\"term\">NRZ-L</em> ties the level to the bit; <em class=\"term\">NRZ-I</em> flips level on a 1 (a transition is easier to detect than an absolute level). <em class=\"term\">RZ</em> returns to zero mid-bit. <em class=\"term\">Manchester</em> puts a transition in every bit (low→high = 1) and <em class=\"term\">differential Manchester</em> codes a bit by whether there is a transition at its start. <em class=\"term\">Bipolar AMI</em> alternates the polarity of 1s, so there is no DC component; its weakness is long runs of 0s, cured by scrambling: <em class=\"term\">B8ZS</em> replaces eight 0s with 000+−0−+, and <em class=\"term\">HDB3</em> replaces four 0s with 000V or B00V. The bits 10110 give AMI <b>+0-+0</b>.</p>",
+      "body": "<p>Suppose you must send the bits 1 0 1 1 0 down a wire as voltages. The obvious plan is “high for 1, low for 0”, but cleverer plans exist, and each solves a different headache. Let’s tour them.</p><p><em class=\"term\">NRZ-L</em> ties the level to the bit; <em class=\"term\">NRZ-I</em> flips level on a 1 (a transition is easier to detect than an absolute level). <em class=\"term\">RZ</em> returns to zero mid-bit. <em class=\"term\">Manchester</em> puts a transition in every bit (low→high = 1) and <em class=\"term\">differential Manchester</em> codes a bit by whether there is a transition at its start. <em class=\"term\">Bipolar AMI</em> alternates the polarity of 1s, so there is no DC component; its weakness is long runs of 0s, cured by scrambling: <em class=\"term\">B8ZS</em> replaces eight 0s with 000+−0−+, and <em class=\"term\">HDB3</em> replaces four 0s with 000V or B00V. The bits 10110 give AMI <b>+0-+0</b>. Compare four schemes on the same bits in the figure; B8ZS breaks the run of zeros with deliberate violations. Successive 1s in AMI alternate in polarity.</p>",
       "questions": [
         {
           "id": "ami",
@@ -77,6 +77,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "NRZ-L ties the level to the bit and NRZ-I flips level on a 1; RZ returns to zero mid-bit.",
+        "Manchester puts a transition in every bit (low→high = 1); differential Manchester codes a bit by whether there is a transition at its start.",
+        "Bipolar AMI alternates the polarity of 1s (10110 gives +0-+0); B8ZS replaces eight 0s with 000+−0−+ and HDB3 replaces four 0s with 000V or B00V."
       ]
     },
     {
@@ -84,7 +89,7 @@
       "locator": "4.2",
       "title": "Analog data, digital signal: PCM, DM",
       "eyebrow": "Digitising voice",
-      "body": "<p><em class=\"term\">PCM</em>: sample at 8 kHz, quantise to 8 bits → 64 kb/s for one voice channel. <em class=\"term\">DPCM</em> sends the difference from a prediction; <em class=\"term\">delta modulation</em> sends one bit per sample: “up” or “down”. Non-uniform quantisation (companding) gives quiet sounds finer steps.</p>",
+      "body": "<p>How does your voice become a stream of 1s and 0s on a phone line? <em class=\"term\">PCM</em> is the classic recipe: sample at 8 kHz, quantise to 8 bits, and you have 64 kb/s for one voice channel. Voice limited to 4 kHz is sampled at 2 × 4000 = 8000 samples/s, and with 8 bits per sample that is 8000 × 8 = 64 000 b/s.</p><p>Cheaper variants exist. <em class=\"term\">DPCM</em> sends the difference from a prediction. <em class=\"term\">Delta modulation</em> sends one bit per sample: “up” or “down”. Non-uniform quantisation (companding) gives quiet sounds finer steps, because our ears care more about whispers than shouts. The bit rate of PCM voice with 8 kHz sampling and 8-bit samples is 64 kb/s.</p>",
       "worked": [
         {
           "toc": "Nyquist",
@@ -129,6 +134,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "PCM samples at 8 kHz and quantises to 8 bits, giving 64 kb/s for one voice channel.",
+        "DPCM sends the difference from a prediction; delta modulation sends one bit per sample, up or down.",
+        "Non-uniform quantisation (companding) gives quiet sounds finer steps."
       ]
     },
     {
@@ -136,7 +146,7 @@
       "locator": "4.3",
       "title": "Digital data, analog signal: ASK, FSK, PSK, QAM",
       "eyebrow": "Modems and radios",
-      "body": "<p>A carrier sin(2πf<sub>c</sub>t) can carry bits by changing its amplitude (<em class=\"term\">ASK</em>), frequency (<em class=\"term\">FSK</em>) or phase (<em class=\"term\">PSK</em>). <em class=\"term\">QPSK</em> uses four phases so each symbol carries 2 bits; <em class=\"term\">QAM</em> varies amplitude and phase together (16-QAM = 4 bits/symbol). Bit rate = baud rate × bits per symbol.</p>",
+      "body": "<p>Digital bits must often ride on an analog carrier, for example on radio or an old telephone line. You can wiggle a carrier sin(2πf<sub>c</sub>t) in three ways: change its amplitude (<em class=\"term\">ASK</em>), its frequency (<em class=\"term\">FSK</em>) or its phase (<em class=\"term\">PSK</em>). See each in its figure: amplitude encodes the bit in ASK, frequency in FSK, and in PSK the phase flips by 180° for 0.</p><p>Get more bits per symbol by being cleverer. <em class=\"term\">QPSK</em> uses four phases so each symbol carries 2 bits; <em class=\"term\">QAM</em> varies amplitude and phase together (16-QAM = 4 bits/symbol). The golden formula: bit rate = baud rate × bits per symbol. A link runs at 2400 baud using 16-QAM: 16 states means log₂ 16 = 4 bits per symbol, so the bit rate = 2400 × 4 = 9600 b/s. Baud rate versus bit rate: the bit rate is at least as large.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -205,6 +215,11 @@
           "note": "Phase flips by 180° for 0.",
           "script": "var lab = create(\"steplab\", {\"name\":\"psk\",\"engine\":\"modulation\",\"scheme\":\"psk\",\"bits\":\"1011001\",\"width\":600,\"height\":440});"
         }
+      ],
+      "keynotes": [
+        "A carrier can carry bits by changing its amplitude (ASK), frequency (FSK) or phase (PSK).",
+        "QPSK uses four phases so each symbol carries 2 bits; QAM varies amplitude and phase together (16-QAM = 4 bits/symbol).",
+        "Bit rate = baud rate × bits per symbol: 2400 baud with 16-QAM gives 9600 b/s."
       ]
     },
     {
@@ -212,7 +227,7 @@
       "locator": "4.4",
       "title": "Analog data, analog signal: AM, FM, PM",
       "eyebrow": "Radio",
-      "body": "<p>Modulation shifts a low-frequency message up to a frequency that antennas and channels handle well, and lets many stations share the air. <em class=\"term\">AM</em>: the carrier amplitude follows the message (bandwidth 2B, simple, noise-prone). <em class=\"term\">FM</em>: the carrier frequency follows it (wider bandwidth, much better noise resistance). <em class=\"term\">PM</em>: the phase follows it. Carson’s rule: FM bandwidth ≈ 2(Δf + B).</p>",
+      "body": "<p>Radio is the story of lifting a message to a higher floor, and you can picture it that way. Modulation shifts a low-frequency message up to a frequency that antennas and channels handle well, and lets many stations share the air. <em class=\"term\">AM</em>: the carrier amplitude follows the message (bandwidth 2B, simple, noise-prone). <em class=\"term\">FM</em>: the carrier frequency follows it (wider bandwidth, much better noise resistance). <em class=\"term\">PM</em>: the phase follows it.</p><p>How wide is FM? Carson’s rule: FM bandwidth ≈ 2(Δf + B). Commercial FM has peak deviation 75 kHz and audio bandwidth 15 kHz, so BW ≈ 2(75 + 15) = 180 kHz. In the figures, AM’s envelope follows the message and FM’s wave spacing follows it. Why is FM less noise-prone? Noise mostly disturbs amplitude, and FM carries its message in frequency, so it can ignore amplitude wobbles.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -270,6 +285,11 @@
           "note": "FM: the spacing of the waves follows it.",
           "script": "var lab = create(\"steplab\", {\"name\":\"fm\",\"engine\":\"modulation\",\"scheme\":\"fm\",\"bits\":\"1011001\",\"width\":600,\"height\":440});"
         }
+      ],
+      "keynotes": [
+        "AM follows the message with carrier amplitude (bandwidth 2B, noise-prone); FM follows it with carrier frequency (wider bandwidth, better noise resistance); PM follows it with phase.",
+        "Carson’s rule: FM bandwidth ≈ 2(Δf + B).",
+        "Commercial FM with deviation 75 kHz and audio 15 kHz needs about 180 kHz."
       ]
     },
     {
@@ -277,7 +297,7 @@
       "locator": "4.5",
       "title": "Why modulate at all",
       "eyebrow": "Motivation",
-      "body": "<p>An antenna must be a sizeable fraction of a wavelength: for a 3 kHz audio tone (λ = 100 km) that is impractical, but a 100 MHz carrier (λ = 3 m) needs an antenna of about a metre. Modulation also enables frequency-division sharing of a channel.</p>",
+      "body": "<p>Why not just send the audio straight into an antenna? Because an antenna must be a sizeable fraction of a wavelength. A 3 kHz audio tone has λ = 100 km, which is impractical, but a 100 MHz carrier (λ = 3 m) needs an antenna of about a metre. Modulation also enables frequency-division sharing of a channel, so many stations can coexist. So one reason to modulate a low-frequency signal is to make a practical antenna possible.</p>",
       "questions": [
         {
           "id": "ant",
@@ -309,6 +329,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "An antenna must be a sizeable fraction of a wavelength: a 3 kHz tone (λ = 100 km) is impractical.",
+        "A 100 MHz carrier (λ = 3 m) needs an antenna of about a metre.",
+        "Modulation also enables frequency-division sharing of a channel."
       ]
     },
     {
@@ -316,7 +341,12 @@
       "locator": "4.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Line codes: NRZ, Manchester, AMI (+B8ZS/HDB3 scrambling).</li><li>PCM: 8 kHz × 8 bits = 64 kb/s.</li><li>ASK/FSK/PSK/QAM carry bits; AM/FM/PM carry analog messages.</li><li>Bit rate = baud × bits per symbol.</li></ul>"
+      "body": "<p>Four lines to take away.</p><ul><li>Line codes: NRZ, Manchester, AMI (+B8ZS/HDB3 scrambling).</li><li>PCM: 8 kHz × 8 bits = 64 kb/s.</li><li>ASK/FSK/PSK/QAM carry bits; AM/FM/PM carry analog messages.</li><li>Bit rate = baud × bits per symbol.</li></ul>",
+      "keynotes": [
+        "Line codes include NRZ, Manchester and AMI with B8ZS/HDB3 scrambling.",
+        "PCM is 8 kHz × 8 bits = 64 kb/s.",
+        "ASK, FSK, PSK and QAM carry bits; AM, FM and PM carry analog messages, and bit rate = baud × bits per symbol."
+      ]
     }
   ]
 }

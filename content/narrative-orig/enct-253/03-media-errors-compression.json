@@ -1,0 +1,42 @@
+{
+  "title": "Media, error control and compression",
+  "subtitle": "The wires and waves that carry bits, and the arithmetic that notices, fixes and shrinks them.",
+  "sections": {
+    "guided": {
+      "title": "Guided media",
+      "body": "<p><em class=\"term\">Twisted pair</em> (UTP/STP): two insulated wires twisted to cancel interference — cheap, the LAN workhorse (Cat 5e/6, up to 100 m). <em class=\"term\">Coaxial</em>: a centre conductor inside a shield — higher bandwidth, cable TV. <em class=\"term\">Optical fibre</em>: light in a glass core by total internal reflection — enormous bandwidth, low loss, immune to electrical noise; single-mode for long haul, multimode for short runs.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "unguided": {
+      "title": "Wireless media",
+      "body": "<p>Radio waves (omnidirectional, pass walls), microwaves (line-of-sight, dish to dish, satellites), infrared (short range, blocked by walls). Propagation modes: <em class=\"term\">ground wave</em> (low frequencies follow the earth), <em class=\"term\">sky wave</em> (HF reflects off the ionosphere — long distance), <em class=\"term\">line of sight</em> (VHF and above, limited by the horizon). Higher frequencies carry more data but travel less far.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "errors": {
+      "title": "Error detection: parity, checksum, CRC",
+      "body": "<p>Noise flips bits. A single <em class=\"term\">parity</em> bit detects any odd number of errors. A <em class=\"term\">checksum</em> sums the data words and sends the complement. The <em class=\"term\">CRC</em> divides by a generator polynomial with XOR and sends the remainder: for data 1101011011 and generator 10011 the CRC is <b>1110</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ham": {
+      "title": "Error correction: Hamming code",
+      "body": "<p>Extra parity bits at positions 1, 2, 4, 8… let the receiver locate a single error: the failed checks, read as binary, name the position. 1011 encodes as <b>0110011</b>; flip bit 5 and the syndrome is <b>5</b>. The minimum Hamming distance d of a code decides its power: it detects d−1 errors and corrects ⌊(d−1)/2⌋.</p>",
+      "after": "",
+      "steps": "A code has minimum distance 5. It detects d − 1 = 4 errors and corrects ⌊4/2⌋ = 2."
+    },
+    "comp": {
+      "title": "Data compression",
+      "body": "<p><em class=\"term\">Lossless</em> compression removes redundancy and reproduces the data exactly (ZIP, PNG): run-length coding, Huffman and Lempel–Ziv. <em class=\"term\">Lossy</em> compression discards what perception will not miss (JPEG, MP3): much higher ratios. Huffman gives frequent symbols short codes: aaaabbc needs <b>10</b> bits instead of 56.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Twisted pair → coax → fibre: more bandwidth, more cost.</li><li>CRC detects; Hamming corrects one error; distance d detects d−1, corrects ⌊(d−1)/2⌋.</li><li>Lossless keeps every bit; lossy trades fidelity for size.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

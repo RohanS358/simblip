@@ -1,0 +1,42 @@
+{
+  "title": "Multiplexing, spread spectrum and switching",
+  "subtitle": "How many conversations share one wire, and how a call finds its way across a network.",
+  "sections": {
+    "fdm": {
+      "title": "Frequency-division and time-division multiplexing",
+      "body": "<p><em class=\"term\">Multiplexing</em> combines many signals onto one medium. <em class=\"term\">FDM</em> gives each signal its own frequency band (radio stations, cable TV) with guard bands between them. <em class=\"term\">TDM</em> gives each signal the whole channel for a short time slot in rotation: synchronous TDM wastes slots when a source is idle; statistical TDM allocates slots on demand. <em class=\"term\">WDM</em> is FDM for light: each colour carries a channel on one fibre.</p>",
+      "after": "",
+      "steps": "A T1 line multiplexes 24 voice channels, each 64 kb/s, plus 8 kb/s framing. 24 × 64 = 1536 kb/s; add 8 kb/s framing."
+    },
+    "dsl": {
+      "title": "ADSL and xDSL",
+      "body": "<p><em class=\"term\">ADSL</em> uses the copper pair in three frequency bands: voice (0–4 kHz), upstream and a much wider downstream band — asymmetric because home users download more than they upload. It uses discrete multitone: the band is split into 4 kHz sub-channels, each modulated with as many bits as its own signal-to-noise ratio allows. Speed falls with distance from the exchange.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ss": {
+      "title": "Spread spectrum and CDMA",
+      "body": "<p><em class=\"term\">Spread spectrum</em> deliberately uses far more bandwidth than needed: <em class=\"term\">FHSS</em> hops the carrier among frequencies in a pseudo-random sequence; <em class=\"term\">DSSS</em> multiplies each bit by a fast chipping code. In <em class=\"term\">CDMA</em> every user has a different orthogonal code and all transmit at once on the same band; the receiver recovers one user by correlating with that user’s code — the others average to zero.</p>",
+      "after": "",
+      "steps": "Two users with orthogonal codes c₁ = (+1 +1 +1 +1) and c₂ = (+1 −1 +1 −1). User 1 sends bit +1, user 2 sends bit −1. The channel carries the sum: c₁ − c₂ = (0, 2, 0, 2). Receiver for user 1 correlates with c₁ and divides by 4. For user 2: correlate with c₂ = (0·1 + 2·(−1) + 0·1 + 2·(−1))/4 = −1 ✓."
+    },
+    "sw": {
+      "title": "Circuit, message and packet switching",
+      "body": "<p><em class=\"term\">Circuit switching</em> reserves a path for the whole call (telephone): guaranteed rate, set-up delay, idle capacity wasted. <em class=\"term\">Message switching</em> stores and forwards whole messages. <em class=\"term\">Packet switching</em> cuts data into packets routed separately: efficient for bursty traffic, variable delay. Two flavours: <em class=\"term\">datagram</em> (each packet routed independently, may arrive out of order) and <em class=\"term\">virtual circuit</em> (a path is set up first; packets follow it in order).</p>",
+      "after": "",
+      "steps": "Send a 1.5 MB file over 4 hops of 1 Mb/s each, propagation ignored. Packet size 1500 B, 1000 packets. Store-and-forward message switching: each hop retransmits the whole file: 4 × 12 s = 48 s. Packet switching pipelines: first hop takes 12 s, then the last packet needs 3 more hop-times of 12 ms: ≈ 12.04 s."
+    },
+    "dev": {
+      "title": "Switching devices",
+      "body": "<p>A crossbar switch connects any input to any output with n² crosspoints; multistage (Banyan/Clos) networks use fewer small switches at the price of possible blocking. A packet switch adds buffers to hold packets contending for the same output.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>FDM splits frequency, TDM splits time, WDM splits colour, CDMA splits by code.</li><li>Circuit switching reserves; packet switching shares.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

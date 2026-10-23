@@ -1,0 +1,52 @@
+{
+  "subtitle": "Reusing the same radio frequencies in neighbouring cells is what makes mobile phones scale.",
+  "sections": {
+    "cell": {
+      "body": "<p>Radio spectrum is scarce, like parking in a busy city. If every call needed its own frequency across the whole city, we would run out in minutes. The cellular idea is brilliantly simple: instead of one powerful transmitter for a city, divide the area into <em class='term'>cells</em>, each with a low-power base station. Cells far enough apart can reuse the same frequencies, like two shops in different towns using the same phone number prefix.</p><p>A <em class='term'>cluster</em> of <i>N</i> cells uses all the available channels once; with N cells per cluster each cell gets 1/N of the total. Hexagons are the usual picture because they tile the plane, as in the figure, where neighbouring cells use different frequency sets. Do the sum: 120 channels and a cluster size N = 4 gives each cell 120 / 4 = 30 channels, and a city of 100 cells then supports 100 × 30 = 3000 simultaneous calls instead of 120. A smaller cluster size N gives more channels per cell.</p>",
+      "keynotes": [
+        "The cellular idea divides the area into cells, each with a low-power base station, so far-apart cells can reuse the same frequencies.",
+        "A cluster of N cells uses all the channels once; each cell gets 1/N of the total.",
+        "With 120 channels and N = 4, each cell gets 30 channels, and a 100-cell city supports 3000 simultaneous calls instead of 120."
+      ]
+    },
+    "interf": {
+      "body": "<p>Reuse has a price: interference. <em class='term'>Co-channel interference</em> comes from cells reusing your frequency; <em class='term'>adjacent-channel interference</em> comes from neighbouring frequencies. Both limit how closely you can pack the cells.</p><p>And what happens when you drive from one cell to another during a call? The network performs a <em class='term'>handoff</em> to the next cell without dropping the call: the signal strength from the old station falls below a threshold while the new one rises. Hard handoff breaks before making; soft handoff (CDMA) connects to both for a moment. The network, not the phone, decides, as the figure says.</p>",
+      "keynotes": [
+        "Co-channel interference comes from cells reusing the frequency; adjacent-channel interference comes from neighbouring frequencies.",
+        "A handoff moves a call to the next cell when the old station’s signal falls below a threshold while the new one rises.",
+        "Hard handoff breaks before making; soft handoff (CDMA) connects to both for a moment."
+      ]
+    },
+    "gens": {
+      "body": "<p>Your grandparents’ phones and yours are separated by five generations. 1G: analog voice (AMPS). 2G: digital voice and SMS (GSM, TDMA; GPRS brought packet data). 3G: CDMA-based, mobile internet (UMTS). 4G (LTE): all-IP, OFDMA, tens to hundreds of Mb/s. 5G: higher speeds, very low latency (~1 ms), massive device counts, using sub-6 GHz and millimetre-wave bands and network slicing.</p><p>Inside a GSM network you will find a chain from phone to core: the mobile station, the base transceiver station, the base station controller, and the mobile switching centre with its home and visitor registers. So which generation first used digital voice? 2G.</p>",
+      "keynotes": [
+        "1G was analog voice (AMPS); 2G was digital voice and SMS (GSM, TDMA; GPRS brought packet data); 3G was CDMA-based mobile internet (UMTS).",
+        "4G (LTE) is all-IP with OFDMA; 5G has very low latency (~1 ms), massive device counts, sub-6 GHz and millimetre-wave bands and network slicing.",
+        "GSM chain: mobile station, base transceiver station, base station controller, mobile switching centre with home and visitor registers."
+      ]
+    },
+    "five": {
+      "body": "<p>What is 5G really for? Not just faster videos, as you might assume. Its three use cases tell the story: enhanced mobile broadband, ultra-reliable low-latency communication (remote surgery, vehicles) and massive machine-type communication (IoT sensors). Self-driving vehicles belong to the ultra-reliable low-latency one.</p><p>Underneath, software-defined networking and network function virtualisation run core functions as software in the cloud, and edge computing puts processing near the user to cut latency. The network is turning into software.</p>",
+      "keynotes": [
+        "5G’s three use cases are enhanced mobile broadband, ultra-reliable low-latency communication (remote surgery, vehicles) and massive machine-type communication (IoT sensors).",
+        "Software-defined networking and network function virtualisation run core functions as software in the cloud.",
+        "Edge computing puts processing near the user to cut latency."
+      ]
+    },
+    "prac": {
+      "body": "<p>Let’s finish with a formula you can use. The reuse distance D relates to cell radius R and cluster size N by D = R√(3N). For N = 7 and R = 2 km, D = 2√21 ≈ 9.2 km. So if you increase the cluster size N, the reuse distance grows, and interference falls, but each cell gets fewer channels. There is always a trade-off.</p>",
+      "keynotes": [
+        "The reuse distance is D = R√(3N).",
+        "For N = 7 and R = 2 km, D = 2√21 ≈ 9.2 km.",
+        "A larger cluster size N means a larger reuse distance."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two ideas to leave with.</p><ul><li>Reuse frequencies across clusters; handoff keeps calls alive.</li><li>Generations: analog → digital → CDMA → all-IP → low latency + massive IoT.</li></ul>",
+      "keynotes": [
+        "Frequencies are reused across clusters, and handoff keeps calls alive.",
+        "Generations run analog, digital, CDMA, all-IP, then low latency plus massive IoT."
+      ]
+    }
+  }
+}

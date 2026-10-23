@@ -1,0 +1,42 @@
+{
+  "title": "Encoding, sampling and modulation",
+  "subtitle": "The four ways of turning information into signals — every combination of analog/digital data and signal.",
+  "sections": {
+    "dd": {
+      "title": "Digital data, digital signal: line codes",
+      "body": "<p><em class=\"term\">NRZ-L</em> ties the level to the bit; <em class=\"term\">NRZ-I</em> flips level on a 1 (a transition is easier to detect than an absolute level). <em class=\"term\">RZ</em> returns to zero mid-bit. <em class=\"term\">Manchester</em> puts a transition in every bit (low→high = 1) and <em class=\"term\">differential Manchester</em> codes a bit by whether there is a transition at its start. <em class=\"term\">Bipolar AMI</em> alternates the polarity of 1s, so there is no DC component; its weakness is long runs of 0s, cured by scrambling: <em class=\"term\">B8ZS</em> replaces eight 0s with 000+−0−+, and <em class=\"term\">HDB3</em> replaces four 0s with 000V or B00V. The bits 10110 give AMI <b>+0-+0</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ad": {
+      "title": "Analog data, digital signal: PCM, DM",
+      "body": "<p><em class=\"term\">PCM</em>: sample at 8 kHz, quantise to 8 bits → 64 kb/s for one voice channel. <em class=\"term\">DPCM</em> sends the difference from a prediction; <em class=\"term\">delta modulation</em> sends one bit per sample: “up” or “down”. Non-uniform quantisation (companding) gives quiet sounds finer steps.</p>",
+      "after": "",
+      "steps": "Voice limited to 4 kHz is sampled at 2 × 4000 = 8000 samples/s. With 8 bits per sample."
+    },
+    "da": {
+      "title": "Digital data, analog signal: ASK, FSK, PSK, QAM",
+      "body": "<p>A carrier sin(2πf<sub>c</sub>t) can carry bits by changing its amplitude (<em class=\"term\">ASK</em>), frequency (<em class=\"term\">FSK</em>) or phase (<em class=\"term\">PSK</em>). <em class=\"term\">QPSK</em> uses four phases so each symbol carries 2 bits; <em class=\"term\">QAM</em> varies amplitude and phase together (16-QAM = 4 bits/symbol). Bit rate = baud rate × bits per symbol.</p>",
+      "after": "",
+      "steps": "A link runs at 2400 baud using 16-QAM. 16 states = 4 bits per symbol. Bit rate = 2400 × 4."
+    },
+    "aa": {
+      "title": "Analog data, analog signal: AM, FM, PM",
+      "body": "<p>Modulation shifts a low-frequency message up to a frequency that antennas and channels handle well, and lets many stations share the air. <em class=\"term\">AM</em>: the carrier amplitude follows the message (bandwidth 2B, simple, noise-prone). <em class=\"term\">FM</em>: the carrier frequency follows it (wider bandwidth, much better noise resistance). <em class=\"term\">PM</em>: the phase follows it. Carson’s rule: FM bandwidth ≈ 2(Δf + B).</p>",
+      "after": "",
+      "steps": "Commercial FM: peak deviation 75 kHz, audio bandwidth 15 kHz. Carson’s rule."
+    },
+    "why": {
+      "title": "Why modulate at all",
+      "body": "<p>An antenna must be a sizeable fraction of a wavelength: for a 3 kHz audio tone (λ = 100 km) that is impractical, but a 100 MHz carrier (λ = 3 m) needs an antenna of about a metre. Modulation also enables frequency-division sharing of a channel.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Line codes: NRZ, Manchester, AMI (+B8ZS/HDB3 scrambling).</li><li>PCM: 8 kHz × 8 bits = 64 kb/s.</li><li>ASK/FSK/PSK/QAM carry bits; AM/FM/PM carry analog messages.</li><li>Bit rate = baud × bits per symbol.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

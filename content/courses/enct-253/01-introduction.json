@@ -1,14 +1,14 @@
 {
   "title": "The communication model",
   "kicker": "ENCT 253 · Data Communication · Chapter 1",
-  "subtitle": "Every link, from a USB cable to a satellite, is the same five boxes.",
+  "subtitle": "Every link, from a USB cable to a satellite, is the same five boxes. Once you can see them, you can see every network.",
   "sections": [
     {
       "id": "model",
       "locator": "1.1",
       "title": "Source, transmitter, medium, receiver, destination",
       "eyebrow": "The model",
-      "body": "<p>A <em class=\"term\">source</em> produces information; a <em class=\"term\">transmitter</em> converts it into a signal suited to the <em class=\"term\">transmission medium</em>; the medium carries it (and corrupts it with <em class=\"term\">noise</em>); a <em class=\"term\">receiver</em> recovers the information and hands it to the <em class=\"term\">destination</em>. A telephone call, a Wi-Fi download and a radio broadcast fit this chain exactly.</p>",
+      "body": "<p>Think of shouting a message across a noisy marketplace to a friend. You have a thought, you turn it into sound, the air carries it (while the crowd garbles it), your friend’s ear picks it up, and your friend understands. Five steps, and every communication system on earth works the same way.</p><p>A <em class=\"term\">source</em> produces information. A <em class=\"term\">transmitter</em> converts it into a signal suited to the <em class=\"term\">transmission medium</em>. The medium carries it (and corrupts it with <em class=\"term\">noise</em>). A <em class=\"term\">receiver</em> recovers the information and hands it to the <em class=\"term\">destination</em>. A telephone call, a Wi-Fi download and a radio broadcast fit this chain exactly. Press Simulate and watch the message become a signal and back. Where does the noise creep in? In the medium, between transmitter and receiver.</p>",
       "questions": [
         {
           "id": "noise",
@@ -48,6 +48,11 @@
           "note": "Press Simulate: the message becomes a signal and back.",
           "script": "diagram(\"direction: right\\n(Source: voice, bits) as s\\n[Transmitter: encode / modulate] as t #blue\\n[Medium: copper, fibre, air] as m #amber\\n[Receiver: demodulate / decode] as r #blue\\n(Destination) as d\\n[Noise] as n #rose\\ns -> t\\nt -> m : signal\\nm -> r : signal + noise\\nr -> d\\nn --> m\\n@0 s -> t : message\\n@1 t -> m : signal\\n@2 m -> r : noisy signal\\n@3 r -> d : message\\nloop 5\");"
         }
+      ],
+      "keynotes": [
+        "The model has a source, transmitter, transmission medium, receiver and destination.",
+        "The medium carries the signal and corrupts it with noise.",
+        "A telephone call, a Wi-Fi download and a radio broadcast all fit this chain."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "1.2",
       "title": "Data flow and network types",
       "eyebrow": "Directions",
-      "body": "<p><em class=\"term\">Simplex</em>: one direction only (broadcast TV). <em class=\"term\">Half duplex</em>: both directions, one at a time (walkie-talkie). <em class=\"term\">Full duplex</em>: both at once (telephone, modern Ethernet). A <em class=\"term\">LAN</em> spans a building, a <em class=\"term\">WAN</em> a country; the OSI model organises the protocols in seven layers (see the Computer Networks course).</p>",
+      "body": "<p>Who gets to talk, and when? <em class=\"term\">Simplex</em> is one direction only, like broadcast TV. <em class=\"term\">Half duplex</em> is both directions, but one at a time, like a walkie-talkie where you must say “over”. <em class=\"term\">Full duplex</em> is both at once, like a telephone or modern Ethernet.</p><p>Networks also come in sizes: a <em class=\"term\">LAN</em> spans a building, a <em class=\"term\">WAN</em> a country. And the OSI model organises the protocols in seven layers (see the Computer Networks course). So what is a walkie-talkie? Half duplex, because you take turns.</p>",
       "questions": [
         {
           "id": "duplex",
@@ -87,6 +92,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Simplex is one direction only (broadcast TV), half duplex is both directions one at a time (walkie-talkie) and full duplex is both at once (telephone, modern Ethernet).",
+        "A LAN spans a building and a WAN a country.",
+        "The OSI model organises the protocols in seven layers."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "1.3",
       "title": "Analog and digital",
       "eyebrow": "Two kinds of data and signal",
-      "body": "<p><em class=\"term\">Analog</em> data (voice, temperature) varies continuously; <em class=\"term\">digital</em> data is a set of discrete values. Either can travel as an analog signal (telephone line, radio) or a digital one (voltage pulses). Digital signals can be <em>regenerated</em> at repeaters, removing accumulated noise; analog signals can only be amplified, noise included — the core advantage of digital transmission.</p>",
+      "body": "<p>Your voice rises and falls smoothly; a text message is a string of separate symbols. That is the difference between <em class=\"term\">analog</em> data (voice, temperature), which varies continuously, and <em class=\"term\">digital</em> data, a set of discrete values. And either can travel as an analog signal (telephone line, radio) or a digital one (voltage pulses), so all four combinations exist.</p><p>Here is the big advantage of going digital. Digital signals can be <em>regenerated</em> at repeaters, removing accumulated noise, while analog signals can only be amplified, noise included. Think of photocopying a photocopy versus re-typing a document: the typed one stays clean. Why can digital be regenerated? Because the receiver only has to decide between a few levels, and it can rebuild them perfectly.</p>",
       "questions": [
         {
           "id": "regen",
@@ -141,6 +151,11 @@
           "prompt": "<p>Give an example of (a) digital data over an analog signal, and (b) analog data over a digital signal.</p>",
           "answer": "(a) A modem or Wi-Fi sending bits by modulating a carrier. (b) A digital phone call: voice is sampled and encoded by PCM."
         }
+      ],
+      "keynotes": [
+        "Analog data varies continuously (voice, temperature); digital data is a set of discrete values.",
+        "Either can travel as an analog signal (telephone line, radio) or a digital one (voltage pulses).",
+        "Digital signals can be regenerated at repeaters, removing accumulated noise; analog signals can only be amplified, noise included."
       ]
     },
     {
@@ -148,7 +163,7 @@
       "locator": "1.4",
       "title": "Performance measures",
       "eyebrow": "Numbers",
-      "body": "<p><em class=\"term\">Bandwidth</em>: range of frequencies (Hz) — or, loosely, the bit rate a link supports. <em class=\"term\">Throughput</em>: bits actually delivered per second. <em class=\"term\">Latency</em>: time for a bit to arrive = propagation + transmission + queueing. <em class=\"term\">Jitter</em>: variation in latency (bad for voice). Bandwidth–delay product = capacity × delay = bits in flight.</p>",
+      "body": "<p>How good is a link? You can answer with four numbers tell the story. <em class=\"term\">Bandwidth</em>: the range of frequencies (Hz), or loosely the bit rate a link supports. <em class=\"term\">Throughput</em>: bits actually delivered per second. <em class=\"term\">Latency</em>: the time for a bit to arrive, which is propagation + transmission + queueing. <em class=\"term\">Jitter</em>: variation in latency, which is bad for voice. And the bandwidth–delay product = capacity × delay = bits in flight.</p><p>Do an example with me. A 10 Mb/s link, 2000 km of fibre (propagation 2×10⁸ m/s), sending a 1000-byte packet. Transmission time = 8000 bits / 10⁷ = 0.8 ms. Propagation = 2×10⁶ m / 2×10⁸ = 10 ms. The bandwidth–delay product = 10⁷ × 0.01 s = 10⁵ bits in flight. Notice which delay grew with the distance? Propagation, of course; the pipe is long, not slow.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -197,6 +212,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Bandwidth is the range of frequencies; throughput is bits actually delivered per second; latency is propagation + transmission + queueing; jitter is variation in latency.",
+        "Bandwidth–delay product = capacity × delay = bits in flight.",
+        "A 10 Mb/s link over 2000 km with a 1000-byte packet has transmission 0.8 ms, propagation 10 ms and 10⁵ bits in flight."
       ]
     },
     {
@@ -204,14 +224,19 @@
       "locator": "1.5",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Source → transmitter → medium (+noise) → receiver → destination.</li><li>Digital signals can be regenerated; analog can only be amplified.</li><li>Delay = transmission + propagation (+queueing).</li></ul>"
+      "body": "<p>One glance back before the next chapter.</p><ul><li>Source → transmitter → medium (+noise) → receiver → destination.</li><li>Digital signals can be regenerated; analog can only be amplified.</li><li>Delay = transmission + propagation (+queueing).</li></ul>",
+      "keynotes": [
+        "The chain is source, transmitter, medium (plus noise), receiver, destination.",
+        "Digital signals can be regenerated, analog can only be amplified.",
+        "Delay is transmission plus propagation (plus queueing)."
+      ]
     },
     {
       "id": "extra",
       "locator": "1.6",
       "title": "The enterprise view",
       "eyebrow": "Where it is used",
-      "body": "<p>Today’s enterprise network links branch LANs over WAN services, carries voice and video alongside data (which is why jitter matters), and depends on cloud and mobile access. The protocols and encodings in the following chapters are the machinery beneath all of it.</p>",
+      "body": "<p>Where does all this show up in real life? In every office you have walked into. Today’s enterprise network links branch LANs over WAN services, carries voice and video alongside data (which is why jitter matters), and depends on cloud and mobile access. The protocols and encodings in the following chapters are the machinery beneath all of it.</p><p>So which measure matters most for a live voice call? Jitter, because a voice stream that arrives unevenly sounds broken even if the average speed is high.</p>",
       "questions": [
         {
           "id": "voip",
@@ -243,6 +268,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Enterprise networks link branch LANs over WAN services and carry voice and video alongside data.",
+        "Jitter matters for live voice because uneven arrival breaks the audio.",
+        "Cloud and mobile access depend on the protocols and encodings in the following chapters."
       ]
     }
   ]

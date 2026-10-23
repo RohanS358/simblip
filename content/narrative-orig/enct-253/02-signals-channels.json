@@ -1,0 +1,42 @@
+{
+  "title": "Signals, bandwidth and channel capacity",
+  "subtitle": "Any signal is a sum of sine waves. How many you need is its bandwidth — and bandwidth plus noise sets the speed limit.",
+  "sections": {
+    "sine": {
+      "title": "Sine waves and the frequency domain",
+      "body": "<p>A periodic signal has a <em class=\"term\">period</em> <i>T</i> and <em class=\"term\">frequency</em> <i>f</i> = 1/<i>T</i>. A sine wave A sin(2πft + φ) is described by amplitude, frequency and phase. The <em class=\"term\">time domain</em> shows amplitude against time; the <em class=\"term\">frequency domain</em> shows how much of each frequency is present.</p>",
+      "after": "",
+      "steps": "A signal repeats every 20 ms. Its frequency."
+    },
+    "fourier": {
+      "title": "Fourier series",
+      "body": "<p>Fourier showed that any periodic signal is a sum of sine waves at multiples (harmonics) of its fundamental frequency. A square wave is sin x + ⅓ sin 3x + ⅕ sin 5x + … (odd harmonics only). Add more harmonics and the edges get sharper — but a ripple at each jump never disappears (the Gibbs phenomenon). The RMS error falls from <b>0.315</b> with 3 harmonics to <b>0.1</b> with 49.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "bw": {
+      "title": "Bandwidth",
+      "body": "<p>The <em class=\"term\">bandwidth</em> of a signal is the range of frequencies it occupies. A channel passes only a band; sharp-edged signals need many harmonics, so a narrow channel rounds them off. To send a square wave reasonably you need at least the 3rd–5th harmonic: for a 1 kHz square wave, about 5 kHz.</p>",
+      "after": "",
+      "steps": "Send a 2 kHz square wave through a channel that passes 0–8 kHz. Which harmonics get through? Odd harmonics up to 8 kHz: 2, 6 kHz (3rd). 10 kHz (5th) is cut off."
+    },
+    "nyq": {
+      "title": "Nyquist and Shannon capacity",
+      "body": "<p><em class=\"term\">Nyquist</em> (noiseless): max bit rate = 2B log₂ M for bandwidth B and M signal levels. <em class=\"term\">Shannon</em> (noisy): capacity C = B log₂(1 + SNR), with SNR as a ratio (dB = 10 log₁₀ ratio). Nyquist says more levels give more bits; Shannon says noise puts a ceiling on how many levels you can tell apart, however clever the coding.</p>",
+      "after": "",
+      "steps": "A 3 kHz telephone channel, SNR 30 dB. 30 dB is a ratio of 10³ = 1000. Shannon capacity. Levels needed under Nyquist to reach that (2B log₂M = 6000 log₂M): log₂ M ≈ 4.98 → M ≈ 32."
+    },
+    "sample": {
+      "title": "Sampling: the Nyquist rate",
+      "body": "<p>To digitise an analog signal, sample it at least twice per cycle of its highest frequency (fs ≥ 2 fmax), otherwise higher frequencies masquerade as lower ones — <em class=\"term\">aliasing</em>. A 1 Hz tone sampled at 8 Hz is comfortable (Nyquist ok: <b>yes</b>); a 5 Hz tone at 8 Hz is not (<b>no</b>). Each sample is then quantised to one of 2ⁿ levels: rate = fs·n (here 24 b/s) and SNR ≈ 6.02n + 1.76 dB (<b>19.82</b> dB for 3 bits).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "perf": {
+      "title": "Impairments",
+      "body": "<p>Three impairments: <em class=\"term\">attenuation</em> (signal weakens with distance, measured in dB), <em class=\"term\">distortion</em> (different frequencies travel at different speeds, smearing the pulses), and <em class=\"term\">noise</em> (thermal, crosstalk, impulse). Decibels add: a 3 dB loss halves the power; 10 dB is a factor 10.</p>",
+      "after": "",
+      "steps": "A cable loses 2 dB/km over 15 km. Power ratio = 10^(−30/10) = 0.001: one thousandth arrives, so amplifiers are needed."
+    }
+  }
+}

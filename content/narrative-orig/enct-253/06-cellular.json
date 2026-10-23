@@ -1,0 +1,42 @@
+{
+  "title": "Cellular systems and 5G",
+  "subtitle": "Reusing the same radio frequencies in neighbouring cells is what makes mobile phones scale.",
+  "sections": {
+    "cell": {
+      "title": "The cellular idea",
+      "body": "<p>Radio spectrum is scarce. Instead of one powerful transmitter for a city, divide the area into <em class=\"term\">cells</em>, each with a low-power base station. Cells far enough apart can reuse the same frequencies. A <em class=\"term\">cluster</em> of <i>N</i> cells uses all the available channels once; with N cells per cluster each cell gets 1/N of the total. Hexagons are the usual picture because they tile the plane.</p>",
+      "after": "",
+      "steps": "A system has 120 channels and a cluster size N = 4. Each cell gets 120 / 4 = 30 channels; a city of 100 cells then supports 3000 simultaneous calls instead of 120."
+    },
+    "interf": {
+      "title": "Interference and handoff",
+      "body": "<p><em class=\"term\">Co-channel interference</em> comes from cells reusing your frequency; <em class=\"term\">adjacent-channel interference</em> from neighbouring frequencies. As a moving phone leaves a cell the network performs a <em class=\"term\">handoff</em> to the next cell without dropping the call: the signal strength from the old station falls below a threshold while the new one rises. Hard handoff breaks before making; soft handoff (CDMA) connects to both for a moment.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "gens": {
+      "title": "From 1G to 5G",
+      "body": "<p>1G: analog voice (AMPS). 2G: digital voice and SMS (GSM, TDMA; GPRS brought packet data). 3G: CDMA-based, mobile internet (UMTS). 4G (LTE): all-IP, OFDMA, tens to hundreds of Mb/s. 5G: higher speeds, very low latency (~1 ms), massive device counts, using sub-6 GHz and millimetre-wave bands and network slicing. GSM architecture: mobile station, base transceiver station, base station controller, mobile switching centre with home/visitor registers.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "five": {
+      "title": "5G, SDN, IoT and the cloud",
+      "body": "<p>5G’s three use cases: enhanced mobile broadband, ultra-reliable low-latency communication (remote surgery, vehicles) and massive machine-type communication (IoT sensors). Software-defined networking and network function virtualisation run core functions as software in the cloud; edge computing puts processing near the user to cut latency.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "prac": {
+      "title": "Numericals",
+      "body": "",
+      "after": "",
+      "steps": "The reuse distance D relates to cell radius R and cluster size N by D = R√(3N). For N = 7 and R = 2 km."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Reuse frequencies across clusters; handoff keeps calls alive.</li><li>Generations: analog → digital → CDMA → all-IP → low latency + massive IoT.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

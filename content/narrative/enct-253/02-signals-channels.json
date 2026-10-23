@@ -1,0 +1,53 @@
+{
+  "subtitle": "Any signal is a sum of sine waves. How many you need is its bandwidth, and bandwidth plus noise sets the speed limit.",
+  "sections": {
+    "sine": {
+      "body": "<p>Start with the simplest wiggle in nature: a pendulum swinging back and forth. A periodic signal has a <em class='term'>period</em> <i>T</i>, the time of one swing, and a <em class='term'>frequency</em> <i>f</i> = 1/<i>T</i>, the swings per second. A sine wave A sin(2πft + φ) is described by exactly three things: amplitude, frequency and phase.</p><p>There are two ways to look at a signal. The <em class='term'>time domain</em> shows amplitude against time; the <em class='term'>frequency domain</em> shows how much of each frequency is present. Do one: a signal repeats every 20 ms, so T = 20 ms and f = 1/T = 50 Hz. A sine wave with a period of 4 ms has f = 250 Hz. Try it yourself.</p>",
+      "keynotes": [
+        "A periodic signal has period T and frequency f = 1/T; a sine wave A sin(2πft + φ) has amplitude, frequency and phase.",
+        "The time domain shows amplitude against time; the frequency domain shows how much of each frequency is present.",
+        "A signal repeating every 20 ms has f = 1/T = 50 Hz."
+      ]
+    },
+    "fourier": {
+      "body": "<p>Here is one of the most beautiful ideas in engineering. Fourier showed that <i>any</i> periodic signal is a sum of sine waves at multiples (harmonics) of its fundamental frequency. Even a sharp-cornered square wave is built from smooth sines: sin x + ⅓ sin 3x + ⅕ sin 5x + … (odd harmonics only).</p><p>Step through the figure and watch the edges sharpen as you add harmonics. The RMS error falls from <b>0.315</b> with 3 harmonics to <b>0.1</b> with 49. Yet notice a stubborn ripple at each jump that never disappears: the Gibbs phenomenon. So which harmonics does a square wave contain? Only the odd ones.</p>",
+      "keynotes": [
+        "Any periodic signal is a sum of sine waves at multiples (harmonics) of its fundamental frequency.",
+        "A square wave is sin x + ⅓ sin 3x + ⅕ sin 5x + … (odd harmonics only).",
+        "The RMS error falls from 0.315 with 3 harmonics to 0.1 with 49, but a ripple at each jump never disappears (the Gibbs phenomenon)."
+      ]
+    },
+    "bw": {
+      "body": "<p>If a signal is a bundle of sine waves, how wide is the bundle? The <em class='term'>bandwidth</em> of a signal is the range of frequencies it occupies. A channel passes only a band, so sharp-edged signals, which need many harmonics, get their corners rounded off by a narrow channel.</p><p>To send a square wave reasonably you need at least the 3rd–5th harmonic: for a 1 kHz square wave, about 5 kHz. Test a case: a 2 kHz square wave through a channel that passes 0–8 kHz. Which harmonics get through? Odd harmonics up to 8 kHz: 2 and 6 kHz (the 3rd). The 10 kHz (5th) is cut off. A narrow channel loses the high harmonics that make the corners, so the square wave is rounded.</p>",
+      "keynotes": [
+        "The bandwidth of a signal is the range of frequencies it occupies.",
+        "Sharp-edged signals need many harmonics, so a narrow channel rounds them off; a 1 kHz square wave needs about 5 kHz.",
+        "A 2 kHz square wave through a 0–8 kHz channel passes 2 and 6 kHz and loses the 10 kHz harmonic."
+      ]
+    },
+    "nyq": {
+      "body": "<p>Is there a speed limit for a wire? Yes, two of them, from two clever people. <em class='term'>Nyquist</em> (noiseless): max bit rate = 2B log₂ M for bandwidth B and M signal levels. <em class='term'>Shannon</em> (noisy): capacity C = B log₂(1 + SNR), with SNR as a ratio (dB = 10 log₁₀ ratio). Nyquist says more levels give more bits; Shannon says noise puts a ceiling on how many levels you can tell apart, however clever the coding.</p><p>Let’s use them on a 3 kHz telephone channel with SNR 30 dB. 30 dB is a ratio of 10³ = 1000, so Shannon gives C = 3000 log₂(1001) ≈ 29 900 b/s. How many levels would Nyquist need to reach that? 2B log₂M = 6000 log₂M, so log₂ M ≈ 4.98 and M ≈ 32. If you double the bandwidth while the SNR stays fixed, the capacity doubles too.</p>",
+      "keynotes": [
+        "Nyquist (noiseless): maximum bit rate = 2B log₂ M for bandwidth B and M signal levels.",
+        "Shannon (noisy): capacity C = B log₂(1 + SNR), with dB = 10 log₁₀ ratio; noise puts a ceiling on distinguishable levels.",
+        "A 3 kHz channel at 30 dB (ratio 1000) has capacity of about 29 900 b/s, which Nyquist reaches with about 32 levels."
+      ]
+    },
+    "sample": {
+      "body": "<p>To put a voice into a computer you must turn the smooth wave into numbers by sampling it, taking snapshots. How fast? At least twice per cycle of its highest frequency (fs ≥ 2 fmax). Take fewer and something sneaky happens: higher frequencies masquerade as lower ones, like wagon wheels that seem to spin backwards in old films. That is <em class='term'>aliasing</em>.</p><p>A 1 Hz tone sampled at 8 Hz is comfortable (Nyquist ok: <b>yes</b>); a 5 Hz tone at 8 Hz is not (<b>no</b>). Each sample is then quantised to one of 2ⁿ levels, so the bit rate = fs·n (here 24 b/s) and SNR ≈ 6.02n + 1.76 dB, which is <b>19.82</b> dB for 3 bits. In the figures, blue dots are samples and green are the quantised values, and the under-sampled tone is misread as a slower one. Sampling a 5 kHz tone at 8 kHz causes aliasing.</p>",
+      "keynotes": [
+        "Sample at least twice per cycle of the highest frequency (fs ≥ 2 fmax), otherwise aliasing makes high frequencies look low.",
+        "A 1 Hz tone sampled at 8 Hz is fine; a 5 Hz tone at 8 Hz is not.",
+        "Each sample is quantised to one of 2ⁿ levels: rate = fs·n (24 b/s) and SNR ≈ 6.02n + 1.76 dB, which is 19.82 dB for 3 bits."
+      ]
+    },
+    "perf": {
+      "body": "<p>Signals never arrive as they left, as you will soon see. Three villains spoil them. <em class='term'>Attenuation</em>: the signal weakens with distance, measured in dB. <em class='term'>Distortion</em>: different frequencies travel at different speeds, smearing the pulses. And <em class='term'>noise</em>: thermal, crosstalk, impulse.</p><p>Decibels have a handy rule: they add. A 3 dB loss halves the power, and 10 dB is a factor 10. A cable loses 2 dB/km over 15 km, so 2 × 15 = 30 dB. The power ratio = 10^(−30/10) = 0.001, so only one thousandth arrives, which is why amplifiers are needed. A −3 dB change in power means the power is halved.</p>",
+      "keynotes": [
+        "Three impairments: attenuation (weakening, in dB), distortion (frequencies travel at different speeds) and noise (thermal, crosstalk, impulse).",
+        "Decibels add: a 3 dB loss halves the power and 10 dB is a factor 10.",
+        "A cable losing 2 dB/km over 15 km loses 30 dB, so only one thousandth of the power arrives."
+      ]
+    }
+  }
+}

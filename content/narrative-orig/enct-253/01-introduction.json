@@ -1,0 +1,42 @@
+{
+  "title": "The communication model",
+  "subtitle": "Every link, from a USB cable to a satellite, is the same five boxes.",
+  "sections": {
+    "model": {
+      "title": "Source, transmitter, medium, receiver, destination",
+      "body": "<p>A <em class=\"term\">source</em> produces information; a <em class=\"term\">transmitter</em> converts it into a signal suited to the <em class=\"term\">transmission medium</em>; the medium carries it (and corrupts it with <em class=\"term\">noise</em>); a <em class=\"term\">receiver</em> recovers the information and hands it to the <em class=\"term\">destination</em>. A telephone call, a Wi-Fi download and a radio broadcast fit this chain exactly.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "flow": {
+      "title": "Data flow and network types",
+      "body": "<p><em class=\"term\">Simplex</em>: one direction only (broadcast TV). <em class=\"term\">Half duplex</em>: both directions, one at a time (walkie-talkie). <em class=\"term\">Full duplex</em>: both at once (telephone, modern Ethernet). A <em class=\"term\">LAN</em> spans a building, a <em class=\"term\">WAN</em> a country; the OSI model organises the protocols in seven layers (see the Computer Networks course).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "analog": {
+      "title": "Analog and digital",
+      "body": "<p><em class=\"term\">Analog</em> data (voice, temperature) varies continuously; <em class=\"term\">digital</em> data is a set of discrete values. Either can travel as an analog signal (telephone line, radio) or a digital one (voltage pulses). Digital signals can be <em>regenerated</em> at repeaters, removing accumulated noise; analog signals can only be amplified, noise included — the core advantage of digital transmission.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "perf": {
+      "title": "Performance measures",
+      "body": "<p><em class=\"term\">Bandwidth</em>: range of frequencies (Hz) — or, loosely, the bit rate a link supports. <em class=\"term\">Throughput</em>: bits actually delivered per second. <em class=\"term\">Latency</em>: time for a bit to arrive = propagation + transmission + queueing. <em class=\"term\">Jitter</em>: variation in latency (bad for voice). Bandwidth–delay product = capacity × delay = bits in flight.</p>",
+      "after": "",
+      "steps": "A 10 Mb/s link, 2000 km of fibre (propagation 2×10⁸ m/s), sending a 1000-byte packet. Transmission time = 8000 bits / 10⁷ = 0.8 ms. Propagation = 2×10⁶ m / 2×10⁸ = 10 ms. Bandwidth–delay product = 10⁷ × 0.01 s = 10⁵ bits in flight."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Source → transmitter → medium (+noise) → receiver → destination.</li><li>Digital signals can be regenerated; analog can only be amplified.</li><li>Delay = transmission + propagation (+queueing).</li></ul>",
+      "after": "",
+      "steps": ""
+    },
+    "extra": {
+      "title": "The enterprise view",
+      "body": "<p>Today’s enterprise network links branch LANs over WAN services, carries voice and video alongside data (which is why jitter matters), and depends on cloud and mobile access. The protocols and encodings in the following chapters are the machinery beneath all of it.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
