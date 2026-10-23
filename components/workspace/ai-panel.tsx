@@ -31,6 +31,7 @@ import { renderMath } from '@/lib/text/katex-lazy'
 import { useKatexReady } from '@/lib/text/use-katex-ready'
 import { answerColumnSize, blocksToSimScript } from '@/lib/ai/explain'
 import { createDeck } from '@/lib/ai/make-deck'
+import { aiAuthHeaders } from '@/lib/ai/auth-header'
 import { streamAi, useServerOnce } from '@/lib/ai/transport'
 import { getTool } from '@/lib/tools/registry'
 import { AiEngineStrip, useRoute } from './ai-engine'
@@ -191,8 +192,8 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   })
   useEffect(() => {
     let alive = true
-    void fetch('/api/ai/models')
-      .then((r) => r.json())
+    void fetch('/api/ai/models', { headers: aiAuthHeaders() })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d) => alive && setModels(d))
       .catch(() => {})
     return () => {

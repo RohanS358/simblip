@@ -159,30 +159,37 @@ function retrain() {
   tree = rows.length >= 4 ? trainTree(rows) : null
 }
 
-/** Pull the shared template library into the matcher's cache. Also migrates
- *  any pre-cloud localStorage examples up into the shared store once. */
+/** Pull the template library into the matcher's cache. Examples saved in this browser before the library
+ *  existed move into the BROWSER's own database; on a cloud deployment they are never uploaded on the person's
+ *  behalf (that used to happen silently, to a table anyone could read) — they stay on this device and still
+ *  take part in matching. Saving a new example on /train is the person's own action and is unchanged. */
 export async function syncCustomTemplates(): Promise<void> {
+  let kept: CustomSketchTemplate[] = []
   try {
     const legacy = JSON.parse(localStorage.getItem(KEY) ?? '[]') as CustomSketchTemplate[]
     if (legacy.length > 0) {
-      await db.insert(
-        'sketch_templates',
-        legacy.map((t) => ({
-          id: db.newId(),
-          name: t.name,
-          component_id: t.componentId,
-          cloud: t.cloud,
-          contributor: null,
-        }))
-      )
-      localStorage.removeItem(KEY)
+      if (!db.cloudConfigured) {
+        await db.insert(
+          'sketch_templates',
+          legacy.map((t) => ({
+            id: db.newId(),
+            name: t.name,
+            component_id: t.componentId,
+            cloud: t.cloud,
+            contributor: null,
+          }))
+        )
+        localStorage.removeItem(KEY)
+      } else {
+        kept = legacy.map(hydrate)
+      }
     }
   } catch {
     /* nothing to migrate */
   }
   try {
     const rows = await db.list<TemplateRow>('sketch_templates')
-    cache = rows.map((r) =>
+    cache = [...kept, ...rows.map((r) =>
       hydrate({
         id: r.id,
         name: r.name,
@@ -192,10 +199,14 @@ export async function syncCustomTemplates(): Promise<void> {
         // the cloud as one stroke — they still work, just a bit coarser.
         strokes: r.strokes ?? undefined,
       })
-    )
+    )]
     retrain()
   } catch {
-    /* offline or table missing — keep whatever the cache holds */
+    /* offline, signed out or table missing — keep whatever the cache holds (plus any examples kept on this device) */
+    if (kept.length > 0) {
+      cache = kept
+      retrain()
+    }
   }
 }
 

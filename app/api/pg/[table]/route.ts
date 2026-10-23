@@ -58,7 +58,8 @@ const TABLES: Record<string, TableSpec> = {
   assignments: { pk: ['id'] },
   submissions: { pk: ['id'] },
   announcements: { pk: ['id'] },
-  sketch_templates: { pk: ['id'], anon: ['GET', 'POST'] },
+  // Signed-in only (it was open to anonymous GET and POST): see sketch_templates in lib/server/pg-policy.ts
+  sketch_templates: { pk: ['id'] },
   file_manifest: { pk: ['id'], owner: 'owner_id' },
   // SECURITY: `devices` used to allow anonymous GET/POST/PATCH/DELETE. With
   // no claims the scoping block in buildWhere is skipped entirely, so

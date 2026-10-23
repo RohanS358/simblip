@@ -6,7 +6,11 @@
 
 import { NextResponse } from 'next/server'
 import { listModels } from '@/lib/ai/generate'
+import { authorizeAi, visibleModels } from '@/lib/server/ai-guard'
 
-export async function GET() {
-  return NextResponse.json(await listModels())
+export async function GET(req: Request) {
+  const auth = authorizeAi(req)
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  // only names the server will actually accept (a cloud deployment honours an allow-list)
+  return NextResponse.json(visibleModels(await listModels(), auth.caller))
 }

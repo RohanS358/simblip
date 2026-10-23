@@ -12,6 +12,7 @@ import { readSketch, type PlainStroke, type ReadResult } from '../read-sketch'
 import type { startCircuitGhost } from '../circuit-ghost'
 import { despeckle, downscale, countInk, threshold, thin, toGrey, type Mask, type RgbaImage } from './raster'
 import { traceStrokes } from './trace'
+import { DEFAULT_BUDGET_MS, makeBudget, PhotoRefused } from './budget'
 
 export type { RgbaImage } from './raster'
 
@@ -31,7 +32,7 @@ export interface PhotoInk {
 }
 
 /** The picture as pen strokes, or null with the reason when there is nothing readable in it. */
-export function photoToInk(img: RgbaImage): { ink: PhotoInk } | { error: string } {
+export function photoToInk(img: RgbaImage, opts: { budgetMs?: number } = {}): { ink: PhotoInk } | { error: string } {
   if (img.width < 24 || img.height < 24) return { error: 'The picture is too small to read.' }
   const g0 = toGrey(img)
   const { grey, w, h, scale } = downscale(g0, img.width, img.height)
@@ -42,10 +43,17 @@ export function photoToInk(img: RgbaImage): { ink: PhotoInk } | { error: string 
   if (inkPx < 40) return { error: 'I could not find any drawing in the picture. Is it a dark drawing on light paper, in focus?' }
   if (inkShare > 0.35) return { error: 'The picture is mostly dark, so there is no line drawing to read. Photograph a diagram on light paper, with even light.' }
   const thick: Mask = { w, h, px: mask.px.slice() }
-  thin(mask)
-  const t = traceStrokes(thick, mask)
-  if (t.strokes.length === 0) return { error: 'I found marks but no lines I could follow.' }
-  return { ink: { strokes: t.strokes, width: w, height: h, scale, strokeWidth: t.strokeWidth, dots: t.dots, inkShare } }
+  const budget = makeBudget(opts.budgetMs ?? DEFAULT_BUDGET_MS)
+  try {
+    thin(mask, budget)
+    const t = traceStrokes(thick, mask, budget)
+    if (t.strokes.length === 0) return { error: 'I found marks but no lines I could follow.' }
+    return { ink: { strokes: t.strokes, width: w, height: h, scale, strokeWidth: t.strokeWidth, dots: t.dots, inkShare } }
+  } catch (e) {
+    // a refusal says what to do; anything else is a bug and must not be hidden as one
+    if (e instanceof PhotoRefused) return { error: e.message }
+    throw e
+  }
 }
 
 export interface PhotoReading {
@@ -60,9 +68,10 @@ export function readPhoto(
   charNet?: Net,
   pageId = 'photo',
   /** Where the picture sits on the page (x, y = its corner; k = page px per picture px). The reading then lands on the picture. */
-  place?: { x: number; y: number; k: number }
+  place?: { x: number; y: number; k: number },
+  opts: { budgetMs?: number; domain?: 'auto' | 'circuit' } = {}
 ): PhotoReading | { error: string } {
-  const r = photoToInk(img)
+  const r = photoToInk(img, opts)
   if ('error' in r) return r
   // `place.k` is page px per ORIGINAL picture px; the strokes are in working px (the picture shrunk by `scale`)
   const kk = place ? place.k / r.ink.scale : 1
@@ -71,6 +80,8 @@ export function readPhoto(
     : r.ink.strokes
   // the seed only names "which drawing"; a photo is one drawing, so the longest stroke will do
   const seed = strokes.reduce((a, b) => (b.pts.length > a.pts.length ? b : a))
-  const result = readSketch(pageId, strokes, seed.id, net, charNet, { all: true })
+  // A picture is read as a circuit unless the caller says 'auto' (the picture's button says "Read as circuit"): the
+  // loops of a hand-drawn coil and the teeth of a zigzag look like lenses and hinges to the other readers.
+  const result = readSketch(pageId, strokes, seed.id, net, charNet, { all: true, domain: opts.domain ?? 'circuit' })
   return { ink: r.ink, result }
 }

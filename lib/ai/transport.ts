@@ -10,6 +10,7 @@
 //   device = only the device (never sends anything out)
 //   server = only the server (Ollama or hosted)
 
+import { aiAuthHeaders, describeAiRefusal } from './auth-header'
 import { runAi, type AiEvent, type AiRequest } from '@/lib/ai/run'
 import { localEngine } from '@/lib/ai/engine/local'
 import { MODELS, type Tier } from '@/lib/ai/engine/catalog'
@@ -96,10 +97,15 @@ export async function streamAi(req: AiRequest, signal: AbortSignal, onEvent: (e:
   if (route.where === 'server') {
     const res = await fetch('/api/ai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...aiAuthHeaders() },
       signal,
       body: JSON.stringify({ ...req, stream: true }),
     })
+    if (!res.ok) {
+      // sign-in needed, rate limit, too large: say so instead of failing to parse an event stream
+      onEvent({ event: 'done', data: { message: await describeAiRefusal(res) } })
+      return
+    }
     return readSse(res, onEvent)
   }
 

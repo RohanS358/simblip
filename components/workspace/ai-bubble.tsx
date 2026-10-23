@@ -9,6 +9,7 @@
 // worked micro-example the user can read, learn from, and edit before
 // committing — which an opaque JSON payload never allowed.
 
+import { aiAuthHeaders, describeAiRefusal } from '@/lib/ai/auth-header'
 import { useState } from 'react'
 import { Sparkles, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -38,7 +39,7 @@ export function AiBubble({ pageId }: { pageId: string }) {
       const page = useDocStore.getState().pages[pageId]
       const res = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...aiAuthHeaders() },
         body: JSON.stringify({
           prompt: text,
           stream: true,
@@ -50,6 +51,7 @@ export function AiBubble({ pageId }: { pageId: string }) {
             : undefined,
         }),
       })
+      if (!res.ok) throw new Error(await describeAiRefusal(res))
       const reader = res.body?.getReader()
       if (!reader) throw new Error('No response body')
       const decoder = new TextDecoder()

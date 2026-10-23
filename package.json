@@ -2,7 +2,7 @@
   "name": "simblip",
   "version": "1.0.0",
   "private": true,
-  "description": "The engineering notebook that simulates — notes, physics, circuits, equations and live graphs on one infinite canvas.",
+  "description": "The engineering notebook that simulates \u2014 notes, physics, circuits, equations and live graphs on one infinite canvas.",
   "author": {
     "name": "Rohan Singh"
   },
@@ -16,7 +16,7 @@
     "predev": "node scripts/copy-wllama.mjs && node scripts/build-sketch-worker.mjs",
     "mcp": "node scripts/mcp/simblip-mcp.mjs",
     "e2e:ai": "node scripts/ai-e2e.mjs",
-    "test:ai": "node --experimental-strip-types --import ./scripts/test/register.mjs --test --test-force-exit lib/ai/*.test.mjs lib/tools/*.test.mjs lib/scene/rail-layout.test.mjs lib/scene/circuit-layout.test.mjs lib/sketch/*.test.mjs lib/sketch/photo/*.test.mjs lib/scene/scribble.test.mjs scripts/mcp/*.test.mjs",
+    "test:ai": "node --experimental-strip-types --import ./scripts/test/register.mjs --test --test-force-exit lib/ai/*.test.mjs lib/tools/*.test.mjs lib/scene/rail-layout.test.mjs lib/scene/circuit-layout.test.mjs lib/sketch/*.test.mjs lib/sketch/photo/*.test.mjs lib/scene/scribble.test.mjs scripts/mcp/*.test.mjs lib/server/*.test.mjs lib/store/xlsx-safe.test.mjs",
     "sketch:synth": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/synth.mjs",
     "sketch:preview": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/preview.mjs",
     "sketch:baseline": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-baseline.mjs",
@@ -27,6 +27,7 @@
     "sketch:preview-scenes": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/preview-scenes.mjs",
     "sketch:eval-mech": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-mech.mjs",
     "sketch:eval-optics": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-optics.mjs",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
     "sketch:eval-photo": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-photo.mjs",
     "sketch:eval-scenes": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-scenes.mjs",
     "sketch:debug-scenes": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/debug-scenes.mjs",
@@ -79,7 +80,6 @@
     "@types/matter-js": "^0.20.2",
     "@types/pg": "^8.20.0",
     "@vercel/analytics": "1.3.1",
-    "@vercel/config": "^0.5.6",
     "@vercel/functions": "^3.7.6",
     "@wllama/wllama": "^3.8.1",
     "autoprefixer": "^10.4.20",
@@ -98,11 +98,11 @@
     "ioredis": "^6.0.0",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
-    "katex": "^0.17.0",
+    "katex": "^0.19.0",
     "lucide-react": "^0.454.0",
     "mathjs": "^15.2.0",
     "matter-js": "^0.20.0",
-    "next": "16.0.10",
+    "next": "^16.4.2",
     "next-themes": "^0.4.6",
     "ogl": "^1.0.11",
     "pdfjs-dist": "^6.1.200",
@@ -127,7 +127,7 @@
     "use-stick-to-bottom": "^1.1.6",
     "vaul": "^1.1.2",
     "ws": "^8.22.0",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "3.25.76",
     "zod-to-json-schema": "^3.25.2",
     "zustand": "^5.0.14"
@@ -138,11 +138,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
+    "@vercel/config": "^0.5.6",
     "@xmldom/xmldom": "^0.9.12",
     "axe-core": "^4.13.0",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.0.10",
+    "eslint-config-next": "^16.4.2",
     "fake-indexeddb": "^6.2.5",
     "playwright-core": "^1.64.0",
     "postcss": "^8.5",
@@ -157,5 +158,10 @@
     "last 2 Edge versions",
     "not IE 11",
     "not dead"
-  ]
+  ],
+  "overrides": {
+    "image-size": "^2.0.4",
+    "uuid": "^11.1.1",
+    "echarts": "^6.1.0"
+  }
 }

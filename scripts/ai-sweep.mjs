@@ -49,7 +49,8 @@ async function ask(prompt, model, shots) {
   const t0 = Date.now()
   const res = await fetch(`${BASE}/api/ai`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // a cloud deployment needs a signed-in token (AI_TOKEN=<access token>); a local one serves localhost
+    headers: { 'Content-Type': 'application/json', ...(process.env.AI_TOKEN ? { Authorization: `Bearer ${process.env.AI_TOKEN}` } : {}) },
     body: JSON.stringify({
       prompt,
       nocache: true,

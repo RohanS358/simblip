@@ -9,6 +9,9 @@ import { loadInkChars, loadSketchNet } from './sketchnet'
 import { readSketch, type PlainStroke, type ReadResult } from './read-sketch'
 import { readPhoto, type PhotoInk, type RgbaImage } from './photo'
 
+/** The worker gives itself this long to turn a picture into strokes (the page-side timeout is the backstop). */
+const PHOTO_BUDGET_MS = 12000
+
 export interface ReadRequest {
   id: number
   pageId: string
@@ -31,7 +34,7 @@ scope.onmessage = async (e) => {
   try {
     const [net, chars] = await Promise.all([loadSketchNet(), loadInkChars()])
     if (photo) {
-      const r = readPhoto(photo.image as RgbaImage, net, chars ?? undefined, pageId, photo.place)
+      const r = readPhoto(photo.image as RgbaImage, net, chars ?? undefined, pageId, photo.place, { budgetMs: PHOTO_BUDGET_MS })
       if ('error' in r) scope.postMessage({ id, photoError: r.error })
       else {
         const { strokes: _drop, ...ink } = r.ink

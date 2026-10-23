@@ -19,6 +19,12 @@ const ALLOWED_COPYLEFT = new Set(['@img/sharp-libvips-linux-x64', '@img/sharp-li
 // ever installed on Windows (an optional platform package), never in the Linux deployment, where libvips is
 // the dynamically linked, reviewed package above. Do not ship a Windows-built artifact without re-reviewing it.
 const DEV_ONLY_COPYLEFT = process.platform === 'win32' ? new Set(['@img/sharp-win32-x64']) : new Set()
+// sharp >= 0.35 (pulled in by Next 16.4) lists @img/sharp-wasm32 as an optional fallback for platforms with no
+// native binary. It has libvips (LGPL-3.0-or-later) compiled INTO the WebAssembly module. It is server-side only
+// and never reached here: next.config.mjs sets images.unoptimized, so Next's image optimizer (the only thing that
+// loads sharp) is off, and nothing of it is sent to browsers. Allowed on that basis, like the dynamically linked
+// libvips packages above, but it is a static build: treat it as part of the licence review the Windows package needs.
+const OPTIONAL_STATIC_LGPL = new Set(['@img/sharp-wasm32'])
 const COPYLEFT = /\b(A?GPL|LGPL|MPL|EPL|CDDL|SSPL|CC-BY-SA|CC-BY-NC)/i
 
 const VENDORED = [
@@ -53,7 +59,7 @@ for (const dir of dirs) {
   if (!pkg.name || seen.has(id)) continue
   let license = pkg.license ?? pkg.licenses?.map((l) => l.type ?? l).join(' OR ') ?? 'UNKNOWN'
   if (typeof license === 'object') license = license.type
-  if (COPYLEFT.test(license) && !ALLOWED_COPYLEFT.has(pkg.name) && !DEV_ONLY_COPYLEFT.has(pkg.name)) bad.push(`${id} (${license})`)
+  if (COPYLEFT.test(license) && !ALLOWED_COPYLEFT.has(pkg.name) && !DEV_ONLY_COPYLEFT.has(pkg.name) && !OPTIONAL_STATIC_LGPL.has(pkg.name)) bad.push(`${id} (${license})`)
   const file = readdirSync(dir).find((f) => /^(licen[cs]e|copying|notice)/i.test(f))
   const text = file ? readFileSync(join(dir, file), 'utf8').trim() : `License: ${license}`
   seen.set(id, { name: id, license, text })

@@ -158,6 +158,20 @@ const POLICY: Record<string, Partial<Record<Method, Rule | Rule[]>>> = {
     PATCH: { roles: STAFF, denyCols: ['author_id'], scope: 'author_id = {sub}', exempt: ADMIN },
     DELETE: { roles: STAFF, scope: 'author_id = {sub}', exempt: ADMIN },
   },
+  // Saved sketch examples (the shared library the /train matcher draws from). They used to be open to
+  // ANYONE without signing in, for reading and writing: strangers could read every contributor's strokes and
+  // fill the table with junk that a future model would be trained on. Now: signed in to write, a row is
+  // stamped with its author, only its author (or an admin) may delete it, nobody edits another's, and each row
+  // is size-limited.
+  sketch_templates: {
+    POST: {
+      roles: ['admin', 'teacher', 'student'],
+      force: 'contributor',
+      checkRow: (r) => sketchTemplateProblem(r),
+    },
+    PATCH: { roles: ADMIN },
+    DELETE: { roles: ['admin', 'teacher', 'student'], scope: 'contributor = {sub}', exempt: ADMIN },
+  },
   // Reporters file and read their own; triage is the operator's.
   bug_reports: {
     POST: { roles: ALL },
@@ -231,7 +245,22 @@ export function scopeSql(
 // Tenant scoping alone let any student read every classmate's submission and
 // every share/session in the institution.
 
+/** Largest saved example, serialized: a 32-point cloud plus normalised strokes is a few KB. */
+const MAX_TEMPLATE_BYTES = 60_000
+
+/** Why a sketch example is refused (null = fine). */
+export function sketchTemplateProblem(r: Record<string, unknown>): string | null {
+  if (typeof r.name !== 'string' || r.name.length < 1 || r.name.length > 80) return 'Bad name'
+  if (typeof r.component_id !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(r.component_id)) return 'Bad component'
+  if (!Array.isArray(r.cloud) || r.cloud.length === 0 || r.cloud.length > 512) return 'Bad cloud'
+  const size = JSON.stringify([r.cloud, r.strokes ?? null]).length
+  if (size > MAX_TEMPLATE_BYTES) return 'Example too large'
+  return null
+}
+
 const READ_SCOPES: Record<string, (role: string) => string | null> = {
+  // the library from before sign-in was required (no contributor) stays shared; anything newer is its author's
+  sketch_templates: (role) => (role === 'admin' ? null : '(contributor is null or contributor = {sub})'),
   submissions: (role) => (role === 'student' ? 'student_id = {sub}' : null),
   library_assets: (role) => (role === 'student' ? 'approved = true' : null),
   shares: (role) =>

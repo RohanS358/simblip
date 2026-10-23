@@ -13,6 +13,7 @@ import type { AiResponse } from '@/lib/ai/schema'
 import { prewarm, pickGenerator } from '@/lib/ai/generate'
 import { withCache } from '@/lib/ai/cache'
 import { aiRequestSchema, runAi, type AiEvent } from '@/lib/ai/run'
+import { allowedModel, authorizeAi, MAX_AI_BODY_BYTES, takeAiSlot } from '@/lib/server/ai-guard'
 
 /**
  * The generator every lane runs through, memoized in Redis.
@@ -35,15 +36,41 @@ export const maxDuration = 300
 void prewarm()
 
 export async function POST(req: Request) {
+  // Who: a signed-in user on a cloud deployment, localhost on a local one (lib/server/ai-guard.ts).
+  const auth = authorizeAi(req)
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  const declared = Number(req.headers.get('content-length') ?? 0)
+  if (declared > MAX_AI_BODY_BYTES) return NextResponse.json({ error: 'Request too large' }, { status: 413 })
+  // How often: per caller, per minute and per hour, and how many at once.
+  const slot = await takeAiSlot(auth.caller.id)
+  if (!slot.ok) {
+    return NextResponse.json({ error: slot.error }, { status: slot.status, headers: { 'Retry-After': String(slot.retryAfterSec) } })
+  }
+  try {
+    return await handle(req, auth.caller, slot.release)
+  } catch (e) {
+    slot.release()
+    throw e
+  }
+}
+
+/** Runs the request. `release` frees the caller's concurrency slot when the work (including a stream) ends. */
+async function handle(req: Request, caller: { id: string; role: string }, release: () => void): Promise<Response> {
   let body: unknown
   try {
     body = await req.json()
   } catch {
+    release()
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
   const parsed = aiRequestSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
-  const r = parsed.data
+  if (!parsed.success) {
+    release()
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+  // The client may only choose a model the server allows (a cloud deployment pays for these calls).
+  // `nocache` is a development switch: cachedGenerator ignores it in production.
+  const r = { ...parsed.data, model: allowedModel(parsed.data.model, caller) }
 
   const deps = (emit: (e: AiEvent) => void, streaming: boolean) => ({
     script: () => cachedGenerator('script', r.model, r.nocache),
@@ -61,8 +88,15 @@ export async function POST(req: Request) {
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
       async start(controller) {
-        await runAi(r, deps((e) => controller.enqueue(encoder.encode(`event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`)), true))
+        try {
+          await runAi(r, deps((e) => controller.enqueue(encoder.encode(`event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`)), true))
+        } finally {
+          release()
+        }
         controller.close()
+      },
+      cancel() {
+        release()
       },
     })
     return new Response(stream, {
@@ -71,6 +105,10 @@ export async function POST(req: Request) {
   }
 
   let result: AiResponse = { message: 'No response.' }
-  await runAi(r, deps((e) => { if (e.event === 'done') result = e.data }, false))
+  try {
+    await runAi(r, deps((e) => { if (e.event === 'done') result = e.data }, false))
+  } finally {
+    release()
+  }
   return NextResponse.json(result)
 }

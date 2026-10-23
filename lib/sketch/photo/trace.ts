@@ -11,6 +11,7 @@
 
 import { rdp, type Pt } from '../geom'
 import { distanceTransform, type Mask } from './raster'
+import { MAX_LINE_PIECES, MAX_STROKES, NO_BUDGET, PhotoRefused, TOO_BUSY_MESSAGE, type Budget } from './budget'
 
 export interface TraceResult {
   strokes: Array<{ id: string; pts: number[][] }>
@@ -106,60 +107,165 @@ function edgesOf(skel: Mask): Edge[] {
  * Thinning cuts a stroke wherever lines meet. A pen would not have lifted there: at a junction, the two line
  * ends that continue each other most smoothly were one stroke. Join those (and only those, and only when the
  * turn is gentle), so a zigzag or a wire along a rail is one stroke again, as it was drawn.
+ *
+ * Two ends meeting ALONE are one line however sharp the turn, but only between two SHORT pieces (the teeth
+ * of a zigzag, the loops of a coil, broken at their tips): joining a long wire to a symbol at a sharp turn
+ * would make one stroke of the two, which nothing can read. Where a third end is also there, only a gentle
+ * continuation is joined.
+ *
+ * Near-linear: the line ends live in a grid of `reach`-sized cells, so the candidates for an end are found
+ * in the 3×3 cells around it, and the best pair comes from a heap. (The first version re-scanned every pair
+ * of ends after each join: cubic, minutes on a picture of graph paper.)
  */
-function mergeThroughJunctions(lines: Pt[][], reach: number, fragment: number): Pt[][] {
+function mergeThroughJunctions(lines: Pt[][], reach: number, fragment: number, budget: Budget): Pt[][] {
   const out = lines.map((l) => l.slice())
   const alive = out.map(() => true)
-  // the direction a line LEAVES its end in (unit vector pointing away from the line)
-  const outward = (i: number, start: boolean): Pt => {
-    const l = out[i]
-    const e = start ? l[0] : l[l.length - 1]
+  const len = out.map((l) => l.reduce((acc, q, k) => acc + (k ? Math.hypot(q[0] - l[k - 1][0], q[1] - l[k - 1][1]) : 0), 0))
+  // an "end" is addressed as 2·line (start) or 2·line + 1 (finish); `gen` changes whenever it is replaced
+  const gen = new Int32Array(out.length * 2)
+  const dir: Pt[] = new Array(out.length * 2)
+  const pos = (e: number): Pt => (e & 1 ? out[e >> 1][out[e >> 1].length - 1] : out[e >> 1][0])
+  const outward = (e: number): Pt => {
+    const l = out[e >> 1]
+    const start = (e & 1) === 0
+    const p = start ? l[0] : l[l.length - 1]
     let k = start ? 1 : l.length - 2
     let q = l[Math.max(0, Math.min(l.length - 1, k))]
-    // use a point a few px back along the line, not the next vertex of a staircase
+    // a point a few px back along the line, not the next vertex of a staircase
     let acc = 0
     const step = start ? 1 : -1
     while (acc < reach && k + step >= 0 && k + step < l.length) {
       q = l[k]
-      acc = Math.hypot(e[0] - q[0], e[1] - q[1])
+      acc = Math.hypot(p[0] - q[0], p[1] - q[1])
       k += step
     }
-    const dx = e[0] - q[0]
-    const dy = e[1] - q[1]
-    const len = Math.hypot(dx, dy) || 1
-    return [dx / len, dy / len]
+    const dx = p[0] - q[0]
+    const dy = p[1] - q[1]
+    const n = Math.hypot(dx, dy) || 1
+    return [dx / n, dy / n]
   }
-  for (let guard = 0; guard < 6 * lines.length + 8; guard++) {
-    const ends: Array<{ i: number; start: boolean; p: Pt; d: Pt }> = []
-    out.forEach((l, i) => {
-      if (!alive[i]) return
-      ends.push({ i, start: true, p: l[0], d: outward(i, true) })
-      ends.push({ i, start: false, p: l[l.length - 1], d: outward(i, false) })
-    })
-    let best: { a: (typeof ends)[number]; b: (typeof ends)[number]; turn: number } | null = null
-    for (const a of ends) {
-      for (const b of ends) {
-        if (b.i <= a.i) continue
-        if (Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1]) > reach) continue
-        // two ends continue each other when they point in opposite directions
-        const cos = -(a.d[0] * b.d[0] + a.d[1] * b.d[1])
-        const turn = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI
-        // Two ends meeting ALONE are one line however sharp the turn (the tip of a zigzag, a corner); where a
-        // third end is also there, only a gentle continuation is joined.
-        const alone = ends.filter((c) => c !== a && c !== b && (Math.hypot(c.p[0] - a.p[0], c.p[1] - a.p[1]) <= reach || Math.hypot(c.p[0] - b.p[0], c.p[1] - b.p[1]) <= reach)).length === 0
-        // a sharp turn joins only two SHORT pieces (the teeth of a zigzag, the loops of a coil, broken at their tips):
-        // joining a long wire to a symbol at a sharp turn would make one stroke of the two, which nothing can read
-        const lenOf = (e: (typeof ends)[number]) => out[e.i].reduce((acc, q, k) => acc + (k ? Math.hypot(q[0] - out[e.i][k - 1][0], q[1] - out[e.i][k - 1][1]) : 0), 0)
-        const ok = alone ? (turn <= 55 || (turn <= 170 && lenOf(a) <= fragment && lenOf(b) <= fragment)) : turn <= 55
-        const score = alone ? turn - 1000 : turn // meetings of exactly two ends go first
-        if (ok && (!best || score < best.turn)) best = { a, b, turn: score }
+  // spatial hash of live ends
+  const cell = Math.max(1, reach)
+  const grid = new Map<number, Array<{ e: number; g: number }>>()
+  const keyOf = (cx: number, cy: number) => cx * 73856093 + cy * 19349663
+  const place = (e: number) => {
+    const p = pos(e)
+    const k = keyOf(Math.floor(p[0] / cell), Math.floor(p[1] / cell))
+    const bucket = grid.get(k)
+    if (bucket) bucket.push({ e, g: gen[e] })
+    else grid.set(k, [{ e, g: gen[e] }])
+  }
+  const near = (e: number): number[] => {
+    const p = pos(e)
+    const cx = Math.floor(p[0] / cell)
+    const cy = Math.floor(p[1] / cell)
+    const res: number[] = []
+    for (let ox = -1; ox <= 1; ox++) {
+      for (let oy = -1; oy <= 1; oy++) {
+        const bucket = grid.get(keyOf(cx + ox, cy + oy))
+        if (!bucket) continue
+        for (const { e: f, g } of bucket) {
+          if (f === e || g !== gen[f] || !alive[f >> 1]) continue
+          const q = pos(f)
+          if (Math.hypot(q[0] - p[0], q[1] - p[1]) <= reach) res.push(f)
+        }
       }
     }
-    if (!best) break
-    const A = best.a.start ? out[best.a.i].slice().reverse() : out[best.a.i]
-    const B = best.b.start ? out[best.b.i] : out[best.b.i].slice().reverse()
-    out[best.a.i] = [...A, ...B]
-    alive[best.b.i] = false
+    return res
+  }
+  for (let e = 0; e < out.length * 2; e++) {
+    dir[e] = outward(e)
+    place(e)
+  }
+
+  /** Score for joining ends a and b (lower is better; null = do not). */
+  const evaluate = (a: number, b: number): number | null => {
+    if (!alive[a >> 1] || !alive[b >> 1] || a >> 1 === b >> 1) return null
+    const cos = -(dir[a][0] * dir[b][0] + dir[a][1] * dir[b][1])
+    const turn = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI
+    const others = new Set<number>([...near(a), ...near(b)])
+    others.delete(a)
+    others.delete(b)
+    const alone = others.size === 0
+    const ok = alone ? turn <= 55 || (turn <= 170 && len[a >> 1] <= fragment && len[b >> 1] <= fragment) : turn <= 55
+    if (!ok) return null
+    return alone ? turn - 1000 : turn // meetings of exactly two ends go first
+  }
+
+  // min-heap of candidate joins
+  interface Cand {
+    s: number
+    a: number
+    b: number
+    ga: number
+    gb: number
+  }
+  const heap: Cand[] = []
+  const push = (c: Cand) => {
+    heap.push(c)
+    let i = heap.length - 1
+    while (i > 0) {
+      const up = (i - 1) >> 1
+      if (heap[up].s <= heap[i].s) break
+      ;[heap[up], heap[i]] = [heap[i], heap[up]]
+      i = up
+    }
+  }
+  const pop = (): Cand | undefined => {
+    const top = heap[0]
+    const last = heap.pop()
+    if (heap.length && last) {
+      heap[0] = last
+      let i = 0
+      for (;;) {
+        const l = 2 * i + 1
+        const r = l + 1
+        let m = i
+        if (l < heap.length && heap[l].s < heap[m].s) m = l
+        if (r < heap.length && heap[r].s < heap[m].s) m = r
+        if (m === i) break
+        ;[heap[m], heap[i]] = [heap[i], heap[m]]
+        i = m
+      }
+    }
+    return top
+  }
+  const offer = (a: number) => {
+    for (const b of near(a)) {
+      if (b >> 1 === a >> 1) continue
+      const s = evaluate(a, b)
+      if (s !== null) push({ s, a, b, ga: gen[a], gb: gen[b] })
+    }
+  }
+  for (let e = 0; e < out.length * 2; e++) offer(e)
+
+  let pops = 0
+  const maxPops = 60 * out.length + 1000
+  for (let c = pop(); c && pops++ < maxPops; c = pop()) {
+    budget.check()
+    if (gen[c.a] !== c.ga || gen[c.b] !== c.gb || !alive[c.a >> 1] || !alive[c.b >> 1]) continue
+    const s = evaluate(c.a, c.b) // the neighbourhood may have changed since it was offered
+    if (s === null) continue
+    if (s > c.s + 1e-9) {
+      push({ ...c, s })
+      continue
+    }
+    const la = c.a >> 1
+    const lb = c.b >> 1
+    const A = (c.a & 1) === 0 ? out[la].slice().reverse() : out[la]
+    const B = (c.b & 1) === 0 ? out[lb] : out[lb].slice().reverse()
+    const gap = Math.hypot(A[A.length - 1][0] - B[0][0], A[A.length - 1][1] - B[0][1])
+    out[la] = [...A, ...B]
+    len[la] = len[la] + len[lb] + gap
+    alive[lb] = false
+    // the four old ends are gone; the joined line has two new ones
+    for (const e of [2 * la, 2 * la + 1, 2 * lb, 2 * lb + 1]) gen[e]++
+    for (const e of [2 * la, 2 * la + 1]) {
+      dir[e] = outward(e)
+      place(e)
+    }
+    offer(2 * la)
+    offer(2 * la + 1)
   }
   return out.filter((_, i) => alive[i]).map((l) => rdp(l, 1.2))
 }
@@ -200,7 +306,7 @@ function findDots(thick: Mask, dt: Float32Array, strokeWidth: number): Array<{ x
  * Strokes from a thinned mask. `thick` is the mask BEFORE thinning (for line width and dots); `skel` is the
  * thinned one. Both are the same size.
  */
-export function traceStrokes(thick: Mask, skel: Mask): TraceResult {
+export function traceStrokes(thick: Mask, skel: Mask, budget: Budget = NO_BUDGET): TraceResult {
   const { w, h } = skel
   const dt = distanceTransform(thick)
   const widths: number[] = []
@@ -209,6 +315,9 @@ export function traceStrokes(thick: Mask, skel: Mask): TraceResult {
   const strokeWidth = Math.max(1, 2 * (widths[Math.floor(widths.length / 2)] ?? 1))
 
   const edges = edgesOf(skel)
+  budget.check()
+  // graph paper, a page of text, a busy scene: no diagram has this many separate lines
+  if (edges.length > MAX_LINE_PIECES) throw new PhotoRefused(TOO_BUSY_MESSAGE)
   // a short branch off a junction is thinning's burr at a corner or a T, not a stroke
   const spur = Math.max(8, 3 * strokeWidth)
   let spursRemoved = 0
@@ -227,7 +336,9 @@ export function traceStrokes(thick: Mask, skel: Mask): TraceResult {
   const strokes: TraceResult['strokes'] = []
   let n = 0
   const grow = 0.9 * strokeWidth // thinning eats about a line width off every free end
-  for (const pts of mergeThroughJunctions(lines, Math.max(3, 2.2 * strokeWidth), 16 * strokeWidth)) {
+  const joined = mergeThroughJunctions(lines, Math.max(3, 2.2 * strokeWidth), 28 * strokeWidth, budget)
+  if (joined.length > MAX_STROKES) throw new PhotoRefused(TOO_BUSY_MESSAGE)
+  for (const pts of joined) {
     const ext = (e: Pt, q: Pt): number[] => {
       const dx = e[0] - q[0]
       const dy = e[1] - q[1]

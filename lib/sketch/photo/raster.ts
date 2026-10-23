@@ -6,6 +6,8 @@
 // Lines in a photographed or scanned diagram are dark on light paper, but the paper is rarely evenly lit,
 // so a pixel is ink when it is clearly darker than ITS NEIGHBOURHOOD, not than a global cut-off.
 
+import { NO_BUDGET, type Budget } from './budget'
+
 export interface RgbaImage {
   data: ArrayLike<number>
   width: number
@@ -177,12 +179,13 @@ export function distanceTransform(m: Mask): Float32Array {
 }
 
 /** Zhang–Suen thinning: reduce every stroke to a 1-pixel-wide centre line, in place. */
-export function thin(m: Mask): void {
+export function thin(m: Mask, budget: Budget = NO_BUDGET): void {
   const { w, h, px } = m
   const del: number[] = []
   let changed = true
   let guard = 0
   while (changed && guard++ < 200) {
+    budget.check()
     changed = false
     for (let pass = 0; pass < 2; pass++) {
       del.length = 0
