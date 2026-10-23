@@ -1,14 +1,14 @@
 {
   "title": "Grammars, parse trees and pushdown automata",
   "kicker": "ENCT 203 · Theory of Computation · Chapter 3",
-  "subtitle": "Add one stack to a finite automaton and it can count and match brackets — exactly the power of a grammar.",
+  "subtitle": "Add one stack to a finite automaton and it can count and match brackets, which is exactly the power of a grammar.",
   "sections": [
     {
       "id": "cfg",
       "locator": "3.1",
       "title": "Context-free grammars",
       "eyebrow": "Rewriting rules",
-      "body": "<p>A <em class=\"term\">context-free grammar</em> has variables (S, E…), terminals (a, b, +…), productions A → α, and a start variable. A string is in the language if the start variable can be rewritten into it. The grammar <code>S → aSb | ab</code> generates aⁿbⁿ — the language no finite automaton can recognise. Deriving aaabbb: <b>S => aSb => aaSbb => aaabbb</b>.</p>",
+      "body": "<p>We just proved that no finite automaton can recognise aⁿbⁿ. So how do we even describe such a language? With a grammar, a set of rewriting rules, like a recipe that keeps expanding one ingredient into a bigger one.</p><p>A <em class=\"term\">context-free grammar</em> has variables (S, E…), terminals (a, b, +…), productions A → α, and a start variable. A string is in the language if the start variable can be rewritten into it. The grammar <code>S → aSb | ab</code> generates aⁿbⁿ, the very language no finite automaton can handle. Watch it grow: deriving aaabbb goes <b>S => aSb => aaSbb => aaabbb</b>. Each step rewrites the leftmost variable, and the last frame of the figure adds the parse tree. The two rules wrap an a on the left and a b on the right, again and again, so the counts always match.</p>",
       "questions": [
         {
           "id": "gen",
@@ -54,6 +54,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A context-free grammar has variables, terminals, productions A → α and a start variable.",
+        "A string is in the language if the start variable can be rewritten into it.",
+        "S → aSb | ab generates aⁿbⁿ; aaabbb is derived by S => aSb => aaSbb => aaabbb."
       ]
     },
     {
@@ -61,7 +66,7 @@
       "locator": "3.2",
       "title": "Parse trees and ambiguity",
       "eyebrow": "Structure",
-      "body": "<p>A <em class=\"term\">parse tree</em> shows which productions built a string. A grammar is <em class=\"term\">ambiguous</em> if some string has two different parse trees — a real problem for compilers, because the tree is the meaning. The classic fix is to encode precedence in layers of variables: E → E+T | T, T → T*F | F, F → (E) | a. Then a+a*a has exactly one tree, with * binding tighter than +.</p>",
+      "body": "<p>Sometimes one sentence can be understood in two ways, and you have met it before, like “I saw the man with the telescope.” A grammar can have the same trouble. A <em class=\"term\">parse tree</em> shows which productions built a string, and a grammar is <em class=\"term\">ambiguous</em> if some string has two different parse trees. For a compiler that is a real problem, because the tree <i>is</i> the meaning.</p><p>The classic fix is to encode precedence in layers of variables: E → E+T | T, T → T*F | F, F → (E) | a. Now a+a*a has exactly one tree, with * binding tighter than +, so the multiplication is grouped under the addition, as the figure shows. A grammar is ambiguous when some string has more than one parse tree.</p>",
       "questions": [
         {
           "id": "amb",
@@ -106,6 +111,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A parse tree shows which productions built a string.",
+        "A grammar is ambiguous if some string has two different parse trees, a real problem for compilers because the tree is the meaning.",
+        "Layering precedence, E → E+T | T, T → T*F | F, F → (E) | a, gives a+a*a exactly one tree."
       ]
     },
     {
@@ -113,7 +123,7 @@
       "locator": "3.3",
       "title": "Simplification and normal forms",
       "eyebrow": "Clean-up",
-      "body": "<p>Before analysis, remove useless variables, ε-productions and unit productions (A → B). <em class=\"term\">Chomsky normal form</em> allows only A → BC and A → a; <em class=\"term\">Greibach normal form</em> only A → aα. Any CFL (without ε) has grammars in both forms. BNF is the notation compilers use for language syntax.</p>",
+      "body": "<p>Messy grammars are hard to analyse, so before we work with one we tidy up: remove useless variables, ε-productions and unit productions (A → B). Then we can squeeze it into a standard shape. <em class=\"term\">Chomsky normal form</em> allows only A → BC and A → a. <em class=\"term\">Greibach normal form</em> allows only A → aα. Any CFL (without ε) has grammars in both forms. BNF is the notation compilers use for language syntax.</p><p>Convert S → aSb | ab to Chomsky normal form. Introduce A → a and B → b, and split the long rule: S → AC | AB, C → SB. Every production now has exactly two variables or one terminal on the right, so the form is regular and easy to use. A production allowed in Chomsky normal form is A → BC or A → a.</p>",
       "worked": [
         {
           "toc": "Task",
@@ -157,6 +167,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Before analysis remove useless variables, ε-productions and unit productions (A → B).",
+        "Chomsky normal form allows only A → BC and A → a; Greibach normal form only A → aα.",
+        "S → aSb | ab becomes S → AC | AB, C → SB, A → a, B → b in Chomsky normal form."
       ]
     },
     {
@@ -164,7 +179,7 @@
       "locator": "3.4",
       "title": "Pushdown automata",
       "eyebrow": "A stack for memory",
-      "body": "<p>A <em class=\"term\">PDA</em> is an NFA with a stack. A move depends on the state, the input symbol (or ε) and the top of the stack, and changes the state and replaces the top with a string. To recognise aⁿbⁿ: push an A for every a, pop one for every b, accept if the stack returns to its bottom marker Z. Watch the stack on the right.</p>",
+      "body": "<p>Here is the machine that matches a grammar’s power, and you can picture it easily. Take a finite automaton and give it a stack of plates: it can put a plate on top, or take the top one off, but see only the top. That is a <em class=\"term\">PDA</em>, an NFA with a stack.</p><p>A move depends on the state, the input symbol (or ε) and the top of the stack, and changes the state and replaces the top with a string. To recognise aⁿbⁿ: push an A for every a, pop one for every b, and accept if the stack returns to its bottom marker Z. Watch the stack on the right of the figure: aaabbb is accepted. But aabbb is rejected, because one b too many makes the stack run dry. The stack lets a PDA count, which a DFA cannot.</p>",
       "questions": [
         {
           "id": "stack",
@@ -238,6 +253,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A PDA is an NFA with a stack; a move depends on the state, the input symbol (or ε) and the top of the stack.",
+        "To recognise aⁿbⁿ push an A for every a, pop one for every b, and accept if the stack returns to its bottom marker Z.",
+        "aaabbb is accepted, and aabbb is rejected because the stack runs dry."
       ]
     },
     {
@@ -245,7 +265,7 @@
       "locator": "3.5",
       "title": "CFG ⇔ PDA, closure and limits",
       "eyebrow": "Equivalence",
-      "body": "<p>Context-free languages are exactly those accepted by PDAs: a grammar becomes a PDA that guesses derivations on its stack, and a PDA becomes a grammar whose variables stand for “go from state p to q popping this symbol”. CFLs are closed under union, concatenation and star, but <em>not</em> under intersection or complement. The pumping lemma for CFLs (pump two places at once) shows aⁿbⁿcⁿ is not context-free. Context-sensitive grammars (α → β with |α| ≤ |β|) sit one level above.</p>",
+      "body": "<p>Grammars generate, PDAs recognise, and the two meet at the same set of languages. Context-free languages are exactly those accepted by PDAs. A grammar becomes a PDA that guesses derivations on its stack, and a PDA becomes a grammar whose variables stand for “go from state p to q popping this symbol”.</p><p>Closure here is weaker than for regular languages: CFLs are closed under union, concatenation and star, but <em>not</em> under intersection or complement. And there are limits. The pumping lemma for CFLs (pump two places at once) shows aⁿbⁿcⁿ is not context-free. Can you see why? A single stack can match two counts, but not three. Context-sensitive grammars (α → β with |α| ≤ |β|) sit one level above.</p>",
       "questions": [
         {
           "id": "abc",
@@ -277,6 +297,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Context-free languages are exactly those accepted by PDAs.",
+        "CFLs are closed under union, concatenation and star, but not under intersection or complement.",
+        "The pumping lemma for CFLs pumps two places at once and shows aⁿbⁿcⁿ is not context-free; context-sensitive grammars (|α| ≤ |β|) sit one level above."
       ]
     },
     {
@@ -284,7 +309,12 @@
       "locator": "3.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>CFG generates, PDA recognises: same class.</li><li>Ambiguity lives in the grammar; layering operators removes it.</li><li>CNF: A → BC | a.</li></ul>"
+      "body": "<p>Remember these three, and you can hold the chapter in your head.</p><ul><li>CFG generates, PDA recognises: same class.</li><li>Ambiguity lives in the grammar; layering operators removes it.</li><li>CNF: A → BC | a.</li></ul>",
+      "keynotes": [
+        "A CFG generates and a PDA recognises the same class of languages.",
+        "Ambiguity lives in the grammar, and layering operators removes it.",
+        "Chomsky normal form is A → BC | a."
+      ]
     }
   ]
 }

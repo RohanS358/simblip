@@ -1,0 +1,42 @@
+{
+  "title": "Regular expressions and the pumping lemma",
+  "subtitle": "A notation for exactly the languages finite automata recognise — and a test for what they cannot.",
+  "sections": {
+    "re": {
+      "title": "Regular expressions",
+      "body": "<p>Regular expressions describe languages with three operators: union <code>a|b</code> (or +), concatenation <code>ab</code>, star <code>a*</code>. Examples over {0,1}: <code>(0|1)*01</code> = ends in 01; <code>1*(01*01*)*</code>… = even number of 0s. A language is regular exactly when a regular expression, a DFA, or an NFA describes it (Kleene’s theorem).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "conv": {
+      "title": "From expression to automaton",
+      "body": "<p>Build the ε-NFA piece by piece (Thompson): a single symbol is two states joined by that symbol; union adds a new start with ε-arrows to both machines; concatenation links the first’s accept to the second’s start by ε; star adds ε-loops and a bypass. The pieces are machines you can run — the one below is the result for <code>a*b</code>.</p>",
+      "after": "",
+      "steps": "Does a*b accept aaab? Follow the loops on a, then b to the accepting state. Yes: a a a loop in s, b moves to f and the input ends there."
+    },
+    "closure": {
+      "title": "Closure properties",
+      "body": "<p>Regular languages are closed under union, concatenation, star, complement (swap accepting and non-accepting states of a DFA), intersection (product construction) and reversal. Closure gives proofs by construction: if L is regular then so is “strings in L that are not of even length”.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "pump": {
+      "title": "The pumping lemma",
+      "body": "<p>If L is regular there is a length <i>p</i> such that any string s ∈ L with |s| ≥ p can be split s = xyz with |xy| ≤ p, |y| ≥ 1, and xyⁱz ∈ L for every i ≥ 0. Why: a DFA with p states reading p symbols must repeat a state (pigeonhole), so the loop between can be repeated or removed. To prove L is <em>not</em> regular, pick a string that cannot be pumped.</p>",
+      "after": "",
+      "steps": "Claim: L = {aⁿbⁿ} is not regular. Suppose it were, with pumping length p; take s = aᵖbᵖ. Since |xy| ≤ p, y consists only of a’s. Pumping up (i = 2) gives more a’s than b’s. So L is not regular — it needs to count, which a finite memory cannot."
+    },
+    "decide": {
+      "title": "Decision algorithms",
+      "body": "<p>For regular languages most questions are decidable by algorithm: is L empty (is an accepting state reachable?), finite, equal to another language (minimise both DFAs; compare), does a string belong (just run it).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Regular expression ⇔ NFA ⇔ DFA.</li><li>Closed under union, concatenation, star, complement, intersection.</li><li>Pumping lemma shows non-regularity (aⁿbⁿ).</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

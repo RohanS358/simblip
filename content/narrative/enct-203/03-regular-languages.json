@@ -1,0 +1,53 @@
+{
+  "subtitle": "A notation for exactly the languages finite automata recognise, and a test for what they cannot.",
+  "sections": {
+    "re": {
+      "body": "<p>You have probably used a regular expression already, perhaps to search a text file. Now you will see why it works, because regular expressions are the notation for exactly the languages a finite automaton can recognise.</p><p>They use three operators: union <code>a|b</code> (or +), concatenation <code>ab</code>, and star <code>a*</code>. Over {0,1}, <code>(0|1)*01</code> means ends in 01, and <code>1*(01*01*)*</code>… means an even number of 0s. And here is the beautiful theorem that ties it together (Kleene’s theorem): a language is regular exactly when a regular expression, a DFA, or an NFA describes it. The three descriptions are interchangeable. Which expression describes binary strings ending in 01? Anything, then 01: (0|1)*01.</p>",
+      "keynotes": [
+        "Regular expressions use union a|b (or +), concatenation ab and star a*.",
+        "(0|1)*01 describes binary strings ending in 01.",
+        "Kleene’s theorem: a language is regular exactly when a regular expression, a DFA or an NFA describes it."
+      ]
+    },
+    "conv": {
+      "body": "<p>How do you turn a pattern into a machine? You build it piece by piece, like Lego. This is Thompson’s construction of an ε-NFA. A single symbol is two states joined by that symbol. Union adds a new start with ε-arrows to both machines. Concatenation links the first’s accept to the second’s start by ε. Star adds ε-loops and a bypass.</p><p>The pieces are machines you can run, and the one below is the result for <code>a*b</code>: any number of a’s, then one b. Does a*b accept aaab? Follow the loops on a, then b to the accepting state. Yes: a a a loop in s, b moves to f and the input ends there. It accepts any number of a’s followed by a single b.</p>",
+      "keynotes": [
+        "Thompson’s construction: a single symbol is two states joined by that symbol; union adds a new start with ε-arrows to both machines.",
+        "Concatenation links the first machine’s accept to the second’s start by ε; star adds ε-loops and a bypass.",
+        "a*b accepts any number of a’s then one b, such as aaab."
+      ]
+    },
+    "closure": {
+      "body": "<p>What can you do to regular languages without leaving the club? Quite a lot. They are closed under union, concatenation, star, complement, intersection and reversal. Complement has a lovely trick: swap accepting and non-accepting states of a DFA. Intersection uses the product construction, running two machines side by side.</p><p>Closure gives you proofs by construction. If L is regular then so is “strings in L that are not of even length”, because you can build it from pieces already known to be regular. To build a DFA for the complement, you just flip the accepting states, as long as the DFA is complete.</p>",
+      "keynotes": [
+        "Regular languages are closed under union, concatenation, star, complement, intersection and reversal.",
+        "Complement: swap accepting and non-accepting states of a DFA; intersection uses the product construction.",
+        "Closure gives proofs by construction."
+      ]
+    },
+    "pump": {
+      "body": "<p>Now for the other side of the coin. How do you prove a language is <em>not</em> regular? You can’t test every machine, so you use a property all regular languages share. The pumping lemma says: if L is regular there is a length <i>p</i> such that any string s ∈ L with |s| ≥ p can be split s = xyz with |xy| ≤ p, |y| ≥ 1, and xyⁱz ∈ L for every i ≥ 0.</p><p>Why? A DFA with p states reading p symbols must repeat a state (the pigeonhole principle), so the loop in between can be repeated or removed. To prove L is <em>not</em> regular, pick a string that cannot be pumped.</p><p>Try L = {aⁿbⁿ}. Suppose it were regular, with pumping length p, and take s = aᵖbᵖ. Since |xy| ≤ p, y consists only of a’s. Pumping up (i = 2) gives xy²z = aᵖ⁺|ʸ|bᵖ, which has more a’s than b’s, so it is not in L. So L is not regular: it needs to count, which a finite memory cannot.</p>",
+      "keynotes": [
+        "If L is regular, there is a length p such that any s in L with |s| ≥ p splits as s = xyz with |xy| ≤ p, |y| ≥ 1 and xyⁱz in L for all i ≥ 0.",
+        "The reason is the pigeonhole principle: a DFA with p states reading p symbols must repeat a state.",
+        "For aⁿbⁿ take s = aᵖbᵖ: pumping y (all a’s) with i = 2 gives more a’s than b’s, so the language is not regular."
+      ]
+    },
+    "decide": {
+      "body": "<p>One more reason to love regular languages: most questions about them have an answer a program can compute. Is L empty? Check whether an accepting state is reachable. Is it finite? Look for loops. Are two languages equal? Minimise both DFAs and compare. Does a string belong? Just run it.</p><p>In the figure, state c is unreachable, so the machine accepts nothing and the language is empty. To test whether a DFA’s language is empty, you ask: can I get from the start state to any accepting state? If not, it is empty.</p>",
+      "keynotes": [
+        "For regular languages most questions are decidable by algorithm.",
+        "Emptiness: is an accepting state reachable? Equality: minimise both DFAs and compare; membership: just run it.",
+        "In the example state c is unreachable, so the language is empty."
+      ]
+    },
+    "summary": {
+      "body": "<p>Here is what to remember.</p><ul><li>Regular expression ⇔ NFA ⇔ DFA.</li><li>Closed under union, concatenation, star, complement, intersection.</li><li>Pumping lemma shows non-regularity (aⁿbⁿ).</li></ul><p>Try to explain the pumping lemma to a friend in two sentences. If you can, you own it.</p>",
+      "keynotes": [
+        "Regular expressions, NFAs and DFAs are equivalent.",
+        "Regular languages are closed under union, concatenation, star, complement and intersection.",
+        "The pumping lemma shows non-regularity, as for aⁿbⁿ."
+      ]
+    }
+  }
+}

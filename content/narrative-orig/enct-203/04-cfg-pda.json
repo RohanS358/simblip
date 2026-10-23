@@ -1,0 +1,42 @@
+{
+  "title": "Grammars, parse trees and pushdown automata",
+  "subtitle": "Add one stack to a finite automaton and it can count and match brackets — exactly the power of a grammar.",
+  "sections": {
+    "cfg": {
+      "title": "Context-free grammars",
+      "body": "<p>A <em class=\"term\">context-free grammar</em> has variables (S, E…), terminals (a, b, +…), productions A → α, and a start variable. A string is in the language if the start variable can be rewritten into it. The grammar <code>S → aSb | ab</code> generates aⁿbⁿ — the language no finite automaton can recognise. Deriving aaabbb: <b>S => aSb => aaSbb => aaabbb</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "tree": {
+      "title": "Parse trees and ambiguity",
+      "body": "<p>A <em class=\"term\">parse tree</em> shows which productions built a string. A grammar is <em class=\"term\">ambiguous</em> if some string has two different parse trees — a real problem for compilers, because the tree is the meaning. The classic fix is to encode precedence in layers of variables: E → E+T | T, T → T*F | F, F → (E) | a. Then a+a*a has exactly one tree, with * binding tighter than +.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "nf": {
+      "title": "Simplification and normal forms",
+      "body": "<p>Before analysis, remove useless variables, ε-productions and unit productions (A → B). <em class=\"term\">Chomsky normal form</em> allows only A → BC and A → a; <em class=\"term\">Greibach normal form</em> only A → aα. Any CFL (without ε) has grammars in both forms. BNF is the notation compilers use for language syntax.</p>",
+      "after": "",
+      "steps": "Convert S → aSb | ab to Chomsky normal form. Introduce A → a, B → b and split: S → AC | AB, C → SB."
+    },
+    "pda": {
+      "title": "Pushdown automata",
+      "body": "<p>A <em class=\"term\">PDA</em> is an NFA with a stack. A move depends on the state, the input symbol (or ε) and the top of the stack, and changes the state and replaces the top with a string. To recognise aⁿbⁿ: push an A for every a, pop one for every b, accept if the stack returns to its bottom marker Z. Watch the stack on the right.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "eq": {
+      "title": "CFG ⇔ PDA, closure and limits",
+      "body": "<p>Context-free languages are exactly those accepted by PDAs: a grammar becomes a PDA that guesses derivations on its stack, and a PDA becomes a grammar whose variables stand for “go from state p to q popping this symbol”. CFLs are closed under union, concatenation and star, but <em>not</em> under intersection or complement. The pumping lemma for CFLs (pump two places at once) shows aⁿbⁿcⁿ is not context-free. Context-sensitive grammars (α → β with |α| ≤ |β|) sit one level above.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>CFG generates, PDA recognises: same class.</li><li>Ambiguity lives in the grammar; layering operators removes it.</li><li>CNF: A → BC | a.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

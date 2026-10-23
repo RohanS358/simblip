@@ -1,0 +1,42 @@
+{
+  "title": "Turing machines",
+  "subtitle": "An infinite tape, a moving head and a finite rulebook: the simplest machine that can compute anything a computer can.",
+  "sections": {
+    "def": {
+      "title": "The machine",
+      "body": "<p>A <em class=\"term\">Turing machine</em> has an infinite tape of cells, a head that reads and writes one cell, and a finite control. Each step: read the symbol, then (depending on state and symbol) write a symbol, move Left, Right or Stay, and change state. It halts in an accepting or rejecting state. Its description is a table of rules <code>state, read → state, write, move</code>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "comp": {
+      "title": "Computing with a Turing machine",
+      "body": "<p>Beyond accepting strings, a TM can <em>compute</em>: the tape at halt is the output. The increment machine turns 1011 (eleven) into <b>1100</b> (twelve) and 111 into <b>1000</b>. In the same style you can build machines for addition, copying, comparison and multiplication; composing them gives any algorithm.</p>",
+      "after": "",
+      "steps": "Trace the carry in 1011 + 1. Scan right to the blank, step back; 1 + 1 = 0 carry 1, 1 + 1 = 0 carry 1, then 0 + 1 = 1 stop."
+    },
+    "pal": {
+      "title": "A decider: palindromes",
+      "body": "<p>This machine checks whether a string over {a, b} is a palindrome: erase the first symbol, remember it in the state, run to the far end, compare with the last symbol, erase that too, return to the start and repeat. abba → <b>accepted</b>, abb → <b>rejected</b>. A finite automaton cannot do this; neither can a PDA on its own for all palindromes of unknown middle — the TM simply moves back and forth.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "var": {
+      "title": "Variants that add no power",
+      "body": "<p>Multiple tapes, a two-way infinite tape, nondeterminism, a stay move, even extra heads: each can be simulated by a plain single-tape TM (possibly slower). Every reasonable model of computation — lambda calculus, recursive functions, RAM machines — turns out equivalent. That consistency is the evidence behind the Church–Turing thesis.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "hier": {
+      "title": "Unrestricted grammars and the hierarchy",
+      "body": "<p>Unrestricted (type-0) grammars have productions α → β with no constraint; they generate exactly the recursively enumerable languages, those a TM can accept (possibly running forever on non-members). A TM that always halts decides a <em>recursive</em> language. Type-1 context-sensitive, type-2 context-free and type-3 regular grammars complete the Chomsky hierarchy.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>TM = finite control + unbounded tape; rules: state, read → state, write, move.</li><li>It computes functions and decides languages; variants are equivalent.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

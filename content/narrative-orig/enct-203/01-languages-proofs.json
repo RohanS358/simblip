@@ -1,0 +1,42 @@
+{
+  "title": "Languages, logic and proof",
+  "subtitle": "The vocabulary everything else is built on: strings, languages, and how to be sure a claim is true.",
+  "sections": {
+    "alpha": {
+      "title": "Alphabets, strings and languages",
+      "body": "<p>An <em class=\"term\">alphabet</em> Σ is a finite set of symbols, e.g. {0, 1}. A <em class=\"term\">string</em> is a finite sequence of them; ε is the empty string and Σ* the set of all strings. A <em class=\"term\">language</em> is any subset of Σ* — for example “all binary strings ending in 01”. The whole subject asks: <em>how complicated a machine is needed to recognise a given language?</em></p>",
+      "after": "",
+      "steps": "Over Σ = {0, 1} how many strings have length exactly 3? Two choices for each of three positions."
+    },
+    "ops": {
+      "title": "Operations on languages",
+      "body": "<p>From languages L and M: <em class=\"term\">union</em> L ∪ M, <em class=\"term\">concatenation</em> LM (a string of L followed by one of M) and the <em class=\"term\">Kleene star</em> L* (zero or more strings of L joined). If L = {a, b} then L* contains ε, a, b, aa, ab, … — every string over {a, b}.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "logic": {
+      "title": "Propositional logic and inference",
+      "body": "<p>Statements combine with ¬ (not), ∧ (and), ∨ (or), → (implies), ↔ (iff). Key rules: <em>modus ponens</em> (from P and P → Q, conclude Q), <em>modus tollens</em> (from ¬Q and P → Q, conclude ¬P). De Morgan: ¬(P ∧ Q) = ¬P ∨ ¬Q. Predicate logic adds ∀ (for all) and ∃ (there exists).</p>",
+      "after": "",
+      "steps": "Premises: “if it rains the match is cancelled” (R → C) and “the match was not cancelled” (¬C). Modus tollens gives ¬R."
+    },
+    "proof": {
+      "title": "Proof techniques",
+      "body": "<p>Direct proof; <em class=\"term\">contradiction</em> (assume the opposite and derive an absurdity — e.g. √2 is irrational); <em class=\"term\">induction</em> (prove a base case and that n ⇒ n+1); the <em class=\"term\">pigeonhole principle</em> (n+1 pigeons in n holes: some hole has two — the engine behind the pumping lemma); <em class=\"term\">diagonalisation</em> (build an object that differs from the i-th item in the i-th place — proves the reals are uncountable and the halting problem undecidable).</p>",
+      "after": "",
+      "steps": "Prove 1 + 2 + … + n = n(n+1)/2 by induction. Base n = 1: 1 = 1·2/2 ✓. Step: assume it for n; adding n+1 gives n(n+1)/2 + (n+1) = (n+1)(n+2)/2, the formula for n+1."
+    },
+    "hier": {
+      "title": "The road ahead: the Chomsky hierarchy",
+      "body": "<p>Four classes of language, each needing a stronger machine: regular (finite automaton) ⊂ context-free (pushdown automaton) ⊂ context-sensitive (linear-bounded automaton) ⊂ recursively enumerable (Turing machine). The rest of the course climbs this ladder.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>A language is a set of strings over an alphabet; ∪, concatenation and * build new ones.</li><li>Proofs: direct, contradiction, induction, pigeonhole, diagonalisation.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

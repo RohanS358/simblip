@@ -1,0 +1,52 @@
+{
+  "subtitle": "An infinite tape, a moving head and a finite rulebook: the simplest machine that can compute anything a computer can.",
+  "sections": {
+    "def": {
+      "body": "<p>In 1936 Alan Turing imagined a person with a pencil, an eraser and an endless strip of paper, following a short rulebook. That strip, that pencil and that rulebook turned out to capture everything that can be computed. Let’s meet the machine.</p><p>A <em class='term'>Turing machine</em> has an infinite tape of cells, a head that reads and writes one cell, and a finite control. Each step: read the symbol, then (depending on state and symbol) write a symbol, move Left, Right or Stay, and change state. It halts in an accepting or rejecting state. Its description is a table of rules <code>state, read → state, write, move</code>. In the figure, binary increment walks to the right end, then adds 1 moving left. What can a TM do that a finite automaton cannot? Write to its tape and move both ways, so it can remember without limit.</p>",
+      "keynotes": [
+        "A Turing machine has an infinite tape, a head that reads and writes one cell, and a finite control.",
+        "Each step reads a symbol, writes a symbol, moves Left, Right or Stay and changes state; it halts in an accepting or rejecting state.",
+        "Its description is a table of rules: state, read → state, write, move."
+      ]
+    },
+    "comp": {
+      "body": "<p>A Turing machine is not only a yes/no judge; it can also <em>compute</em>. When it halts, the tape is the output. The increment machine turns 1011 (eleven) into <b>1100</b> (twelve) and 111 into <b>1000</b>.</p><p>Follow the carry in 1011 + 1: scan right to the blank, step back; 1 + 1 = 0 carry 1, 1 + 1 = 0 carry 1, then 0 + 1 = 1 and stop, leaving 1100. In the same style you can build machines for addition, copying, comparison and multiplication, and composing them gives any algorithm. For input 111 the increment machine leaves 1000 on the tape.</p>",
+      "keynotes": [
+        "A TM can compute: the tape at halt is the output.",
+        "The increment machine turns 1011 (eleven) into 1100 (twelve) and 111 into 1000.",
+        "Composing machines for addition, copying, comparison and multiplication gives any algorithm."
+      ]
+    },
+    "pal": {
+      "body": "<p>Let’s give the machine a task that stumps the earlier ones: is a string a palindrome? Over {a, b}, the machine erases the first symbol and remembers it in its state, runs to the far end, compares with the last symbol, erases that too, returns to the start, and repeats. Each round strips a matching pair, as the figure shows.</p><p>Test it: abba → <b>accepted</b>, abb → <b>rejected</b>. A finite automaton cannot do this, and a PDA on its own cannot handle all palindromes of unknown middle, but the TM simply moves back and forth. Why does it erase symbols as it matches them? So that it never compares the same symbol twice and knows how much is left to check.</p>",
+      "keynotes": [
+        "The palindrome machine erases the first symbol, remembers it in the state, runs to the far end, compares with the last symbol, erases that too, returns and repeats.",
+        "abba is accepted and abb is rejected.",
+        "A finite automaton cannot do this; the TM simply moves back and forth."
+      ]
+    },
+    "var": {
+      "body": "<p>You might think a fancier machine would be more powerful. Surprisingly, no. Multiple tapes, a two-way infinite tape, nondeterminism, a stay move, even extra heads: each can be simulated by a plain single-tape TM (possibly slower). So a two-tape Turing machine recognises no more languages than a one-tape one.</p><p>And it is not just Turing machines. Every reasonable model of computation (lambda calculus, recursive functions, RAM machines) turns out equivalent. That consistency is the evidence behind the Church–Turing thesis.</p>",
+      "keynotes": [
+        "Multiple tapes, a two-way infinite tape, nondeterminism, a stay move and extra heads can all be simulated by a plain single-tape TM, possibly slower.",
+        "Every reasonable model of computation, such as lambda calculus, recursive functions and RAM machines, is equivalent.",
+        "That consistency is the evidence behind the Church–Turing thesis."
+      ]
+    },
+    "hier": {
+      "body": "<p>We reach the top of the ladder. Unrestricted (type-0) grammars have productions α → β with no constraint at all, and they generate exactly the recursively enumerable languages: those a TM can accept, possibly running forever on non-members. A TM that always halts decides a <em>recursive</em> language.</p><p>The other three grammar types complete the Chomsky hierarchy: type-1 context-sensitive, type-2 context-free and type-3 regular. So a language is recursively enumerable if some Turing machine accepts exactly its strings. Notice the careful phrase: it only has to accept, not always to halt.</p>",
+      "keynotes": [
+        "Unrestricted (type-0) grammars generate exactly the recursively enumerable languages, those a TM can accept.",
+        "A TM that always halts decides a recursive language.",
+        "Type-1 context-sensitive, type-2 context-free and type-3 regular grammars complete the Chomsky hierarchy."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two sentences carry the whole chapter.</p><ul><li>TM = finite control + unbounded tape; rules: state, read → state, write, move.</li><li>It computes functions and decides languages; variants are equivalent.</li></ul><p>That is the machine every programmer, secretly, is already using.</p>",
+      "keynotes": [
+        "A TM is a finite control plus an unbounded tape, with rules: state, read → state, write, move.",
+        "It computes functions and decides languages, and its variants are equivalent."
+      ]
+    }
+  }
+}

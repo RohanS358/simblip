@@ -1,0 +1,42 @@
+{
+  "title": "Decidability, complexity and the compiler link",
+  "subtitle": "Some questions no program can answer; others can be answered, but not quickly. And why every compiler is a pair of these machines.",
+  "sections": {
+    "ct": {
+      "title": "The Church–Turing thesis and universal machines",
+      "body": "<p>The <em class=\"term\">Church–Turing thesis</em>: anything computable by an algorithm is computable by a Turing machine. It cannot be proved (“algorithm” is informal) but every model ever proposed agrees. A <em class=\"term\">universal Turing machine</em> takes the encoding of any machine M and an input w on its tape and simulates M on w — the idea of the stored-program computer.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "halt": {
+      "title": "The halting problem",
+      "body": "<p>Is there a program H(P, x) that always correctly says whether program P halts on input x? No. Suppose H existed and build D(P): run H(P, P); if H says “halts”, loop forever; otherwise halt. Now ask about D(D): if H(D, D) says it halts then D loops; if it says it loops then D halts. Either way H is wrong — a contradiction, by diagonalisation. So the halting problem is <em class=\"term\">undecidable</em>, and by reduction so are many others (does this program ever print “hello”? do two programs compute the same function?).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "classes": {
+      "title": "Time complexity: P and NP",
+      "body": "<p><em class=\"term\">P</em> is the set of problems solvable in polynomial time by a deterministic machine (sorting, shortest path). <em class=\"term\">NP</em> is the set whose solutions can be <em>checked</em> in polynomial time (equivalently solved in polynomial time by a nondeterministic machine): factoring, Hamiltonian cycle, SAT. Clearly P ⊆ NP; whether P = NP is the most famous open problem. A problem is <em class=\"term\">NP-complete</em> if it is in NP and every NP problem reduces to it in polynomial time: solve one fast and you solve them all.</p>",
+      "after": "",
+      "steps": "Verifying a proposed Hamiltonian cycle in a graph of n vertices means checking each consecutive pair is an edge and every vertex appears once. That is O(n) — polynomial — so the problem is in NP. Finding one by trying all orders takes up to n! steps."
+    },
+    "lex": {
+      "title": "The compiler link: lexical analysis = DFA",
+      "body": "<p>A compiler’s first phase, the lexical analyser, turns characters into tokens (identifiers, numbers, keywords). Each token class is a regular expression; the scanner is a DFA built from them. Here a tiny DFA recognises identifiers: a letter then letters or digits.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "parse": {
+      "title": "Syntax analysis = CFG and PDA",
+      "body": "<p>The parser checks that the token stream fits the language’s context-free grammar and builds a parse tree. <em class=\"term\">Top-down</em> (recursive descent, LL) expands from the start symbol; <em class=\"term\">bottom-up</em> (shift–reduce, LR) reduces the input back to the start symbol using a stack — a PDA. Nested brackets and blocks need the stack, which is why a regular expression alone cannot parse a program.</p>",
+      "after": "",
+      "steps": "Stack-based check of (a+a)*a: shift (, a, reduce a→F→T→E, shift +, a, reduce, reduce E+T→E, shift ), reduce (E)→F, and so on. Finally reduce T*F → T → E: the whole input is the start symbol."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Halting is undecidable; some problems are solvable but not efficiently (NP-complete).</li><li>Compilers: lexer = DFA, parser = PDA/CFG.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

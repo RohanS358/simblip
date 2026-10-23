@@ -1,0 +1,53 @@
+{
+  "subtitle": "The simplest computer: a finite number of states and no memory beyond “where am I?”.",
+  "sections": {
+    "dfa": {
+      "body": "<p>Think of a turnstile at a station. It has just two situations, locked and unlocked, and it reacts to what you do: a coin unlocks it, a push locks it again. It remembers nothing about the past except its current state. That, in essence, is a finite automaton.</p><p>A <em class='term'>DFA</em> is five things: states Q, alphabet Σ, a transition function δ: Q × Σ → Q, a start state and a set of accepting states. You read the input left to right; each symbol moves exactly one arrow; accept if you end in an accepting state. The machine below accepts binary strings that end in 01: input 1101 → <b>yes</b>, 0101 → <b>yes</b>. In the figure, the double circle is the accepting state and the highlighted arrow is the one just taken. Why is it called deterministic? Because from every state, each symbol leads to exactly one next state, with never a choice.</p>",
+      "keynotes": [
+        "A DFA is five things: states Q, alphabet Σ, a transition function δ: Q × Σ → Q, a start state and a set of accepting states.",
+        "Read the input left to right; each symbol moves exactly one arrow; accept if you end in an accepting state.",
+        "The example machine accepts binary strings ending in 01: 1101 and 0101 are accepted."
+      ]
+    },
+    "design": {
+      "body": "<p>How do you design a machine like this? Not by staring at the ceiling. Here is the method that works. First, decide what the states must <em>remember</em>. Then name one state per distinct situation. Finally add a transition for every state–symbol pair, so no case is left hanging.</p><p>For “ends in 01” the machine needs to remember only: nothing useful yet (q0), last symbol was 0 (q1), last two were 01 (q2). For “even number of 1s” two states suffice: even, odd. The figure shows those two states counting the parity of 1s. So what is the minimum number of states for “strings with an even number of 1s”? Two.</p>",
+      "keynotes": [
+        "Decide what the states must remember, name one state per distinct situation, then add a transition for every state–symbol pair.",
+        "For “ends in 01” remember nothing yet (q0), last symbol was 0 (q1), last two were 01 (q2).",
+        "For “even number of 1s” two states suffice: even and odd."
+      ]
+    },
+    "nfa": {
+      "body": "<p>Now let’s allow the machine to be a bit magical. An <em class='term'>NFA</em> may have several transitions on the same symbol, or none. It accepts if <em>some</em> sequence of choices reaches an accepting state. Another way to picture it: the machine is in a <em>set</em> of states at once, like a crowd that splits at every fork and checks all roads.</p><p>Why bother? Because NFAs are often far easier to write: “the second-to-last symbol is 1” needs 3 NFA states but 4 DFA states. Now the remarkable part, and it is a genuine surprise: NFAs recognise exactly the same languages as DFAs. So are NFAs more powerful? No. They are just more convenient. See the several states glowing at once in the figure.</p>",
+      "keynotes": [
+        "An NFA may have several transitions on the same symbol, or none, and accepts if some sequence of choices reaches an accepting state.",
+        "Equivalently it is in a set of states at once.",
+        "“The second-to-last symbol is 1” needs 3 NFA states but 4 DFA states; NFAs recognise exactly the same languages as DFAs."
+      ]
+    },
+    "sub": {
+      "body": "<p>If NFAs and DFAs have the same power, there must be a way to turn one into the other. There is, and the idea is lovely: let each DFA state <em>be</em> a set of NFA states. Start with {start}; for each set and symbol, the next set is the union of all NFA moves. A set is accepting if it contains an accepting NFA state.</p><p>Work through it. NFA: q0 loops on 0,1; on 1 also goes to q1; q1 goes to q2 on 0 or 1; q2 accepts. From {q0} on 1: {q0, q1}. On 0 from {q0, q1}: {q0, q2}. So the DFA states include {q0}, {q0,q1}, {q0,q2}, {q0,q1,q2}. The price is size: an NFA with <i>n</i> states gives at most 2ⁿ DFA states. An NFA with 5 states needs at most 2⁵ = 32.</p>",
+      "keynotes": [
+        "In the subset construction each DFA state is a set of NFA states.",
+        "Start with {start}; the next set for each symbol is the union of all NFA moves; a set accepts if it contains an accepting NFA state.",
+        "An NFA with n states gives at most 2ⁿ DFA states, so 5 states need at most 32."
+      ]
+    },
+    "eps": {
+      "body": "<p>Add one more bit of magic: free moves. An ε-NFA may change state without reading any symbol, like a secret door in the wall. Before and after each input symbol, follow all ε-arrows; the set of states you can reach this way is the <em class='term'>ε-closure</em>.</p><p>See it in action. From q0, the ε-arrow to q1 means the machine may already “be in” q1, so it accepts aab (a a, then b via q1 → q2) but not aa, which never reaches q2. The active set in the figure includes the ε-closure. The ε-closure of a state is the set of states reachable from it using only ε-arrows.</p>",
+      "keynotes": [
+        "An ε-NFA may change state without reading any symbol.",
+        "The ε-closure is the set of states reachable using only ε-arrows; follow it before and after each input symbol.",
+        "In the example aab is accepted (via q1 → q2) but aa is rejected."
+      ]
+    },
+    "summary": {
+      "body": "<p>Three lines to keep.</p><ul><li>DFA: one move per symbol. NFA: a set of possible moves. Same power.</li><li>Design by asking what must be remembered.</li><li>Subset construction: up to 2ⁿ states.</li></ul><p>Ask yourself: what is the one thing a finite automaton cannot do? Count without limit. That is where we go next.</p>",
+      "keynotes": [
+        "A DFA makes one move per symbol and an NFA a set of possible moves, with the same power.",
+        "Design by asking what must be remembered.",
+        "The subset construction can need up to 2ⁿ states."
+      ]
+    }
+  }
+}

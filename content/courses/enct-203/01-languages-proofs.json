@@ -8,7 +8,7 @@
       "locator": "1.1",
       "title": "Alphabets, strings and languages",
       "eyebrow": "Vocabulary",
-      "body": "<p>An <em class=\"term\">alphabet</em> Σ is a finite set of symbols, e.g. {0, 1}. A <em class=\"term\">string</em> is a finite sequence of them; ε is the empty string and Σ* the set of all strings. A <em class=\"term\">language</em> is any subset of Σ* — for example “all binary strings ending in 01”. The whole subject asks: <em>how complicated a machine is needed to recognise a given language?</em></p>",
+      "body": "<p>Before we ask what a computer can do, we must agree on what we are asking it to look at. Think of Scrabble: you have a finite bag of letters, and you build words. That is exactly where theory begins.</p><p>An <em class=\"term\">alphabet</em> Σ is a finite set of symbols, e.g. {0, 1}. A <em class=\"term\">string</em> is a finite sequence of them; ε is the empty string (the word with no letters) and Σ* is the set of all strings. A <em class=\"term\">language</em> is any subset of Σ*, for example “all binary strings ending in 01”. Notice that “language” here has nothing to do with English; it is just a chosen collection of strings.</p><p>The whole subject asks one question: <em>how complicated a machine is needed to recognise a given language?</em> Warm up: over Σ = {0, 1} how many strings have length exactly 3? Two choices for each of three positions gives 2³ = 8. And the length of the empty string ε is 0.</p>",
       "worked": [
         {
           "toc": "Question",
@@ -52,6 +52,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "An alphabet Σ is a finite set of symbols; a string is a finite sequence of them, ε is the empty string and Σ* is the set of all strings.",
+        "A language is any subset of Σ*, such as all binary strings ending in 01.",
+        "The core question is how complicated a machine is needed to recognise a given language; there are 2³ = 8 binary strings of length 3."
       ]
     },
     {
@@ -59,7 +64,7 @@
       "locator": "1.2",
       "title": "Operations on languages",
       "eyebrow": "Building new ones",
-      "body": "<p>From languages L and M: <em class=\"term\">union</em> L ∪ M, <em class=\"term\">concatenation</em> LM (a string of L followed by one of M) and the <em class=\"term\">Kleene star</em> L* (zero or more strings of L joined). If L = {a, b} then L* contains ε, a, b, aa, ab, … — every string over {a, b}.</p>",
+      "body": "<p>Languages are sets, so you can combine them, a bit like mixing paint colours. Given languages L and M, there are three builders. <em class=\"term\">Union</em> L ∪ M takes strings from either. <em class=\"term\">Concatenation</em> LM takes a string of L followed by one of M. And the <em class=\"term\">Kleene star</em> L* joins zero or more strings of L together.</p><p>The star deserves a moment. If L = {a, b} then L* contains ε, a, b, aa, ab, … in short, every string over {a, b}. Does L* always contain ε? Yes, because “zero strings joined” is allowed. Keep that in mind; it is a favourite exam trap.</p>",
       "questions": [
         {
           "id": "star",
@@ -99,6 +104,11 @@
           "note": "Three ways to combine languages.",
           "script": "diagram(\"direction: right\\n[L = {a}] as l #blue\\n[M = {b}] as m #mint\\n[L ∪ M = {a, b}] as u #amber\\n[LM = {ab}] as c #violet\\n[L* = {ε, a, aa, aaa, …}] as s #rose\\nl -> u\\nm -> u\\nl -> c\\nm -> c\\nl -> s\");"
         }
+      ],
+      "keynotes": [
+        "Union L ∪ M takes strings from either; concatenation LM is a string of L followed by one of M.",
+        "The Kleene star L* joins zero or more strings of L.",
+        "L* always contains ε; for L = {a, b}, L* contains every string over {a, b}."
       ]
     },
     {
@@ -106,7 +116,7 @@
       "locator": "1.3",
       "title": "Propositional logic and inference",
       "eyebrow": "Reasoning",
-      "body": "<p>Statements combine with ¬ (not), ∧ (and), ∨ (or), → (implies), ↔ (iff). Key rules: <em>modus ponens</em> (from P and P → Q, conclude Q), <em>modus tollens</em> (from ¬Q and P → Q, conclude ¬P). De Morgan: ¬(P ∧ Q) = ¬P ∨ ¬Q. Predicate logic adds ∀ (for all) and ∃ (there exists).</p>",
+      "body": "<p>To be sure of anything in this course, you need a trustworthy way to reason. Statements combine with ¬ (not), ∧ (and), ∨ (or), → (implies) and ↔ (iff). Then a few rules do all the heavy lifting. <em>Modus ponens</em>: from P and P → Q, conclude Q. <em>Modus tollens</em>: from ¬Q and P → Q, conclude ¬P. De Morgan: ¬(P ∧ Q) = ¬P ∨ ¬Q. And predicate logic adds ∀ (for all) and ∃ (there exists).</p><p>Try one. “If it rains the match is cancelled” (R → C), and “the match was not cancelled” (¬C). Modus tollens gives ¬R: it didn’t rain. Now the trap: from P → Q and Q, what can you conclude about P? Nothing! The match may have been cancelled for another reason.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -150,6 +160,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "The connectives are ¬ (not), ∧ (and), ∨ (or), → (implies) and ↔ (iff).",
+        "Modus ponens: from P and P → Q conclude Q; modus tollens: from ¬Q and P → Q conclude ¬P; De Morgan: ¬(P ∧ Q) = ¬P ∨ ¬Q.",
+        "Predicate logic adds ∀ (for all) and ∃ (there exists)."
       ]
     },
     {
@@ -157,7 +172,7 @@
       "locator": "1.4",
       "title": "Proof techniques",
       "eyebrow": "Being sure",
-      "body": "<p>Direct proof; <em class=\"term\">contradiction</em> (assume the opposite and derive an absurdity — e.g. √2 is irrational); <em class=\"term\">induction</em> (prove a base case and that n ⇒ n+1); the <em class=\"term\">pigeonhole principle</em> (n+1 pigeons in n holes: some hole has two — the engine behind the pumping lemma); <em class=\"term\">diagonalisation</em> (build an object that differs from the i-th item in the i-th place — proves the reals are uncountable and the halting problem undecidable).</p>",
+      "body": "<p>How can you be certain that something is true for every case, including the infinitely many you will never test? You need a proof, and there are five tools worth keeping in your pocket.</p><p>Direct proof: just argue forward. <em class=\"term\">Contradiction</em>: assume the opposite and derive an absurdity (the classic is that √2 is irrational). <em class=\"term\">Induction</em>: prove a base case and that n ⇒ n+1, like a line of dominoes. The <em class=\"term\">pigeonhole principle</em>: put n+1 pigeons in n holes and some hole has two, the engine behind the pumping lemma. And <em class=\"term\">diagonalisation</em>: build an object that differs from the i-th item in the i-th place, which proves the reals are uncountable and the halting problem undecidable.</p><p>Watch induction work on 1 + 2 + … + n = n(n+1)/2. Base n = 1: 1 = 1·2/2 ✓. Step: assume it for n; adding n+1 gives n(n+1)/2 + (n+1) = (n+1)(n+2)/2, the formula for n+1. And among 13 people, at least two share a birth month, because of the pigeonhole principle.</p>",
       "worked": [
         {
           "toc": "Claim",
@@ -213,6 +228,12 @@
           "prompt": "<p>Let L = {ab}. List the first four strings of L*.</p>",
           "answer": "ε, ab, abab, ababab."
         }
+      ],
+      "keynotes": [
+        "Proof by contradiction assumes the opposite and derives an absurdity, e.g. that √2 is irrational.",
+        "Induction proves a base case and that n ⇒ n+1: 1 + 2 + … + n = n(n+1)/2.",
+        "The pigeonhole principle (n+1 pigeons in n holes) is the engine behind the pumping lemma.",
+        "Diagonalisation builds an object that differs from the i-th item in the i-th place, proving the reals uncountable and the halting problem undecidable."
       ]
     },
     {
@@ -220,7 +241,7 @@
       "locator": "1.5",
       "title": "The road ahead: the Chomsky hierarchy",
       "eyebrow": "Map",
-      "body": "<p>Four classes of language, each needing a stronger machine: regular (finite automaton) ⊂ context-free (pushdown automaton) ⊂ context-sensitive (linear-bounded automaton) ⊂ recursively enumerable (Turing machine). The rest of the course climbs this ladder.</p>",
+      "body": "<p>Here is the map of the whole course, so you always know where you stand. There are four classes of language, each needing a stronger machine than the one before: regular (finite automaton) ⊂ context-free (pushdown automaton) ⊂ context-sensitive (linear-bounded automaton) ⊂ recursively enumerable (Turing machine).</p><p>Each class needs strictly more memory than the one inside it, as the figure shows: nested rings, with the regular languages at the centre. The rest of the course climbs this ladder one rung at a time. Which machine recognises exactly the context-free languages? The pushdown automaton, which you will meet in chapter 3.</p>",
       "questions": [
         {
           "id": "ladder",
@@ -260,6 +281,11 @@
           "note": "Each class needs strictly more memory than the one inside it.",
           "script": "diagram(\"direction: right\\n[Regular ↔ finite automaton] as a #mint\\n[Context-free ↔ pushdown automaton] as b #blue\\n[Context-sensitive ↔ linear-bounded automaton] as c #amber\\n[Recursively enumerable ↔ Turing machine] as d #rose\\na -> b : add a stack\\nb -> c : bounded tape\\nc -> d : unbounded tape\\n@0 a -> b : more memory\\n@1.2 b -> c : more memory\\n@2.4 c -> d : more memory\\nloop 4\");"
         }
+      ],
+      "keynotes": [
+        "Four classes of language, each needing a stronger machine: regular (finite automaton), context-free (pushdown automaton), context-sensitive (linear-bounded automaton) and recursively enumerable (Turing machine).",
+        "Each class needs strictly more memory than the one inside it.",
+        "The pushdown automaton recognises exactly the context-free languages."
       ]
     },
     {
@@ -267,7 +293,11 @@
       "locator": "1.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>A language is a set of strings over an alphabet; ∪, concatenation and * build new ones.</li><li>Proofs: direct, contradiction, induction, pigeonhole, diagonalisation.</li></ul>"
+      "body": "<p>Before we climb, check your pack.</p><ul><li>A language is a set of strings over an alphabet; ∪, concatenation and * build new ones.</li><li>Proofs: direct, contradiction, induction, pigeonhole, diagonalisation.</li></ul><p>If you can say in your own words what each of the five proof styles is for, you are ready.</p>",
+      "keynotes": [
+        "A language is a set of strings over an alphabet, and union, concatenation and star build new ones.",
+        "Proofs: direct, contradiction, induction, pigeonhole and diagonalisation."
+      ]
     }
   ]
 }
