@@ -1,0 +1,53 @@
+{
+  "subtitle": "Variables vanish when the program ends; files remember. Then a glance at how programming grew up.",
+  "sections": {
+    "why": {
+      "body": "<p>Here is a sad fact about everything you have written so far: the moment the program ends, every variable is gone. Variables live in RAM, and RAM forgets. If you want your data to survive, you need a <em class='term'>file</em>, which stores data on disk as a stream of bytes.</p><p>Files come in two flavours. <b>Text files</b> hold characters: readable, line-oriented, friendly. <b>Binary files</b> hold raw bytes: compact and fast, but not human-readable. Choose text when people must read it, binary when machines will.</p>",
+      "keynotes": [
+        "Variables live in RAM and disappear at exit; a file stores data on disk as a stream of bytes.",
+        "Text files hold readable, line-oriented characters.",
+        "Binary files hold raw bytes: compact and fast, not human-readable."
+      ]
+    },
+    "life": {
+      "body": "<p>Every file you ever touch follows the same story: open, use, close. Like borrowing a book from the library.</p><p><code>FILE *f = fopen(\"data.txt\", \"r\");</code> returns a pointer, or NULL if opening fails, so always check. The mode matters: <code>r</code> read, <code>w</code> write (careful, it truncates an existing file!), <code>a</code> append, <code>r+</code> read/write; add <code>b</code> for binary. Then use <code>fprintf/fscanf</code> (formatted), <code>fgets/fputs</code> (lines) or <code>fread/fwrite</code> (blocks). Finally <code>fclose(f)</code>, because data sits in a buffer until the file is closed or flushed. Forget it and your last lines may never reach the disk.</p>",
+      "keynotes": [
+        "fopen returns a pointer, or NULL if opening fails, so always check.",
+        "Modes: r read, w write (truncates!), a append, r+ read/write; add b for binary.",
+        "Data sits in a buffer until fclose or a flush."
+      ]
+    },
+    "read": {
+      "body": "<p>How do you read a file whose length you do not know? You read in a loop until the function says there is nothing more: <code>while (fscanf(f, \"%d\", &amp;x) == 1)</code> stops when a value could not be read.</p><p>It is tempting to test <code>feof</code> before reading, but that causes the classic “last line processed twice” bug, because end of file is only noticed after a read fails. Let’s try it. A file holds 5 numbers: 4 6 8 2 10. Read and sum: 4 + 6 + 8 + 2 + 10 = 30. The safest loop tests the return value of the read itself.</p>",
+      "keynotes": [
+        "Read in a loop until the function reports end of file: while (fscanf(f, \"%d\", &x) == 1).",
+        "Checking feof before reading causes the classic bug of the last line being processed twice.",
+        "Summing the file 4 6 8 2 10 gives 30."
+      ]
+    },
+    "seek": {
+      "body": "<p>Reading from the start every time is like finding a page by turning every page. Random access lets you jump straight there. <code>fseek(f, offset, SEEK_SET)</code> moves the position, and <code>ftell</code> reports it.</p><p>The trick is fixed-size records: record n then starts at byte n × size, so you can read any record without scanning the rest. With 32-byte records, record 10 (counting from 0) starts at byte 320. Notice that counting from 0 again, as with arrays.</p>",
+      "keynotes": [
+        "fseek(f, offset, SEEK_SET) moves the position; ftell reports it.",
+        "With fixed-size records, record n starts at byte n × size.",
+        "With 32-byte records, record 10 (counting from 0) starts at byte 320."
+      ]
+    },
+    "paradigm": {
+      "body": "<p>There is more than one way to think about a program, and these ways are called paradigms. <b>Procedural</b> (C): a program is functions acting on data. <b>Object-oriented</b> (C++, Java, Python): data and the functions that act on it are bundled together in classes, so data and behaviour move together, as the figure shows. <b>Functional</b>: programs are compositions of pure functions.</p><p>You do not have to pick a side for life. Modern languages mix them, and a good programmer picks the style that fits the problem.</p>",
+      "keynotes": [
+        "Procedural (C): a program is functions acting on data.",
+        "Object-oriented (C++, Java, Python): data and the functions that act on it are bundled in classes.",
+        "Functional: programs are compositions of pure functions; modern languages mix them."
+      ]
+    },
+    "trend": {
+      "body": "<p>Where is it all heading? Look around and you can already see it: memory-safe languages (Rust), scripting for data and AI (Python), web and mobile (JavaScript/Kotlin), WebAssembly, AI coding assistants, and open-source libraries and version control as everyday tools.</p><p>So why learn C at all, if the world is moving on? Because C remains the language of operating systems, embedded devices and compilers, and learning it teaches you how the machine really works. Everything built on top of it will make more sense to you.</p>",
+      "keynotes": [
+        "Trends include memory-safe languages (Rust), Python for data and AI, JavaScript/Kotlin for web and mobile, WebAssembly and AI coding assistants.",
+        "Open-source libraries and version control are everyday tools.",
+        "C remains the language of operating systems, embedded devices and compilers, and teaches how the machine really works."
+      ]
+    }
+  }
+}

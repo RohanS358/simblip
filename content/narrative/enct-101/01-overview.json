@@ -1,0 +1,53 @@
+{
+  "subtitle": "A computer does exactly what it is told, nothing more. So let’s learn to tell it clearly: plan, write, compile, run, fix.",
+  "sections": {
+    "ps": {
+      "body": "<p>Imagine asking a friend to make you a cup of tea, but your friend does exactly, literally what you say and nothing else. “Make tea” gets you a blank stare. “Boil water” gets a kettle on the floor. That friend is a computer, and the skill you are about to learn is how to speak to it so precisely that nothing is left to guess.</p><p>It starts with a precise problem statement: what are the inputs, what output is wanted, and what rule links them? Then comes the <em class='term'>algorithm</em>, a finite, unambiguous sequence of steps that solves it. Don’t reach for the keyboard yet. Write the steps first in plain language (pseudocode) or draw them as a flowchart, and only then translate to code. A good algorithm is correct, finite, and efficient. Can you see why “keep stirring forever” would fail the second test?</p>",
+      "keynotes": [
+        "Start from a precise problem statement: inputs, wanted output, and the rule that links them.",
+        "An algorithm is a finite, unambiguous sequence of steps that solves the problem.",
+        "Write it first as pseudocode or a flowchart, then translate to code; a good algorithm is correct, finite and efficient."
+      ]
+    },
+    "flow": {
+      "body": "<p>Words can be fuzzy; pictures are harder to fudge. A flowchart lets you <i>see</i> an algorithm, and it has a tiny alphabet you can learn in a minute. Ovals start and stop. Parallelograms do input and output. Rectangles process. Diamonds decide.</p><p>Now follow the arrows with your finger. This chart finds the larger of two numbers: it reads both, asks a yes-or-no question in the diamond, and the token takes the “yes” branch or the “no” branch. Simple, and yet every decision your program will ever make is a diamond like this one.</p>",
+      "keynotes": [
+        "Ovals start and stop, parallelograms do input and output, rectangles process and diamonds decide.",
+        "Follow the arrows: a diamond sends the flow down a yes or no branch.",
+        "The example chart finds the larger of two numbers."
+      ]
+    },
+    "pipe": {
+      "body": "<p>Here is a mystery worth solving: you type text in a file, and somehow a program appears. What happens in between? Think of a small factory with four stations, each handing its product to the next.</p><p>C source (<code>.c</code>) enters the <b>preprocessor</b>, which expands <code>#include</code> and macros. The <b>compiler</b> then translates it to machine code in object files (<code>.o</code>) and complains about syntax errors. The <b>linker</b> joins object files and libraries into an executable. Finally the <b>loader</b> puts it in memory to run.</p><p>And things go wrong in three different ways, which is worth knowing because each one is fixed differently: syntax errors (caught at compile time), logic errors (the program runs but gives the wrong answer), and runtime errors (it crashes). Which station do you think complains about an “undefined reference”? Hint: it is the one that joins things together.</p>",
+      "keynotes": [
+        "The preprocessor expands #include and macros; the compiler translates to object files (.o) and reports syntax errors.",
+        "The linker joins object files and libraries into an executable; the loader puts it in memory to run.",
+        "Errors come in three kinds: syntax (compile time), logic (wrong answer) and runtime (crash)."
+      ]
+    },
+    "struct": {
+      "body": "<p>Every C program has the same skeleton, and once you see it you will recognise it everywhere. There is a <code>main()</code>, where execution starts. Statements end with <code>;</code>, blocks use <code>{ }</code>, and <code>/* … */</code> and <code>//</code> are comments for humans, which the computer ignores.</p><p>Run the program below and watch each line execute, one after another. The pattern is declare, compute, print. (A small note: the lab runs a C/C++ subset, so <code>cout</code> here plays the role of <code>printf</code>.) Watch carefully, because you will write this skeleton hundreds of times.</p>",
+      "keynotes": [
+        "Execution starts at main(); statements end with ;, blocks use { }, and comments use /* … */ or //.",
+        "A typical program declares, computes, then prints.",
+        "The lab runs a C/C++ subset, where cout plays the role of printf."
+      ]
+    },
+    "types": {
+      "body": "<p>A variable is a named box in memory, and, importantly, the box has a <i>type</i> that fixes its size and meaning. Choose the wrong box and your number won’t fit. The common ones: <code>char</code> (1 byte), <code>int</code> (usually 4), <code>float</code> (4, ≈7 digits) and <code>double</code> (8, ≈15 digits).</p><p>Two rules save you from the nastiest early bugs. Declare before use, and initialise before reading, because an uninitialised local holds garbage, whatever bits happened to be lying around. And identifiers (names) are made of letters, digits and underscore, may not start with a digit, and are case-sensitive.</p><p>How big a number fits? Take a signed 8-bit char. It can hold 2⁸ = 256 values, so its range is −2⁷ to 2⁷−1, that is −128 … 127. Half of the values are spent on negatives. Keep that in mind for the question below.</p>",
+      "keynotes": [
+        "A variable is a named memory location whose type fixes its size: char 1 byte, int usually 4, float 4 (≈7 digits), double 8 (≈15 digits).",
+        "Declare before use and initialise before reading; an uninitialised local holds garbage.",
+        "A signed 8-bit char holds 2⁸ = 256 values, ranging from −128 to 127."
+      ]
+    },
+    "const": {
+      "body": "<p>Quick: what does the number 3.14159 mean when it appears in line 87 of someone’s code? Maybe pi. Maybe not. Nobody, including you in six months, will know. These unexplained numbers are called “magic numbers”, and the cure is easy: give fixed values a name with <code>const</code> or <code>#define</code> (PI, MAX).</p><p>The same spirit applies everywhere. Choose descriptive names, indent consistently, and comment the <i>why</i>, not the what. Remember: code is read far more often than it is written, so be kind to your future self.</p>",
+      "keynotes": [
+        "Use const or #define for fixed values (PI, MAX) instead of magic numbers.",
+        "Choose descriptive names, indent consistently and comment the why.",
+        "Code is read far more often than it is written."
+      ]
+    }
+  }
+}

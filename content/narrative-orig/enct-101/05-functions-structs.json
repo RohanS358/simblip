@@ -1,0 +1,42 @@
+{
+  "title": "Functions, recursion and structures",
+  "subtitle": "Break a big problem into named pieces, and group related data into one unit.",
+  "sections": {
+    "fn": {
+      "title": "Defining and calling functions",
+      "body": "<p>A function has a return type, name, parameters and body: <code>int square(int x) { return x * x; }</code>. Declare a <b>prototype</b> before use so the compiler knows the signature. <code>void</code> functions return nothing. Benefits: reuse, testing one piece at a time, readability.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "scope": {
+      "title": "Scope and lifetime",
+      "body": "<p>Local variables live inside a function (or block) and vanish when it returns; each call has its own copy. Global variables are visible everywhere but make code harder to reason about. <code>static</code> locals keep their value between calls.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "stack": {
+      "title": "The call stack",
+      "body": "<p>Each call pushes a <b>stack frame</b> holding parameters, locals and the return address; return pops it. Recursion simply stacks many frames.</p>",
+      "after": "",
+      "steps": "fact(4) = 4 × fact(3) = 4 × 3 × fact(2). = 4 × 3 × 2 × 1."
+    },
+    "rec": {
+      "title": "Recursion vs iteration",
+      "body": "<p>Anything recursive can be written with a loop. Recursion is natural for trees and divide-and-conquer; iteration is cheaper (no frames). The naive recursive Fibonacci recomputes subproblems: fib(6) makes 25 calls.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "struct": {
+      "title": "Structures",
+      "body": "<p>A <code>struct</code> bundles fields of different types: <code>struct Student { int roll; int marks; };</code>. Access with the dot operator (<code>s.marks</code>), or arrow through a pointer (<code>p-&gt;marks</code>). Assigning one struct to another copies every field.</p>",
+      "after": "",
+      "steps": "struct { char c; int i; } on a typical machine: c takes 1 byte, then 3 bytes of padding so i is 4-aligned. Total size 1 + 3 + 4."
+    },
+    "union": {
+      "title": "Arrays of structs, unions, enums",
+      "body": "<p>An array of structs models a table (students). A <code>union</code> shares one memory slot between its members (size = largest member). <code>enum</code> gives names to integer constants (<code>enum {RED, GREEN, BLUE};</code> = 0, 1, 2). <code>typedef</code> creates a shorter type name.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

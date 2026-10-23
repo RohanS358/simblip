@@ -1,0 +1,42 @@
+{
+  "title": "Decisions and loops",
+  "subtitle": "Sequence, selection, repetition: every program ever written is built from these three.",
+  "sections": {
+    "if": {
+      "title": "if, else if, else",
+      "body": "<p><code>if (cond) { … } else if (cond2) { … } else { … }</code>. Only the first true branch runs. Beware <code>=</code> (assign) versus <code>==</code> (compare) inside a condition, and the “dangling else” — an else belongs to the nearest if, so use braces.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "sw": {
+      "title": "switch",
+      "body": "<p><code>switch (n) { case 1: …; break; case 2: …; break; default: … }</code> jumps to the matching case. Without <code>break</code> control falls through to the next case — sometimes useful, often a bug. The selector must be an integer or char.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "for": {
+      "title": "for loop",
+      "body": "<p><code>for (init; condition; update) body</code>: init once, test before each pass, update after each pass. Use it when the number of repetitions is known. The sum of even numbers 1–10 below is 2 + 4 + 6 + 8 + 10.</p>",
+      "after": "",
+      "steps": "Iterations of for (i = 0; i < n; i++) when n = 10. i takes 0,1,…,9: ten passes."
+    },
+    "while": {
+      "title": "while and do–while",
+      "body": "<p><code>while (cond)</code> tests first, so may run zero times; <code>do { … } while (cond);</code> runs at least once. Use <code>while</code> when the count is unknown. <code>break</code> leaves a loop; <code>continue</code> skips to the next pass.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "nest": {
+      "title": "Nested loops and patterns",
+      "body": "<p>An outer loop of m passes containing an inner loop of n passes runs the inner body m × n times — the basis of tables, matrices and patterns (and of O(n²) cost). Triangle of stars: row i prints i stars.</p>",
+      "after": "",
+      "steps": "Outer 4 passes, inner up to row number: 1 + 2 + 3 + 4. Total inner passes."
+    },
+    "rec": {
+      "title": "Choosing the right loop",
+      "body": "<table><thead><tr><th>Need</th><th>Use</th></tr></thead><tbody><tr><td>Known count</td><td>for</td></tr><tr><td>Repeat until a condition, maybe zero times</td><td>while</td></tr><tr><td>Run once, then repeat while</td><td>do–while</td></tr><tr><td>Choose among constants</td><td>switch</td></tr></tbody></table>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

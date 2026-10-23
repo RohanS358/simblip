@@ -1,0 +1,53 @@
+{
+  "subtitle": "Sequence, selection, repetition: every program ever written is built from these three.",
+  "sections": {
+    "if": {
+      "body": "<p>Life is full of forks: if it is raining, take an umbrella; else if it is sunny, wear sunglasses; else do nothing. A program needs exactly the same thing, and <code>if (cond) { … } else if (cond2) { … } else { … }</code> is how you say it. The conditions are tried in order, and only the first true branch runs, like a grade ladder you climb from the top.</p><p>Two traps wait for you here. First, <code>=</code> assigns while <code>==</code> compares, and mixing them up inside a condition is a legend among bugs. Second, the “dangling else”: an else belongs to the nearest if, so use braces and spare yourself the confusion. What do you think <code>if (x = 5)</code> actually does? Keep that question in mind.</p>",
+      "keynotes": [
+        "Only the first true branch of an if / else if / else chain runs, and conditions are tried in order.",
+        "Beware = (assign) versus == (compare) inside a condition.",
+        "An else belongs to the nearest if, so use braces to avoid the dangling else."
+      ]
+    },
+    "sw": {
+      "body": "<p>When you have many choices based on one value, a long ladder of ifs gets tiresome. <code>switch (n) { case 1: …; break; case 2: …; break; default: … }</code> jumps straight to the matching case. Watch the figure: it lands directly on case 3.</p><p>Here is the catch that bites everyone once. Without <code>break</code>, control falls through to the next case. Sometimes that is exactly what you want; far more often it is a bug. One more rule: the selector must be an integer or char.</p>",
+      "keynotes": [
+        "switch jumps to the matching case; default catches the rest.",
+        "Without break control falls through to the next case, sometimes useful, often a bug.",
+        "The selector must be an integer or char."
+      ]
+    },
+    "for": {
+      "body": "<p>Now for repetition, the thing computers are truly good at. If you know how many times to repeat, reach for the <code>for</code> loop: <code>for (init; condition; update) body</code>. Three parts, one order: init once, test before each pass, update after each pass.</p><p>Let’s count passes. For <code>for (i = 0; i &lt; n; i++)</code> with n = 10, i takes 0, 1, …, 9, which is ten passes. Notice it is ten, not eleven; the loop stops the moment i reaches 10. The classic question is whether you can spot that off-by-one before it bites. Step through the figure to watch the sum of even numbers 1–10 grow (2 + 4 + 6 + 8 + 10) only when i is even.</p>",
+      "keynotes": [
+        "for (init; condition; update) runs init once, tests before each pass and updates after each pass.",
+        "Use it when the number of repetitions is known.",
+        "With n = 10, i takes 0 to 9: ten passes."
+      ]
+    },
+    "while": {
+      "body": "<p>What if you do not know in advance how many times to repeat? You keep going <i>until something happens</i>, like stirring until the sugar dissolves. That is <code>while (cond)</code>. It tests first, so it may run zero times. Its sibling <code>do { … } while (cond);</code> runs the body first, so it always runs at least once.</p><p>Two helpers sit inside any loop: <code>break</code> leaves the loop entirely, and <code>continue</code> skips to the next pass. In the figure, 5! = 120 is computed with a while loop, and the do–while counts down.</p>",
+      "keynotes": [
+        "while tests first so it may run zero times; do–while runs at least once.",
+        "Use while when the count is unknown.",
+        "break leaves a loop; continue skips to the next pass."
+      ]
+    },
+    "nest": {
+      "body": "<p>Now put a loop inside a loop, like the hands of a clock: the minute hand goes round for each step of the hour hand. An outer loop of m passes containing an inner loop of n passes runs the inner body m × n times. That is how tables, matrices and patterns are made, and it is also where the O(n²) cost comes from.</p><p>Try the triangle of stars, where row i prints i stars. With 4 rows the inner body runs 1 + 2 + 3 + 4 times, which is 4·5/2 = 10. Can you see the shortcut for adding 1 to n? Remember it, because you will use it again when we count the cost of algorithms.</p>",
+      "keynotes": [
+        "An outer loop of m passes with an inner loop of n passes runs the inner body m × n times.",
+        "Nested loops build tables, matrices and patterns, and give O(n²) cost.",
+        "A 4-row triangle of stars runs the inner body 1 + 2 + 3 + 4 = 10 times."
+      ]
+    },
+    "rec": {
+      "body": "<p>Which loop should you pick? Ask yourself one question: what do I know about the repetition? Here is the answer in a table you can come back to.</p><table><thead><tr><th>Need</th><th>Use</th></tr></thead><tbody><tr><td>Known count</td><td>for</td></tr><tr><td>Repeat until a condition, maybe zero times</td><td>while</td></tr><tr><td>Run once, then repeat while</td><td>do–while</td></tr><tr><td>Choose among constants</td><td>switch</td></tr></tbody></table><p>Think of a menu that must appear at least once and repeat until the user quits. Which row does that match? You have the answer already.</p>",
+      "keynotes": [
+        "Use for when the count is known, while when it may run zero times, and do–while when it must run at least once.",
+        "Use switch to choose among constants.",
+        "A menu shown at least once and repeated until the user quits is a do–while."
+      ]
+    }
+  }
+}

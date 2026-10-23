@@ -1,0 +1,42 @@
+{
+  "title": "From problem to running program",
+  "subtitle": "A computer does exactly what it is told, nothing more. Learn to tell it clearly: plan, write, compile, run, fix.",
+  "sections": {
+    "ps": {
+      "title": "Problem solving",
+      "body": "<p>Programming starts with a precise problem statement: what are the inputs, what output is wanted, and what rule links them? An <em class=\"term\">algorithm</em> is a finite, unambiguous sequence of steps that solves it. Write it first as plain steps (pseudocode) or a flowchart, then translate to code. Good algorithms are correct, finite, and efficient.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "flow": {
+      "title": "Flowcharts",
+      "body": "<p>Ovals start/stop, parallelograms do input/output, rectangles process, diamonds decide. Follow the arrows: this chart finds the larger of two numbers.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "pipe": {
+      "title": "Compile, link, run",
+      "body": "<p>C source (<code>.c</code>) is turned into a program by stages: the <b>preprocessor</b> expands <code>#include</code> and macros; the <b>compiler</b> translates to machine code in object files (<code>.o</code>) and reports syntax errors; the <b>linker</b> joins object files and libraries into an executable; the <b>loader</b> puts it in memory to run. Errors come in three kinds: syntax (compile time), logic (wrong answer) and runtime (crash).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "struct": {
+      "title": "Structure of a C program",
+      "body": "<p>Every program has <code>main()</code>, where execution starts; statements end with <code>;</code>; blocks use <code>{ }</code>; <code>/* … */</code> and <code>//</code> are comments. Below, run it and watch each line execute. (The lab runs a C/C++ subset: <code>cout</code> here plays the role of <code>printf</code>.)</p>",
+      "after": "",
+      "steps": ""
+    },
+    "types": {
+      "title": "Variables and data types",
+      "body": "<p>A variable is a named memory location with a type that fixes its size and meaning: <code>char</code> (1 byte), <code>int</code> (usually 4), <code>float</code> (4, ≈7 digits), <code>double</code> (8, ≈15 digits). Declare before use; initialise before reading — an uninitialised local holds garbage. Identifiers: letters, digits, underscore; not starting with a digit; case-sensitive.</p>",
+      "after": "",
+      "steps": "A signed 8-bit char can hold 2⁸ = 256 values. Range is −128 … 127."
+    },
+    "const": {
+      "title": "Constants and style",
+      "body": "<p>Use <code>const</code> or <code>#define</code> for fixed values (PI, MAX) instead of “magic numbers”. Choose descriptive names, indent consistently, comment the <i>why</i>. Code is read far more often than it is written.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "subtitle": "Memory is a long row of numbered boxes. An array is a run of them; a pointer is a box that holds a box’s number.",
+  "sections": {
+    "arr": {
+      "body": "<p>Suppose you need to store the marks of five students. Five variables? Fifty students, fifty variables? There must be a better way, and there is: an array, many values under one name. <code>int a[5] = {10, 20, 30, 40, 50};</code> reserves 5 consecutive ints.</p><p>Here is the rule that surprises everyone: indexes run from 0 to 4. The first item is a[0]. And a[5] is out of bounds, but C does <b>not</b> check. It will happily read or corrupt a neighbouring box in memory without a word of warning, which is the source of countless security holes. Initialise your array, then process it with a loop. Watch i walk along the array in the figure. So what is the last valid index of <code>int a[8]</code>?</p>",
+      "keynotes": [
+        "int a[5] reserves 5 consecutive ints with indexes 0 to 4.",
+        "C does not check bounds: a[5] silently reads or corrupts neighbouring memory.",
+        "Initialise an array, then process it with a loop."
+      ]
+    },
+    "addr": {
+      "body": "<p>Picture memory as a very long street of houses, one byte per house, each with its own house number. That number is the <i>address</i>, and <code>&amp;x</code> is the address of x.</p><p>An int array of 4 elements occupies 16 bytes (4 bytes each), and element i lives at base + 4·i. So the name <code>a</code> itself acts as the address of <code>a[0]</code>. Let’s test it: base address 1000, 4-byte ints. Where does a[3] live? Base + 3 × 4 = 1000 + 12 = 1012. See how the four-byte ints in the figure sit 4 addresses apart, and use the same arithmetic on the question below.</p>",
+      "keynotes": [
+        "Each byte has an address, and &x is the address of x.",
+        "An int array of 4 elements occupies 16 bytes; element i lives at base + 4·i.",
+        "The name of an array acts as the address of its first element.",
+        "With base 1000 and 4-byte ints, a[3] is at 1000 + 12 = 1012."
+      ]
+    },
+    "ptr": {
+      "body": "<p>Now for the idea that makes C famous, and sometimes feared. A pointer is a variable that holds an address. It’s like a sticky note that says “the thing you want is at house number 1004”.</p><p><code>int *p = &amp;x;</code> means p stores x’s address. And <code>*p</code>, the dereference, means “the thing p points to”. So <code>*p = 9</code> changes x itself. Two safety rules: a pointer must be initialised before use, and a NULL pointer points nowhere. Pointer arithmetic is clever too: it scales by the element size, so <code>p + 1</code> moves to the next int, not the next byte. In the figure p + 2 lands on the third element.</p><p>Work through the question: after <code>int x = 4; int *p = &amp;x; *p = 7;</code>, what is x? Think about whose value you just changed.</p>",
+      "keynotes": [
+        "int *p = &x; stores x’s address in p; *p (dereference) is the thing p points to, so *p = 9 changes x.",
+        "A pointer must be initialised before use; a NULL pointer points nowhere.",
+        "Pointer arithmetic scales by element size: p + 1 moves to the next int."
+      ]
+    },
+    "byref": {
+      "body": "<p>Why do pointers matter in practice? Because of a surprising fact: C passes arguments <b>by value</b>. A function receives photocopies of what you give it, so if it scribbles on the copy, your original is unharmed. That is why <code>void swap(int a, int b)</code> can never swap the caller’s variables.</p><p>The fix is to hand over the address instead, the way you would give someone your home address rather than a photo of your house: <code>swap(&amp;x, &amp;y)</code> with <code>void swap(int *a, int *b)</code>. Now swap works on the caller’s variables through their addresses. Arrays are passed as the address of their first element, which is why a function can modify them.</p>",
+      "keynotes": [
+        "C passes arguments by value, so a function gets copies.",
+        "To change the caller’s variable, pass its address: swap(&x, &y) with void swap(int *a, int *b).",
+        "Arrays are passed as the address of their first element, so a function can modify them."
+      ]
+    },
+    "str": {
+      "body": "<p>How does C store text? There is no special string type: it is just an array of char with a small marker at the end, the null character <code>'\\0'</code>. So \"hi\" occupies 3 bytes: h, i, \\0. <code>strlen</code> counts up to, but not including, the null.</p><p>See the trap? Forgetting to leave room for the terminator is a classic overflow. Count it with me: <code>char s[] = \"hello\";</code> takes 5 letters + 1 null, which is 6 bytes. So what size does the string “code” need?</p>",
+      "keynotes": [
+        "A C string is a char array ending with the null character '\\0'; \"hi\" occupies 3 bytes.",
+        "strlen counts up to, not including, the null.",
+        "char s[] = \"hello\" takes 5 letters + 1 null = 6 bytes; forgetting the terminator is a classic overflow."
+      ]
+    },
+    "dyn": {
+      "body": "<p>So far the size of everything was fixed when you wrote the program. But what if you only learn how much memory you need while it runs? You ask the heap, like asking a hotel for a room. <code>malloc(n)</code> asks for n bytes and returns a pointer; <code>free(p)</code> gives the room back.</p><p>Be a good guest. Forget to free and you leak memory, slowly eating the machine. Use memory after freeing (a dangling pointer) or free twice, and the behaviour is undefined, which is a polite way of saying anything can happen. The rule is easy: pair every malloc with one free.</p>",
+      "keynotes": [
+        "malloc(n) asks the heap for n bytes and returns a pointer; free(p) gives it back.",
+        "Forgetting to free leaks memory; using memory after freeing (a dangling pointer) or freeing twice is undefined.",
+        "Pair every malloc with one free."
+      ]
+    }
+  }
+}

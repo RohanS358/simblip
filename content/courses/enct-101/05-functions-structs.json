@@ -8,7 +8,7 @@
       "locator": "7.1",
       "title": "Defining and calling functions",
       "eyebrow": "Reuse with a name",
-      "body": "<p>A function has a return type, name, parameters and body: <code>int square(int x) { return x * x; }</code>. Declare a <b>prototype</b> before use so the compiler knows the signature. <code>void</code> functions return nothing. Benefits: reuse, testing one piece at a time, readability.</p>",
+      "body": "<p>Imagine a restaurant kitchen where every dish is cooked from scratch by one person, every time. Chaos! Real kitchens have stations. A function is a station: a named piece of work you can call whenever you need it.</p><p>A function has a return type, a name, parameters and a body: <code>int square(int x) { return x * x; }</code>. Declare a <b>prototype</b> before you use it, so the compiler knows the signature, which is exactly the answer to what a prototype tells the compiler. <code>void</code> functions return nothing. The payoff is threefold: reuse, testing one piece at a time, and readability.</p>",
       "questions": [
         {
           "id": "proto",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A function has a return type, name, parameters and body, as in int square(int x) { return x * x; }.",
+        "A prototype declared before use tells the compiler the signature; void functions return nothing.",
+        "Benefits: reuse, testing one piece at a time and readability."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "7.2",
       "title": "Scope and lifetime",
       "eyebrow": "Where a name is visible",
-      "body": "<p>Local variables live inside a function (or block) and vanish when it returns; each call has its own copy. Global variables are visible everywhere but make code harder to reason about. <code>static</code> locals keep their value between calls.</p>",
+      "body": "<p>Where can a name be seen? That is scope, and a good picture is rooms in a house: what is said inside a room stays in the room. Local variables live inside a function (or block) and vanish when it returns, and each call has its own copy. So two functions can each declare <code>int i</code> without ever bumping into each other.</p><p>Global variables are visible everywhere, which sounds handy but makes code harder to reason about, because anybody could have changed them. And <code>static</code> locals are the interesting exception: they keep their value between calls, like a note you leave on the fridge.</p>",
       "questions": [
         {
           "id": "loc",
@@ -79,6 +84,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Local variables live inside a function or block and vanish on return; each call has its own copy.",
+        "Global variables are visible everywhere but make code harder to reason about.",
+        "static locals keep their value between calls."
       ]
     },
     {
@@ -86,7 +96,7 @@
       "locator": "7.3",
       "title": "The call stack",
       "eyebrow": "What happens on a call",
-      "body": "<p>Each call pushes a <b>stack frame</b> holding parameters, locals and the return address; return pops it. Recursion simply stacks many frames.</p>",
+      "body": "<p>What really happens when one function calls another? Picture a stack of plates in a canteen. Each call puts a new plate on top, a <b>stack frame</b> holding the parameters, the locals and the return address. When the function returns, its plate is lifted off and you are back where you were.</p><p>Recursion is simply a function calling itself, so many plates pile up. Take fact(4) = 4 × fact(3) = 4 × 3 × fact(2), and so on down, until it reaches the end and unwinds: 4 × 3 × 2 × 1 = 24. In the figure, five nested frames build up and then unwind, multiplying as they go. Which brings us to a rule you must never forget: every recursive function needs a base case, or the plates pile up forever.</p>",
       "worked": [
         {
           "toc": "Expand",
@@ -150,6 +160,11 @@
           "prompt": "<p>Given fib(0)=0, fib(1)=1, fib(n)=fib(n−1)+fib(n−2), find fib(6).</p>",
           "answer": "0,1,1,2,3,5,<b>8</b>."
         }
+      ],
+      "keynotes": [
+        "Each call pushes a stack frame holding parameters, locals and the return address; return pops it.",
+        "Recursion simply stacks many frames.",
+        "fact(4) unwinds to 4 × 3 × 2 × 1 = 24."
       ]
     },
     {
@@ -157,7 +172,7 @@
       "locator": "7.4",
       "title": "Recursion vs iteration",
       "eyebrow": "Two ways to repeat",
-      "body": "<p>Anything recursive can be written with a loop. Recursion is natural for trees and divide-and-conquer; iteration is cheaper (no frames). The naive recursive Fibonacci recomputes subproblems: fib(6) makes 25 calls.</p>",
+      "body": "<p>Here is a comforting truth: anything recursive can be written with a loop. So why bother with recursion? Because it feels natural for trees and divide-and-conquer problems, where the problem contains a smaller copy of itself. Iteration, in return, is cheaper, because there are no frames to build.</p><p>Beware the naive recursion, though. Fibonacci written recursively recomputes the same subproblems again and again: fib(6) makes 25 calls. Step through the figure and see the overlapping calls for yourself. Can you see why a loop that remembers the last two values does the same job with far less work?</p>",
       "questions": [
         {
           "id": "ri",
@@ -202,6 +217,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Anything recursive can be written with a loop.",
+        "Recursion is natural for trees and divide-and-conquer; iteration is cheaper because it needs no frames.",
+        "Naive recursive Fibonacci recomputes subproblems: fib(6) makes 25 calls."
       ]
     },
     {
@@ -209,7 +229,7 @@
       "locator": "8.1",
       "title": "Structures",
       "eyebrow": "Grouping data",
-      "body": "<p>A <code>struct</code> bundles fields of different types: <code>struct Student { int roll; int marks; };</code>. Access with the dot operator (<code>s.marks</code>), or arrow through a pointer (<code>p-&gt;marks</code>). Assigning one struct to another copies every field.</p>",
+      "body": "<p>A student has a roll number, a name, marks. They belong together, so why keep them in separate variables? A <code>struct</code> bundles fields of different types into one unit: <code>struct Student { int roll; int marks; };</code>.</p><p>You reach a field with the dot operator (<code>s.marks</code>), or with an arrow through a pointer (<code>p-&gt;marks</code>). Assigning one struct to another copies every field, so t is independent of s afterwards, just as the figure shows.</p><p>One subtle thing: size is not always the sum of the parts. A <code>struct { char c; int i; }</code> on a typical machine has c taking 1 byte, then 3 bytes of padding so that i is 4-aligned. Total: 1 + 3 + 4 = 8 bytes. Padding is the compiler tidying the shelves for faster access.</p>",
       "worked": [
         {
           "toc": "Layout",
@@ -273,6 +293,12 @@
           "prompt": "<p>struct { int a; char b; int c; } with 4-byte alignment: size?</p>",
           "answer": "a 4 + b 1 + 3 pad + c 4 = <b>12 bytes</b>."
         }
+      ],
+      "keynotes": [
+        "A struct bundles fields of different types, as in struct Student { int roll; int marks; };.",
+        "Access fields with the dot operator (s.marks) or the arrow through a pointer (p->marks).",
+        "Assigning one struct to another copies every field.",
+        "struct { char c; int i; } takes 1 + 3 padding + 4 = 8 bytes."
       ]
     },
     {
@@ -280,7 +306,7 @@
       "locator": "8.2",
       "title": "Arrays of structs, unions, enums",
       "eyebrow": "Combining",
-      "body": "<p>An array of structs models a table (students). A <code>union</code> shares one memory slot between its members (size = largest member). <code>enum</code> gives names to integer constants (<code>enum {RED, GREEN, BLUE};</code> = 0, 1, 2). <code>typedef</code> creates a shorter type name.</p>",
+      "body": "<p>Once you have structs, the combinations are endless. An array of structs models a table, such as a class register of students. A <code>union</code> is the odd one out: all its members share one memory slot, so its size is that of the largest member. Think of one parking space used by whichever vehicle arrives.</p><p><code>enum</code> gives names to integer constants (<code>enum {RED, GREEN, BLUE};</code> means 0, 1, 2), so your code reads like English. And <code>typedef</code> creates a shorter type name. A union of an int (4 B) and a double (8 B) occupies the larger: 8 bytes.</p>",
       "questions": [
         {
           "id": "un",
@@ -312,6 +338,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "An array of structs models a table such as a register of students.",
+        "A union shares one memory slot between its members, so its size is the largest member; an int (4 B) and a double (8 B) occupy 8 bytes.",
+        "enum names integer constants (RED, GREEN, BLUE = 0, 1, 2) and typedef creates a shorter type name."
       ]
     }
   ]

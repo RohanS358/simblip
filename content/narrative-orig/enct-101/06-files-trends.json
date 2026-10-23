@@ -1,0 +1,42 @@
+{
+  "title": "Files and where programming is heading",
+  "subtitle": "Variables vanish when the program ends; files remember. Then a glance at how programming grew up.",
+  "sections": {
+    "why": {
+      "title": "Why files",
+      "body": "<p>Variables live in RAM and disappear at exit. A <em class=\"term\">file</em> stores data on disk as a stream of bytes. <b>Text files</b> hold characters (readable, line-oriented); <b>binary files</b> hold raw bytes (compact, fast, not human-readable).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "life": {
+      "title": "The file lifecycle",
+      "body": "<p><code>FILE *f = fopen(\"data.txt\", \"r\");</code> returns a pointer, or NULL if opening fails — always check. Modes: <code>r</code> read, <code>w</code> write (truncates!), <code>a</code> append, <code>r+</code> read/write; add <code>b</code> for binary. Then use <code>fprintf/fscanf</code> (formatted), <code>fgets/fputs</code> (lines), <code>fread/fwrite</code> (blocks), and finally <code>fclose(f)</code> so buffered data is flushed.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "read": {
+      "title": "Reading until the end",
+      "body": "<p>Read in a loop until the function reports end of file: <code>while (fscanf(f, \"%d\", &amp;x) == 1)</code> stops when a value could not be read. Checking <code>feof</code> before reading causes the classic “last line processed twice” bug.</p>",
+      "after": "",
+      "steps": "A file holds 5 numbers: 4 6 8 2 10. Read and sum. 4 + 6 + 8 + 2 + 10."
+    },
+    "seek": {
+      "title": "Random access",
+      "body": "<p><code>fseek(f, offset, SEEK_SET)</code> moves the position; <code>ftell</code> reports it. With fixed-size records, record n starts at byte n × size, so any record can be read without scanning the rest.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "paradigm": {
+      "title": "Paradigms",
+      "body": "<p><b>Procedural</b> (C): a program is functions acting on data. <b>Object-oriented</b> (C++, Java, Python): data and the functions that act on it are bundled in classes. <b>Functional</b>: programs are compositions of pure functions. Modern languages mix them.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "trend": {
+      "title": "Recent trends",
+      "body": "<p>Memory-safe languages (Rust), scripting for data and AI (Python), web and mobile (JavaScript/Kotlin), WebAssembly, AI coding assistants, open-source libraries and version control as everyday tools. C remains the language of operating systems, embedded devices and compilers — learning it teaches how the machine really works.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

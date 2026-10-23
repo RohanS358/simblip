@@ -1,0 +1,56 @@
+{
+  "subtitle": "Expressions are evaluated in a fixed order. Know it, and you can predict any line of arithmetic before the computer does.",
+  "sections": {
+    "arith": {
+      "body": "<p>Ready for a surprise? Ask C what 7/2 is and it will say 3. Not 3.5. Three. Is the computer bad at maths? No, it is following a rule, and the rule is the whole lesson.</p><p>You get the usual <code>+ - * /</code> plus the remainder <code>%</code>. With two integers, <code>/</code> is <b>integer division</b>: it truncates, throwing away the fraction. And <code>%</code> gives the leftover, so 7 % 3 is 1. Want the honest 3.5? Make one operand a double: 7/2.0. The type of the operands decides what kind of division happens.</p>",
+      "keynotes": [
+        "With two integers, / is integer division and truncates: 7/2 is 3, not 3.5.",
+        "% gives the remainder: 7 % 3 is 1.",
+        "To get 3.5 make one operand a double (7/2.0)."
+      ]
+    },
+    "prec": {
+      "body": "<p>What is 2 + 3 * 4? If you said 14, you already know C’s secret: some operators are more eager than others, and multiplication goes before addition. This ordering is called <i>precedence</i>, and it is the order in which an expression is quietly taken apart.</p><p>From high to low: parentheses, unary (<code>! - ++ --</code>), <code>* / %</code>, <code>+ -</code>, relational (<code>&lt; &gt; &lt;= &gt;=</code>), equality (<code>== !=</code>), <code>&amp;&amp;</code>, <code>||</code>, assignment. When two operators tie, they go left to right (assignment is the exception, right to left). And the golden rule: when unsure, add parentheses. Nobody ever lost marks for clarity.</p><p>Try one together: 2 + 3 * 4 − 6 / 2. Multiplication and division first, giving 12 and 3, so the line becomes 2 + 12 − 3. Then left to right: 11. Do the same by hand for the question below before you peek.</p>",
+      "keynotes": [
+        "Precedence from high to low: parentheses, unary, * / %, + -, relational, equality, &&, ||, assignment.",
+        "Equal precedence goes left to right; assignment goes right to left.",
+        "When unsure, add parentheses.",
+        "2 + 3 * 4 − 6 / 2 becomes 2 + 12 − 3, which is 11."
+      ]
+    },
+    "incr": {
+      "body": "<p>Programmers are lazy in a good way, so C has shortcuts. <code>x += 5</code> means <code>x = x + 5</code>. And then there are the two flavours of increment, which trip up everybody once: <code>i++</code> uses i <i>then</i> adds 1, while <code>++i</code> adds 1 <i>then</i> uses it. Post-increment yields the old value, pre-increment the new one. Check the figure to see it happen.</p><p>Mixed types? In a mixed expression the smaller type is promoted (int → double) so nothing is lost. And if you want to force it yourself, use a cast: <code>(double)a / b</code>. Try the question below, and see whether you can say what j will be before reading any further.</p>",
+      "keynotes": [
+        "x += 5 means x = x + 5.",
+        "i++ uses i then adds 1 (yielding the old value); ++i adds 1 then uses it (yielding the new one).",
+        "In mixed expressions the smaller type is promoted (int → double); a cast such as (double)a / b forces it."
+      ]
+    },
+    "logic": {
+      "body": "<p>How does C represent true and false? With numbers: 0 is false and any non-zero is true, and comparisons yield 0 or 1. Simple, a little strange, and very useful.</p><p>Here is a trick that protects your programs. <code>&amp;&amp;</code> and <code>||</code> <i>short-circuit</i>: they stop as soon as the answer is known. In <code>a != 0 &amp;&amp; x/a &gt; 1</code>, when a is 0 the first test fails, so the division is never attempted. That is exactly why <code>p != NULL &amp;&amp; *p &gt; 0</code> is safe. The guard comes first.</p><p>Then there are bitwise operators, <code>&amp; | ^ ~ &lt;&lt; &gt;&gt;</code>, which work on the bits themselves: <code>x &lt;&lt; 1</code> doubles an integer. Try AND by hand: 12 = 1100₂, 10 = 1010₂. Go bit by bit, and 1100 &amp; 1010 gives 1000₂, which is 8.</p>",
+      "keynotes": [
+        "In C, 0 is false and any non-zero is true; comparisons yield 0 or 1.",
+        "&& and || short-circuit, so a != 0 && x/a > 1 never divides when a is 0.",
+        "Bitwise operators work on bits: x << 1 doubles an integer.",
+        "12 AND 10 (1100₂ and 1010₂) is 1000₂, which is 8."
+      ]
+    },
+    "io": {
+      "body": "<p>A program that cannot talk to anyone is not much use. Two functions do most of the talking, and you will use them in almost every program. <code>printf(\"fmt\", args)</code> writes formatted output, using conversion specifiers: <code>%d</code> int, <code>%f</code> double/float, <code>%c</code> char, <code>%s</code> string, <code>%x</code> hex. And <code>%5.2f</code> means width 5, 2 decimals.</p><p>Then <code>scanf(\"%d\", &amp;n)</code> reads input, and look hard at that little <b>&amp;</b>. scanf needs the variable’s <i>address</i> so it can store into it. Without the address it would be handed a copy of n and could change nothing. Input flows into memory; output flows from it. For single characters there are <code>getchar</code> and <code>putchar</code>.</p>",
+      "keynotes": [
+        "printf writes formatted output using specifiers: %d int, %f double/float, %c char, %s string, %x hex.",
+        "%5.2f means width 5 with 2 decimals.",
+        "scanf needs the variable’s address (&n) so it can store into it.",
+        "getchar and putchar handle single characters."
+      ]
+    },
+    "fmt": {
+      "body": "<p>Here is a cheat-sheet to keep at your elbow. Don’t memorise it; use it until it sticks.</p><table><thead><tr><th>Spec</th><th>Meaning</th><th>printf(…) gives</th></tr></thead><tbody><tr><td>%d</td><td>int</td><td>42 → 42</td></tr><tr><td>%5d</td><td>width 5</td><td>42 → ···42</td></tr><tr><td>%.2f</td><td>2 decimals</td><td>3.14159 → 3.14</td></tr><tr><td>%c</td><td>char</td><td>65 → A</td></tr><tr><td>%s</td><td>string</td><td>\"hi\" → hi</td></tr></tbody></table><p>Notice how a number is just a number until the specifier tells printf how to dress it: 65 becomes the letter A when you ask for %c.</p>",
+      "keynotes": [
+        "%d prints an int and %5d pads it to width 5.",
+        "%.2f prints 2 decimals, so 3.14159 gives 3.14.",
+        "%c prints a char (65 gives A) and %s prints a string."
+      ]
+    }
+  }
+}
