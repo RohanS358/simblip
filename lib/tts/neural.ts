@@ -25,8 +25,14 @@ export const WOMEN_VOICES: { id: string; label: string }[] = [
 ]
 
 let availability: Promise<boolean> | null = null
-/** Is the neural voice reachable? Asked once per page load. */
-export const neuralAvailable = () => (availability ??= fetch('/api/ai/tts').then((r) => r.json()).then((j: { available: boolean }) => j.available).catch(() => false))
+let probedAt = 0
+/** Is the neural voice reachable? A yes is remembered for the page; a NO is re-checked after 10 s, so a voice service
+ *  that was down when the lesson started (or comes up later) is picked up without a reload. */
+export const neuralAvailable = async (): Promise<boolean> => {
+  if (availability && (Date.now() - probedAt < 10_000 || (await availability))) return availability
+  probedAt = Date.now()
+  return (availability = fetch('/api/ai/tts').then((r) => r.json()).then((j: { available: boolean }) => j.available).catch(() => false))
+}
 export const resetNeuralProbe = () => { availability = null }
 
 const clips = new Map<string, Promise<Blob>>()
