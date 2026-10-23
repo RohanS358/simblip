@@ -18,6 +18,8 @@ export interface PageItem {
   text: string
   /** A figure that contains a running simulation. */
   live?: boolean
+  /** The page of a PDF this was read from — the reader is turned to it while it is explained. */
+  pdfPage?: number
 }
 export interface PageReading { title: string; kind: string; items: PageItem[] }
 

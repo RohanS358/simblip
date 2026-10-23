@@ -18,7 +18,7 @@ export const planSchema = z.object({
       z.object({
         heading: z.string().min(2).max(80),
         /** 1–3 short sentences, spoken aloud. */
-        say: z.array(z.string().min(3).max(260)).min(1).max(3),
+        say: z.array(z.string().min(3).max(260)).min(1).max(5),
         /** ONE sentence describing a simulation to draw, with concrete values. Omit when a picture would not help. */
         scene: z.string().min(8).max(240).optional(),
         /** The key relationship of this step as LaTeX. */
@@ -31,7 +31,7 @@ export const planSchema = z.object({
         experiment: z.string().min(3).max(160).optional(),
       })
     )
-    .max(8),
+    .max(12),
 }).refine((p) => p.unsure || p.steps.length >= 2, { message: 'steps: need at least 2 steps (or set "unsure")' })
 export type Plan = z.infer<typeof planSchema>
 
@@ -43,12 +43,12 @@ export const PLAN_JSON_SCHEMA = {
     unsure: { type: 'string' },
     steps: {
       type: 'array',
-      maxItems: 8,
+      maxItems: 12,
       items: {
         type: 'object',
         properties: {
           heading: { type: 'string' },
-          say: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 3 },
+          say: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 5 },
           scene: { type: 'string' },
           equation: { type: 'string' },
           experiment: { type: 'string' },
@@ -94,7 +94,10 @@ export function extractJson(text: string): unknown {
   // (`""say":` or `" "heading":` — it happens as it drops or re-starts a "heading"), and commas left
   // dangling before a closer.
   // Repaired BEFORE the object is scanned, because a stray quote flips the scanner's in-string state.
-  const body = (fenced ? fenced[1] : text).replace(/([{,]\s*)"\s*"+\s*([A-Za-z_]\w*)"\s*:/g, '$1"$2":')
+  const body = (fenced ? fenced[1] : text)
+    // LaTeX inside a JSON string: a model writes "\times" and "\frac" with ONE backslash, which JSON reads as a tab and a form feed
+    // (or rejects). A backslash that does not begin a real escape is a literal one.
+    .replace(/\\(?:(["\\/]|u[0-9a-fA-F]{4})|([bfnrt])(?=[a-zA-Z]{2})|(?!["\\/bfnrtu]))/g, (m, keep) => (keep ? m : `\\\\${m.slice(1)}`)).replace(/([{,]\s*)"\s*"+\s*([A-Za-z_]\w*)"\s*:/g, '$1"$2":')
   const start = body.indexOf('{')
   if (start < 0) throw new Error('no JSON object in the reply')
   let depth = 0
@@ -117,13 +120,14 @@ const cut = (v: unknown, n: number): string | undefined => { const t = asText(v)
  *  a field. Repair the harmless deviations (a sentence instead of a list of sentences, a missing heading or
  *  title, too many steps, "unsure" set alongside a full set of steps) so a good lesson is not thrown away over
  *  formatting; anything that is genuinely wrong still fails the schema. */
-export function normalizePlan(raw: unknown, topic = ''): unknown {
+export interface PlanCaps { steps: number; say: number }
+export function normalizePlan(raw: unknown, topic = '', caps: PlanCaps = { steps: 8, say: 3 }): unknown {
   if (!raw || typeof raw !== 'object') return raw
   const r = { ...(raw as Record<string, unknown>) }
   const steps = (Array.isArray(r.steps) ? r.steps : []).flatMap((st): unknown[] => {
     if (!st || typeof st !== 'object') return []
     const o = st as Record<string, unknown>
-    const say = (Array.isArray(o.say) ? o.say : [o.say ?? o.text ?? o.narration]).map((x) => cut(x, 260)).filter((x): x is string => !!x).slice(0, 3)
+    const say = (Array.isArray(o.say) ? o.say : [o.say ?? o.text ?? o.narration]).map((x) => cut(x, 260)).filter((x): x is string => !!x).slice(0, caps.say)
     if (!say.length) return []
     const sentence = say[0].replace(/[.!?]+$/, '')
     const first = sentence.length <= 56 ? sentence : sentence.split(' ').slice(0, 7).join(' ') + '…'
@@ -134,7 +138,7 @@ export function normalizePlan(raw: unknown, topic = ''): unknown {
       ...(cut(o.equation, 200) ? { equation: cut(o.equation, 200) } : {}),
       ...(cut(o.experiment, 160) && cut(o.experiment, 160)!.length >= 3 ? { experiment: cut(o.experiment, 160) } : {}),
     }]
-  }).slice(0, 8)
+  }).slice(0, caps.steps)
   const unsure = cut(r.unsure, 240)
   return {
     title: cut(r.title, 100) ?? (topic ? titleCase(topic) : undefined),
@@ -145,10 +149,10 @@ export function normalizePlan(raw: unknown, topic = ''): unknown {
 }
 
 /** Parse + validate; the error text is worded for the MODEL so one repair round can fix it. */
-export function parsePlan(text: string, topic = ''): { ok: true; plan: Plan } | { ok: false; error: string } {
+export function parsePlan(text: string, topic = '', caps?: PlanCaps): { ok: true; plan: Plan } | { ok: false; error: string } {
   let raw: unknown
   try { raw = extractJson(text) } catch (e) { return { ok: false, error: `${(e as Error).message}. Reply with one JSON object only.` } }
-  const r = planSchema.safeParse(normalizePlan(raw, topic))
+  const r = planSchema.safeParse(normalizePlan(raw, topic, caps))
   if (r.success) return { ok: true, plan: r.data }
   return { ok: false, error: r.error.issues.slice(0, 3).map((i) => `${i.path.join('.') || 'plan'}: ${i.message}`).join('; ') }
 }

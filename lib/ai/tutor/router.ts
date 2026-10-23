@@ -14,6 +14,9 @@
 //
 // Anything else returns null and falls through to the existing lanes.
 
+import { splitAttached } from '@/lib/ai/attached'
+import { wantsBrief } from '@/lib/lesson/brief'
+
 export type ActPlan =
   | { kind: 'quick'; tool: string }
   /** One tool, arguments taken straight from the words — no model needed. */
@@ -47,11 +50,18 @@ const LESSON_RE = /\b(?:find (?:the )?(?:lesson|notes?|chapter)|(?:lesson|notes?
 const TEACH_RE = /^(?:please\s+)?(?:(?:can you\s+)?teach\s+(?:me|us)(?:\s+about)?|(?:give|make|show)\s+(?:me|us)\s+(?:a\s+)?(?:(?:video|animated|interactive)\s+)?(?:lesson|video|animation)\s+(?:on|about|of)|animate|walk\s+(?:me|us)\s+through)\s+(?:the\s+|a\s+|an\s+)?(.{3,80}?)\s*[.!?]*$/i
 
 /** "teach me whatever is in this page", "explain this page", "walk me through this slide deck" → tour the OPEN page. */
-const TOUR_RE = /\b(?:teach|explain|walk|take|go|run)\b[^.?!]*\b(?:this|the current|my current|the open|current)\s+(?:page|doc(?:ument)?|slides?(?: deck)?|deck|board|sheet|notebook)\b|\bwhatever\b[^.?!]*\b(?:in|on)\b[^.?!]*\b(?:page|doc(?:ument)?|deck|board|slides?)\b|\bread\b[^.?!]*\b(?:this|the)\s+(?:page|doc(?:ument)?|deck|board|slides?)\b[^.?!]*\b(?:teach|explain)/i
+const TOUR_RE = /\b(?:teach|explain|walk|take|go|run)\b[^.?!]*\b(?:this|the current|my current|the open|current)\s+(?:page|pdf|doc(?:ument)?|slides?(?: deck)?|deck|board|sheet|notebook)\b|\bwhatever\b[^.?!]*\b(?:in|on)\b[^.?!]*\b(?:page|pdf|doc(?:ument)?|deck|board|slides?)\b|\bread\b[^.?!]*\b(?:this|the)\s+(?:page|pdf|doc(?:ument)?|deck|board|slides?)\b[^.?!]*\b(?:teach|explain)/i
+
+/** What a student says about a file or screenshot they attached: solve it / teach it / explain it. Empty counts — dropping a
+ *  photo of a question with no words is a request to solve it. */
+const MATERIAL_RE = /^(?:please\s+|can you\s+|could you\s+)*(?:(?:solve|answer|work\s+out|do|calculate|crack)\b|(?:teach|explain|walk|take|go|run|show|help)\b|what(?:'s| is)\s+(?:the\s+)?answer|how\s+(?:do|to|would)\b|i\s+(?:don'?t|do not)\s+(?:get|understand)|(?:read|study|learn|revise|summari[sz]e)\b)|^$/i
 
 export function routeAct(prompt: string, hasPage: boolean): ActPlan | null {
+  const att = splitAttached(prompt)
+  // A file or screenshot came with the request: the lesson is made FROM it, not from the open page.
+  if (att && MATERIAL_RE.test(att.request)) return { kind: 'direct', tool: 'teach.material', args: { text: att.material, request: att.request } }
   const p = prompt.trim()
-  if (TOUR_RE.test(p)) return { kind: 'direct', tool: 'teach.page', args: {} }
+  if (TOUR_RE.test(p)) return { kind: 'direct', tool: 'teach.page', args: wantsBrief(p) ? { brief: true } : {} }
   const teach = TEACH_RE.exec(p)
   if (teach) return { kind: 'direct', tool: 'teach.lesson', args: { topic: teach[1].replace(/\s+(?:with|using|in)\s+(?:a\s+)?(?:video|animation|visuals?).*$/i, '').trim() } }
   for (const [re, tool] of QUICK) if (re.test(p)) return { kind: 'quick', tool }

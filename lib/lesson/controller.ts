@@ -10,7 +10,7 @@ import { prefetch } from '@/lib/tts/neural'
 import { upcomingLines } from './lines'
 import { perform } from './player'
 import { bumpRun, currentRun, makeStage } from './stage'
-import { makeTourStage } from './tour-stage'
+import { clearTourPictures, makeTourStage } from './tour-stage'
 import { useLesson } from './store'
 import { useTutor, cancelChoice } from './tutor-store'
 import { START_PACE } from './tutor-core'
@@ -42,6 +42,7 @@ async function playFrom(sb: Storyboard, pageId: string, from: number, rebuild = 
 
 /** Walk the student's own page (lib/lesson/page-lesson.ts builds the storyboard). */
 export const startTour = (sb: Storyboard, pageId: string) => {
+  clearTourPictures()
   useTutor.getState().set({ pace: START_PACE, missesInRow: 0, lastCheck: 0, resumeAt: null, ring: null, mode: 'idle' })
   useTeacher.getState().set({ mood: 'happy', pose: 'read', aim: null })
   useLesson.getState().set({ tour: true, sections: [] })

@@ -194,7 +194,7 @@ export async function runAi(req: AiRequest, deps: RunDeps): Promise<void> {
   try {
     if (req.rawSystem) {
       const g = await deps.explain()
-      return done({ message: await g.generate(req.rawSystem, req.prompt, undefined, undefined, 1800, req.rawFormat) })
+      return done({ message: await g.generate(req.rawSystem, req.prompt, undefined, undefined, 3600, req.rawFormat) })
     }
     // Tools first: "run it", "how fast is the ball?" have exact answers that
     // need no scene and no derivation.

@@ -40,6 +40,8 @@ export const beatSchema = z.discriminatedUnion('t', [
   /** Page tour: bring these objects of the OPEN page into view and make them glow while the next lines are spoken.
    *  `pageId` is a sheet or slide of the page when it is not the main one. Nothing is added to the board. */
   z.object({ t: z.literal('focus'), ids: z.array(z.string()).min(1).max(60), pageId: z.string().optional() }),
+  /** Page tour of a PDF: turn the open reader to page `n` before the lines about it. */
+  z.object({ t: z.literal('page'), n: z.number().int().min(1).max(5000) }),
   /** Let the simulation run for a while. */
   z.object({ t: z.literal('run'), seconds: z.number().min(0.5).max(30).default(4) }),
   /** Freeze and ask: the student commits, THEN the answer is shown (and, if `demo`, run). */
@@ -91,4 +93,4 @@ export function lintStoryboard(sb: Storyboard): string[] {
 
 /** Rough spoken length in seconds (150 wpm) — for the progress bar and for budgeting. */
 export const durationOf = (sb: Storyboard) =>
-  Math.round(sb.beats.reduce((a, b) => a + (b.t === 'say' ? (words(b.text) / 150) * 60 : b.t === 'equation' ? 4 + (b.text ? (words(b.text) / 150) * 60 : 0) : b.t === 'run' ? b.seconds : b.t === 'lab' ? b.steps * 5 : b.t === 'code' ? b.narration.length * 5 : b.t === 'animate' ? b.seconds : b.t === 'point' ? 3 : b.t === 'focus' ? 1 : b.t === 'scene' ? 3 : b.t === 'title' ? 2 : 6), 0))
+  Math.round(sb.beats.reduce((a, b) => a + (b.t === 'say' ? (words(b.text) / 150) * 60 : b.t === 'equation' ? 4 + (b.text ? (words(b.text) / 150) * 60 : 0) : b.t === 'run' ? b.seconds : b.t === 'lab' ? b.steps * 5 : b.t === 'code' ? b.narration.length * 5 : b.t === 'animate' ? b.seconds : b.t === 'point' ? 3 : b.t === 'focus' || b.t === 'page' ? 1 : b.t === 'scene' ? 3 : b.t === 'title' ? 2 : 6), 0))

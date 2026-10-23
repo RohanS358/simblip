@@ -17,6 +17,7 @@ import { runCpp } from '@/lib/dsa/interpreter'
 import { capabilityPrompt, isComputing, isOtherLanguage, matchLabs } from './catalog'
 import { lintStoryboard, storyboardSchema, type Beat, type Storyboard } from './storyboard'
 import { circuitRecipe, multiPinRecipe } from './recipes'
+import { cashflowRecipe } from './cashflow-recipe'
 import { parsePlan, planSystemPrompt, planUserPrompt, type Level, type Plan } from './plan'
 
 export interface SceneObject { name: string; kind: string; params: Record<string, number>; channels: string[] }
@@ -38,7 +39,9 @@ export interface Runner {
 }
 export interface DirectorDeps { llm: Llm; runner: Runner; level: Level; onProgress?: (msg: string) => void; signal?: AbortSignal
   /** Draw a small concept diagram for a step the simulator cannot show, so every section has a picture. */
-  diagrams?: boolean }
+  diagrams?: boolean | 'requested'
+  /** A worked solution: its numbers are checked by recomputing them (solve.ts), so the "no simulation" caveat does not apply. */
+  solving?: boolean }
 
 // ── number formatting ───────────────────────────────────────────────────────
 const CHANNEL_NAME: Record<string, string> = { I: 'current', V: 'voltage', P: 'power', x: 'horizontal position', y: 'height', speed: 'speed', omega: 'angular speed', ke: 'kinetic energy', angle: 'angle', vx: 'horizontal speed', vy: 'vertical speed' }
@@ -264,7 +267,7 @@ export async function directLesson(topic: string, planned: Plan, d: DirectorDeps
     // The step's own words usually name the circuit; when they only say "a circuit with two transistors", the topic and the
     // heading ("How does a differential amplifier work?") do.
     const recipe = step.scene
-      ? circuitRecipe(step.scene) ?? (/\b(circuit|transistor|amplifier|op-?amp)\b/i.test(step.scene) ? multiPinRecipe(`${topic} ${step.heading}`.toLowerCase().replace(/\s+/g, ' ')) : null)
+      ? circuitRecipe(step.scene) ?? cashflowRecipe(step.scene) ?? (/\b(circuit|transistor|amplifier|op-?amp)\b/i.test(step.scene) ? multiPinRecipe(`${topic} ${step.heading}`.toLowerCase().replace(/\s+/g, ' ')) : null)
       : null
     const samePicture: boolean = !!recipeOnBoard && !recipe && !!step.scene && /\b(r\d|resistors?|bulbs?|lamps?|branch(es)?|current|voltage|battery|parallel|series|circuit)\b/i.test(step.scene)
     if (step.scene) {
@@ -292,7 +295,7 @@ export async function directLesson(topic: string, planned: Plan, d: DirectorDeps
       if (reads.length) beats.push({ t: 'run', seconds: 3 }, { t: 'say', text: `With these values, ${reads.join(', and ')}.` })
     }
     // No simulation for this step: a concept diagram still gives it a picture beside its words.
-    if (!script && d.diagrams) {
+    if (!script && (d.diagrams === true || (d.diagrams === 'requested' && step.scene))) {
       const diagram = await conceptDiagram(d, step)
       if (diagram) beats.push({ t: 'scene', script: diagram, caption: step.heading, clear: true })
     }
@@ -327,7 +330,7 @@ export async function directLesson(topic: string, planned: Plan, d: DirectorDeps
       } else if (!p || !res) warnings.push(`step ${i + 1}: experiment left out (${typeof proposal === 'string' ? proposal : 'the run produced no reading'})`)
     }
   }
-  if (scenes === 0) {
+  if (scenes === 0 && !d.solving) {
     // Nothing here could be drawn or measured, so nothing is checked by the simulator. Still teach it — but say so,
     // out loud and on screen, rather than pass unverified claims off as demonstrated ones.
     beats.splice(1, 0, { t: 'title', text: 'Explained without a simulation', sub: 'This one is not checked by the simulator — verify it against your course notes.' }, { t: 'say', text: 'A heads-up: I could not build a simulation for this topic, so what follows is explained in words and is not checked by the simulator. Please verify it against your course notes.' })
