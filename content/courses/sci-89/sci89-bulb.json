@@ -1,21 +1,26 @@
 {
   "title": "Make a Bulb Light Up",
   "kicker": "Electricity · Lesson 1",
-  "subtitle": "What a bulb really needs, and why two bulbs in a row shine dimmer than one.",
+  "subtitle": "What a bulb really needs, and why two bulbs in a row shine dimmer than one. You are about to build the answer yourself.",
   "sections": [
     {
       "id": "hook",
       "locator": "1",
       "eyebrow": "Start here",
       "title": "What does a bulb need?",
-      "body": "<p>Take a battery, a bulb and a piece of wire. Can you make the bulb glow? Most people try touching one end of the bulb to one end of the battery, and nothing happens. That is not bad luck. It is the first big idea in electricity.</p>\n<p>A bulb only glows when electricity can travel <b>all the way around</b> and come back to where it started. That path is called a <b>circuit</b>, which is just a Latin-sounding word for \"circle\". A circuit with a gap in it is called an <b>open</b> circuit, and an unbroken one is a <b>closed</b> circuit.</p>\n<p>In this lesson you will build the circuit, open and close it, and then put in a second bulb to see what changes. Every picture on the page is a real, running experiment. Press <b>Simulate</b> on each one.</p>"
+      "body": "<p>Let’s try a little puzzle. Take a battery, a bulb and a piece of wire. Can you make the bulb glow? Most people try touching one end of the bulb to one end of the battery, and nothing happens. Don’t worry, that is not bad luck. It is the first big idea in electricity, and it is a good one.</p><p>A bulb only glows when electricity can travel <b>all the way around</b> and come back to where it started. That path is called a <b>circuit</b>, which is just a Latin-sounding word for “circle”. A circuit with a gap in it is called an <b>open</b> circuit, and an unbroken one is a <b>closed</b> circuit. Think of a toy train: it only runs if the track makes a full loop.</p><p>In this lesson you will build the circuit, open and close it, and then put in a second bulb to see what changes. Every picture on the page is a real, running experiment. Press <b>Simulate</b> on each one, and be curious!</p>",
+      "keynotes": [
+        "A bulb only glows when electricity can travel all the way around and come back to where it started.",
+        "That path is called a circuit: an open circuit has a gap, a closed circuit is unbroken.",
+        "Every picture is a real, running experiment: press Simulate."
+      ]
     },
     {
       "id": "loop",
       "locator": "2",
       "eyebrow": "Build it",
       "title": "Your first closed circuit",
-      "body": "<p>Here is a battery, a switch, a bulb and a meter called an <b>ammeter</b>. The ammeter counts how much electricity is flowing past it each second. That flow is called <b>current</b>, and we measure it in <b>amperes</b> (A) or in thousandths of an ampere, <b>milliamperes</b> (mA).</p>\n<p>The switch is closed, so the loop is complete. Press Simulate and look at two things: the bulb, and the number on the ammeter.</p>",
+      "body": "<p>Now we build it. Here is a battery, a switch, a bulb and a special meter called an <b>ammeter</b>. The ammeter counts how much electricity is flowing past it each second. That flow is called <b>current</b>, and we measure it in <b>amperes</b> (A) or in thousandths of an ampere, <b>milliamperes</b> (mA).</p><p>The switch is closed, so the loop is complete. Press Simulate and look at two things: the bulb, and the number on the ammeter. Did the bulb glow? The ammeter shows about 500 mA. Remember that number, because you will meet it again.</p>",
       "figures": [
         {
           "id": "f-loop",
@@ -26,6 +31,11 @@
             "am": "499.9 mA"
           }
         }
+      ],
+      "keynotes": [
+        "An ammeter counts how much electricity flows past it each second.",
+        "That flow is called current, measured in amperes (A) or milliamperes (mA).",
+        "With the switch closed the bulb glows and the ammeter shows about 500 mA."
       ]
     },
     {
@@ -33,7 +43,7 @@
       "locator": "3",
       "eyebrow": "Guess first",
       "title": "What if the switch is open?",
-      "body": "<p>Scientists make a guess before they look. Guess now, and then the experiment will show you who was right.</p>",
+      "body": "<p>Scientists make a guess before they look, and you can do the same. It is a great habit, because even a wrong guess teaches you something. Guess now, and then the experiment will show you who was right. What do you think happens when you open the switch and make a gap in the circuit?</p>",
       "questions": [
         {
           "id": "open-switch",
@@ -74,6 +84,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Scientists make a guess before they look.",
+        "A wrong guess teaches you something too.",
+        "Opening the switch makes a gap in the circuit."
       ]
     },
     {
@@ -81,13 +96,18 @@
       "locator": "4",
       "eyebrow": "A picture in your head",
       "title": "Electricity is like water in a pipe",
-      "body": "<p>It helps to picture a loop of pipe full of water, with a pump in it. The <b>battery</b> is the pump: it pushes. The <b>wire</b> is the pipe. The <b>bulb</b> is a narrow, rough section of pipe that is hard to push water through.</p>\n<p>The push is called <b>voltage</b> (measured in volts, V). How hard the bulb makes it to flow is called <b>resistance</b> (measured in ohms, Ω). How much water flows past each second is the <b>current</b>. A stronger pump gives more flow. A narrower, rougher pipe gives less.</p>",
+      "body": "<p>Electricity is invisible, so it helps to picture something you can see: a loop of pipe full of water, with a pump in it. The <b>battery</b> is the pump: it pushes. The <b>wire</b> is the pipe. The <b>bulb</b> is a narrow, rough section of pipe that is hard to push water through.</p><p>Now give the ideas their proper names. The push is called <b>voltage</b> (measured in volts, V). How hard the bulb makes it to flow is called <b>resistance</b> (measured in ohms, Ω). How much water flows past each second is the <b>current</b>. A stronger pump gives more flow. A narrower, rougher pipe gives less. Keep this picture in your head for the rest of the lesson.</p>",
       "figures": [
         {
           "id": "d-water",
           "caption": "Figure 1.2 — the pipe picture next to the real circuit words",
           "script": "diagram(\"direction: right\\n[Battery = the pump] as p #blue\\n[Wire = the pipe] as w #mint\\n[Bulb = a narrow pipe] as b #amber\\n[Current = water flowing each second] as c #violet\\np -> w : pushes\\nw -> b\\nb -> c : sets how much\\nc -> p : comes back\");"
         }
+      ],
+      "keynotes": [
+        "In the pipe picture the battery is the pump, the wire is the pipe and the bulb is a narrow, rough section.",
+        "The push is voltage (volts, V); how hard the bulb makes it to flow is resistance (ohms, Ω); the flow is current.",
+        "A stronger pump gives more flow and a narrower, rougher pipe gives less."
       ]
     },
     {
@@ -95,7 +115,7 @@
       "locator": "5",
       "eyebrow": "Two bulbs",
       "title": "Two bulbs in a row",
-      "body": "<p>Now put a second bulb in the <em>same</em> loop, right after the first. Electricity has one road only, and it must squeeze through both bulbs one after the other. This is called a <b>series</b> circuit.</p>\n<p>Each bulb is the same, 12 Ω. Two of them in a row are harder to push current through than one, so the total resistance is 12 + 12 = 24 Ω.</p>",
+      "body": "<p>What happens if you add a second bulb? There are two ways to do it, and they behave very differently. First, put it in the <em>same</em> loop, right after the first. Electricity has one road only, and it must squeeze through both bulbs one after the other. This is called a <b>series</b> circuit.</p><p>Each bulb is the same, 12 Ω. Two of them in a row are harder to push current through than one, so the total resistance is 12 + 12 = 24 Ω. Press Simulate: the current is only 250 mA, half of Figure 1.1, so both bulbs shine dimmer. And if you unscrew one bulb in a series circuit, the loop is broken, so the other bulb goes out too.</p>",
       "figures": [
         {
           "id": "f-series",
@@ -138,6 +158,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "In a series circuit electricity has one road only and must pass through both bulbs one after the other.",
+        "Two 12 Ω bulbs in series have a total resistance of 12 + 12 = 24 Ω.",
+        "The current is only 250 mA, half of Figure 1.1, so both bulbs shine dimmer."
       ]
     },
     {
@@ -145,7 +170,7 @@
       "locator": "6",
       "eyebrow": "A better way",
       "title": "Two bulbs side by side",
-      "body": "<p>There is another way to add the second bulb: give each bulb its own road straight to the battery. This is a <b>parallel</b> circuit. Each bulb gets the full push of the battery, so each shines as brightly as it would alone.</p>\n<p>The battery now has two roads to send current down, so the <em>total</em> current doubles: 500 mA for each bulb makes 1000 mA, which is 1 A. This is how the lights in your house are wired. Switch one off and the others stay on.</p>",
+      "body": "<p>Here is the clever way to add a second bulb: give each bulb its own road straight to the battery. This is a <b>parallel</b> circuit. Each bulb gets the full push of the battery, so each shines as brightly as it would alone.</p><p>The battery now has two roads to send current down, so the <em>total</em> current doubles: 500 mA for each bulb makes 1000 mA, which is 1 A. Press Simulate and you will see the ammeter at the battery read about 1 A (999.8 mA), twice Figure 1.1. This is how the lights in your house are wired. Switch one off and the others stay on. Aren’t you glad?</p>",
       "figures": [
         {
           "id": "f-parallel",
@@ -156,6 +181,11 @@
             "am": "999.8 mA"
           }
         }
+      ],
+      "keynotes": [
+        "In a parallel circuit each bulb has its own road straight to the battery and gets the full push, so each shines as brightly as alone.",
+        "The total current doubles: 500 mA for each bulb makes 1000 mA, which is 1 A.",
+        "This is how the lights in your house are wired: switch one off and the others stay on."
       ]
     },
     {
@@ -163,7 +193,7 @@
       "locator": "7",
       "eyebrow": "Do the sum",
       "title": "Working out the current",
-      "body": "<p>There is a rule that links the three ideas, and it is the most useful one in the whole chapter: <b>current = voltage ÷ resistance</b>. In letters, <i>I</i> = <i>V</i> ÷ <i>R</i>. This rule is called <b>Ohm's law</b>.</p>",
+      "body": "<p>Now for the sum that ties it all together, and you can do it yourself. There is a rule that links the three ideas, and it is the most useful one in the whole chapter: <b>current = voltage ÷ resistance</b>. In letters, <i>I</i> = <i>V</i> ÷ <i>R</i>. This rule is called <b>Ohm's law</b>.</p><p>Follow along step by step below. The battery is 6 V and the bulb is 12 Ω, so I = 6 ÷ 12 = 0.5 A, which is 500 mA. That is exactly what the ammeter showed in Figure 1.1! It reads 499.9 mA, a hair under, because real wires and batteries have a tiny resistance too. Physics predicted the experiment before you ran it.</p>",
       "worked": [
         {
           "why": "Write down what you know. The battery is 6 V and the bulb is 12 Ω.",
@@ -182,6 +212,11 @@
           "math": "0.5\\,\\text{A} = 500\\,\\text{mA}",
           "hero": true
         }
+      ],
+      "keynotes": [
+        "Ohm's law links the three ideas: current = voltage ÷ resistance, or I = V ÷ R.",
+        "A 6 V battery and a 12 Ω bulb give I = 6 ÷ 12 = 0.5 A.",
+        "0.5 A is 500 mA, which matches the ammeter, a hair under at 499.9 mA."
       ]
     },
     {
@@ -216,6 +251,12 @@
           "prompt": "<p>In your home, why are the lights wired in parallel and not in series?</p>",
           "answer": "<p>In parallel each light gets the full voltage and works on its own, so one bulb failing or being switched off does not turn the others off. In series they would all depend on each other and all be dimmer.</p>"
         }
+      ],
+      "body": "<p>Now it is your turn. Work through these questions at your own pace: answer each one before you open its explanation, and use the experiments above to check yourself. If you get one wrong, don’t worry. That is exactly how you learn, and you can try again.</p>",
+      "keynotes": [
+        "Answer each question before opening its explanation.",
+        "Use the experiments above to check yourself.",
+        "A wrong answer is a chance to learn: try again."
       ]
     }
   ]

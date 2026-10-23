@@ -1,21 +1,26 @@
 {
   "title": "Why Do Things Fall?",
   "kicker": "Motion and Force · Lesson 1",
-  "subtitle": "A feather and a hammer, and what really makes things fall.",
+  "subtitle": "A feather and a hammer, and what really makes things fall. Be ready: the answer is not what most people expect.",
   "sections": [
     {
       "id": "hook",
       "locator": "1",
       "eyebrow": "Start here",
       "title": "Let go of something",
-      "body": "<p>Hold a pen in the air and let go. It falls. It has always fallen. Nobody ever had to teach you that, and you have never seen a pen float up on its own.</p>\n<p>But <em>why</em> does it fall? The answer is a force that pulls every object towards the centre of the Earth. It is called <b>gravity</b>. In this lesson you will watch gravity at work, and then test a question people argued about for about two thousand years: <b>does a heavy thing fall faster than a light thing?</b></p>"
+      "body": "<p>Try something right now. Hold a pen in the air and let go. It falls. It has always fallen. Nobody ever had to teach you that, and you have never seen a pen float up on its own. But have you ever asked yourself <em>why</em>?</p><p>The answer is a force that pulls every object towards the centre of the Earth. It is called <b>gravity</b>. In this lesson you will watch gravity at work, and then test a question people argued about for about two thousand years: <b>does a heavy thing fall faster than a light thing?</b> Make a guess, and let’s find out together.</p>",
+      "keynotes": [
+        "Gravity is a force that pulls every object towards the centre of the Earth.",
+        "People argued for about two thousand years whether a heavy thing falls faster than a light thing.",
+        "You will test that question yourself in this lesson."
+      ]
     },
     {
       "id": "drop",
       "locator": "2",
       "eyebrow": "Watch it",
       "title": "A ball falling",
-      "body": "<p>Here is a ball above the ground. Press Simulate and watch it. Next to the ball a graph draws its <b>speed</b>, and a second line draws its <b>height</b>.</p>\n<p>Look at the speed line. It does not jump to a fixed value. It starts at zero and keeps <b>climbing</b>. The ball goes faster and faster every second while it falls. That steady speeding-up is called <b>acceleration</b>.</p>",
+      "body": "<p>Here is a ball above the ground, and you can watch it fall. Press Simulate and watch it. Next to the ball a graph draws its <b>speed</b>, and a second line draws its <b>height</b>.</p><p>Look at the speed line carefully, because you are about to spot something important. Does it jump to a fixed value? No. It starts at zero and keeps <b>climbing</b>. The ball goes faster and faster every second while it falls. That steady speeding-up is called <b>acceleration</b>, and it is the real secret of falling.</p>",
       "figures": [
         {
           "id": "f-drop",
@@ -23,6 +28,11 @@
           "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 520, height: 360 });\nvar ground = create(\"ground\", { x: 20, y: 310, width: 480 });\nvar ball = create(\"mass\", { x: 240, y: 60, mass: 2, name: \"ball\" });\ngraph.plot(ball.vy);\ngraph.plot(ball.y);",
           "note": "Press Simulate and watch the speed line climb until the ball lands."
         }
+      ],
+      "keynotes": [
+        "A graph draws the ball’s speed and a second line draws its height.",
+        "The speed starts at zero and keeps climbing: the ball goes faster and faster while it falls.",
+        "That steady speeding-up is called acceleration."
       ]
     },
     {
@@ -30,13 +40,18 @@
       "locator": "3",
       "eyebrow": "The big number",
       "title": "How fast does it speed up?",
-      "body": "<p>On Earth, every falling object (with no air to slow it) gains about <b>9.8 metres per second</b> of speed <em>every second</em>. We write this as <b>g = 9.8 m/s²</b> and call it the acceleration due to gravity.</p>\n<p>So after 1 second the speed is about 9.8 m/s. After 2 seconds it is about 19.6 m/s. After 3 seconds, about 29.4 m/s. The rule is simple: <b>speed = g × time</b>.</p>",
+      "body": "<p>How fast does it speed up? Here comes the big number of the lesson. On Earth, every falling object (with no air to slow it) gains about <b>9.8 metres per second</b> of speed <em>every second</em>. We write this as <b>g = 9.8 m/s²</b> and call it the acceleration due to gravity.</p><p>Count it with me. After 1 second the speed is about 9.8 m/s. After 2 seconds it is about 19.6 m/s. After 3 seconds, about 29.4 m/s. Do you see the pattern? The rule is simple: <b>speed = g × time</b>.</p>",
       "figures": [
         {
           "id": "d-g",
           "caption": "Figure 1.2 — the pattern of falling",
           "script": "diagram(\"direction: right\\n[Let go: speed = 0] as a #blue\\n[After 1 s: about 9.8 m/s] as b #mint\\n[After 2 s: about 19.6 m/s] as c #amber\\n[After 3 s: about 29.4 m/s] as d #rose\\na -> b : +9.8\\nb -> c : +9.8\\nc -> d : +9.8\");"
         }
+      ],
+      "keynotes": [
+        "On Earth every falling object (with no air to slow it) gains about 9.8 metres per second of speed every second: g = 9.8 m/s².",
+        "After 1 second the speed is about 9.8 m/s, after 2 seconds about 19.6 m/s and after 3 seconds about 29.4 m/s.",
+        "The rule is speed = g × time."
       ]
     },
     {
@@ -44,7 +59,7 @@
       "locator": "4",
       "eyebrow": "Guess first",
       "title": "Heavy or light?",
-      "body": "<p>Imagine two balls, one 1 kg and one 10 kg, let go from the same height at the same moment. There is no air to get in the way.</p>",
+      "body": "<p>Time for your guess. Imagine two balls, one 1 kg and one 10 kg, let go from the same height at the same moment. There is no air to get in the way. Which one do you think hits the ground first? Think about it for a moment before you answer. The great thinker Aristotle said the heavy one, and he was believed for centuries.</p>",
       "questions": [
         {
           "id": "heavy-light",
@@ -82,6 +97,10 @@
             "note": "Press Simulate: the two speed lines are the same line, and both balls reach the ground together."
           }
         }
+      ],
+      "keynotes": [
+        "Two balls, 1 kg and 10 kg, are let go from the same height at the same moment, with no air.",
+        "For about two thousand years people believed the heavy one falls first."
       ]
     },
     {
@@ -89,7 +108,7 @@
       "locator": "5",
       "eyebrow": "But a feather floats!",
       "title": "So why does a feather fall slowly?",
-      "body": "<p>You have seen a feather drift down much more slowly than a stone. That is <b>air</b>, not gravity. A feather is wide and very light, so the air pushes up on it a lot compared with its tiny weight. This push is called <b>air resistance</b> (or drag).</p>\n<p>On the Moon there is no air. When astronaut David Scott dropped a hammer and a feather together there in 1971, they landed at the same time. Try changing the mass of the ball below. The speed graph stays the same.</p>",
+      "body": "<p>But hold on. You have seen a feather drift down much more slowly than a stone! That is <b>air</b>, not gravity. A feather is wide and very light, so the air pushes up on it a lot compared with its tiny weight. This push is called <b>air resistance</b> (or drag).</p><p>The proof is on the Moon, where there is no air. When astronaut David Scott dropped a hammer and a feather together there in 1971, they landed at the same time. Imagine the look on his face! Try changing the mass of the ball in the experiment. Drag the slider between runs, and you will see the speed graph does not change, whatever the mass.</p>",
       "figures": [
         {
           "id": "f-mass",
@@ -129,6 +148,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A feather falls slowly because of air, not gravity: air resistance (drag) pushes up on it a lot compared with its tiny weight.",
+        "On the Moon in 1971 David Scott dropped a hammer and a feather together and they landed at the same time.",
+        "In the simulation the speed graph does not change whatever the mass."
       ]
     },
     {
@@ -136,7 +160,7 @@
       "locator": "6",
       "eyebrow": "Do the sum",
       "title": "How fast after 3 seconds?",
-      "body": "<p>A stone is dropped off a bridge. How fast is it going after 3 seconds? (Ignore air.)</p>",
+      "body": "<p>Let’s put the rule to work. A stone is dropped off a bridge. How fast is it going after 3 seconds? (Ignore air.) You know g = 9.8 m/s² and t = 3 s. The stone starts from rest, so its speed is just g multiplied by the time: v = g × t = 9.8 × 3 = 29.4 m/s.</p><p>Does the answer make sense? 29.4 m/s is about 106 km/h, which is fast, and that is why dropping things from a bridge is dangerous. Always ask yourself whether an answer sounds right.</p>",
       "worked": [
         {
           "why": "Write down what you know: the acceleration of gravity and the time.",
@@ -154,6 +178,11 @@
         {
           "why": "Does the answer make sense? 29.4 m/s is about 106 km/h, which is fast, and that is why dropping things from a bridge is dangerous."
         }
+      ],
+      "keynotes": [
+        "A stone dropped from rest for 3 seconds has v = g × t = 9.8 × 3 = 29.4 m/s.",
+        "29.4 m/s is about 106 km/h, so dropping things from a bridge is dangerous.",
+        "Always ask whether the answer makes sense."
       ]
     },
     {
@@ -184,6 +213,12 @@
           "prompt": "<p>Why does a sheet of paper fall slowly, but the same sheet crumpled into a ball falls fast?</p>",
           "answer": "<p>Gravity pulls on both the same. The flat sheet catches a lot of air, so air resistance slows it. Crumpled, it catches much less air, so gravity wins and it speeds up more.</p>"
         }
+      ],
+      "body": "<p>Now it is your turn. Work through these questions at your own pace: answer each one before you open its explanation, and use the experiments above to check yourself. If you get one wrong, don’t worry. That is exactly how you learn, and you can try again.</p>",
+      "keynotes": [
+        "Answer each question before opening its explanation.",
+        "Use the experiments above to check yourself.",
+        "A wrong answer is a chance to learn: try again."
       ]
     }
   ]

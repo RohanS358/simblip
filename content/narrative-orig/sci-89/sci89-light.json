@@ -1,0 +1,48 @@
+{
+  "title": "How Light Travels",
+  "subtitle": "Straight lines, mirrors and lenses, and why the sky is a colour at all.",
+  "sections": {
+    "hook": {
+      "title": "Why do you have a shadow?",
+      "body": "<p>Stand in the sun and you have a shadow. Hold up your hand in front of a torch and your hand has a shadow on the wall. Why?</p>\n<p>The reason is the single most important fact about light in everyday life: <b>light travels in straight lines</b>. Your body blocks the straight path from the Sun to the ground, and the space behind you is dark. This lesson looks at what light does when it meets different things: a screen, a mirror and a lens.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "beam": {
+      "title": "A beam of light",
+      "body": "<p>Here is a small lamp that sends out a beam, and a screen that catches it. Press Simulate. The beam leaves the lamp and goes straight across to the screen without bending.</p>\n<p>Light is the fastest thing in the universe: about 300,000 kilometres every second. It could go around the Earth more than seven times in the time you blink once.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mirror": {
+      "title": "Mirrors bounce light",
+      "body": "<p>When light hits a smooth shiny surface such as a mirror, it bounces off. This is called <b>reflection</b>. The bounce follows a rule, the <b>law of reflection</b>: the angle the light comes in at equals the angle it goes out at.</p>\n<p>That is why you can see yourself in a mirror: light from you reaches the mirror, bounces, and goes into your eyes.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "lens": {
+      "title": "Lenses bend light",
+      "body": "<p>Glasses, cameras, magnifying glasses and your own eyes all use <b>lenses</b>. A lens is a piece of clear material shaped so that it bends light. A lens that is thick in the middle brings the beams together to one spot, called the <b>focus</b>.</p>\n<p>How strongly it bends is described by its <b>focal length</b>, written <i>f</i>. A short focal length is a strong lens. A long one is a weak lens. Drag the slider and watch the spot move.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "predict": {
+      "title": "Which lens is stronger?",
+      "body": "",
+      "after": "",
+      "steps": ""
+    },
+    "worked": {
+      "title": "How long is a light journey?",
+      "body": "<p>Sunlight takes about 8 minutes to reach us. How far away is the Sun? Light travels at 300,000 km/s.</p>",
+      "after": "",
+      "steps": "Convert 8 minutes into seconds, because the speed is in km per second. Distance is speed multiplied by time. Multiply. That is about 144 million km. The true distance is about 150 million km. Our answer is close because \"8 minutes\" was rounded."
+    },
+    "practice": {
+      "title": "Try these",
+      "body": "",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

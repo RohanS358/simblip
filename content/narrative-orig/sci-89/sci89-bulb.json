@@ -1,0 +1,54 @@
+{
+  "title": "Make a Bulb Light Up",
+  "subtitle": "What a bulb really needs, and why two bulbs in a row shine dimmer than one.",
+  "sections": {
+    "hook": {
+      "title": "What does a bulb need?",
+      "body": "<p>Take a battery, a bulb and a piece of wire. Can you make the bulb glow? Most people try touching one end of the bulb to one end of the battery, and nothing happens. That is not bad luck. It is the first big idea in electricity.</p>\n<p>A bulb only glows when electricity can travel <b>all the way around</b> and come back to where it started. That path is called a <b>circuit</b>, which is just a Latin-sounding word for \"circle\". A circuit with a gap in it is called an <b>open</b> circuit, and an unbroken one is a <b>closed</b> circuit.</p>\n<p>In this lesson you will build the circuit, open and close it, and then put in a second bulb to see what changes. Every picture on the page is a real, running experiment. Press <b>Simulate</b> on each one.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "loop": {
+      "title": "Your first closed circuit",
+      "body": "<p>Here is a battery, a switch, a bulb and a meter called an <b>ammeter</b>. The ammeter counts how much electricity is flowing past it each second. That flow is called <b>current</b>, and we measure it in <b>amperes</b> (A) or in thousandths of an ampere, <b>milliamperes</b> (mA).</p>\n<p>The switch is closed, so the loop is complete. Press Simulate and look at two things: the bulb, and the number on the ammeter.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "predict": {
+      "title": "What if the switch is open?",
+      "body": "<p>Scientists make a guess before they look. Guess now, and then the experiment will show you who was right.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "water": {
+      "title": "Electricity is like water in a pipe",
+      "body": "<p>It helps to picture a loop of pipe full of water, with a pump in it. The <b>battery</b> is the pump: it pushes. The <b>wire</b> is the pipe. The <b>bulb</b> is a narrow, rough section of pipe that is hard to push water through.</p>\n<p>The push is called <b>voltage</b> (measured in volts, V). How hard the bulb makes it to flow is called <b>resistance</b> (measured in ohms, Ω). How much water flows past each second is the <b>current</b>. A stronger pump gives more flow. A narrower, rougher pipe gives less.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "series": {
+      "title": "Two bulbs in a row",
+      "body": "<p>Now put a second bulb in the <em>same</em> loop, right after the first. Electricity has one road only, and it must squeeze through both bulbs one after the other. This is called a <b>series</b> circuit.</p>\n<p>Each bulb is the same, 12 Ω. Two of them in a row are harder to push current through than one, so the total resistance is 12 + 12 = 24 Ω.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "parallel": {
+      "title": "Two bulbs side by side",
+      "body": "<p>There is another way to add the second bulb: give each bulb its own road straight to the battery. This is a <b>parallel</b> circuit. Each bulb gets the full push of the battery, so each shines as brightly as it would alone.</p>\n<p>The battery now has two roads to send current down, so the <em>total</em> current doubles: 500 mA for each bulb makes 1000 mA, which is 1 A. This is how the lights in your house are wired. Switch one off and the others stay on.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "worked": {
+      "title": "Working out the current",
+      "body": "<p>There is a rule that links the three ideas, and it is the most useful one in the whole chapter: <b>current = voltage ÷ resistance</b>. In letters, <i>I</i> = <i>V</i> ÷ <i>R</i>. This rule is called <b>Ohm's law</b>.</p>",
+      "after": "",
+      "steps": "Write down what you know. The battery is 6 V and the bulb is 12 Ω. Pick the rule that links them. We want current, so divide voltage by resistance. Put the numbers in and do the division. Check your answer against the experiment. 0.5 A is the same as 500 mA, which is what the ammeter in Figure 1.1 showed (it reads 499.9 mA, a hair under, because real wires and batteries have a tiny resistance too)."
+    },
+    "practice": {
+      "title": "Try these",
+      "body": "",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

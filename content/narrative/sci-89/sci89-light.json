@@ -1,0 +1,60 @@
+{
+  "subtitle": "Straight lines, mirrors and lenses, and why the sky is a colour at all.",
+  "sections": {
+    "hook": {
+      "body": "<p>Stand in the sun and look at the ground. You have a shadow. Hold your hand in front of a torch and your hand has a shadow on the wall. Have you ever wondered why? Let’s find out together, step by step.</p><p>The reason is the single most important fact about light in everyday life: <b>light travels in straight lines</b>. Your body blocks the straight path from the Sun to the ground, and the space behind you is dark. In this lesson you will see what light does when it meets different things: a screen, a mirror and a lens.</p>",
+      "keynotes": [
+        "Light travels in straight lines.",
+        "A shadow forms where your body blocks the straight path of the light.",
+        "The lesson looks at what light does at a screen, a mirror and a lens."
+      ]
+    },
+    "beam": {
+      "body": "<p>Here is a small lamp that sends out a beam, and a screen that catches it. Press Simulate. Watch the beam leave the lamp and go straight across to the screen without bending.</p><p>Light is the fastest thing in the universe: about 300,000 kilometres every second. It could go around the Earth more than seven times in the time you blink once. Isn’t that amazing? Notice that the beam in the picture is a straight line.</p>",
+      "keynotes": [
+        "A beam of light goes straight from the lamp to the screen without bending.",
+        "Light travels about 300,000 kilometres every second, the fastest thing in the universe.",
+        "It could go around the Earth more than seven times in the time you blink once."
+      ]
+    },
+    "mirror": {
+      "body": "<p>What happens when light meets something shiny? It bounces! When light hits a smooth shiny surface such as a mirror, it bounces off. This is called <b>reflection</b>. The bounce follows a rule, the <b>law of reflection</b>: the angle the light comes in at equals the angle it goes out at.</p><p>That is why you can see yourself in a mirror: light from you reaches the mirror, bounces, and goes into your eyes. Press Simulate to watch the beam hit the mirror and bounce back. So if a ray makes an angle of 30° with the mirror’s straight-out line (the “normal”), at what angle does it leave? The same, 30°.</p>",
+      "keynotes": [
+        "Light that hits a smooth shiny surface such as a mirror bounces off: reflection.",
+        "The law of reflection: the angle the light comes in at equals the angle it goes out at.",
+        "You see yourself in a mirror because light from you reaches the mirror, bounces and goes into your eyes."
+      ]
+    },
+    "lens": {
+      "body": "<p>Glasses, cameras, magnifying glasses and your own eyes all use <b>lenses</b>. A lens is a piece of clear material shaped so that it bends light. A lens that is thick in the middle brings the beams together to one spot, called the <b>focus</b>.</p><p>How strongly it bends is described by its <b>focal length</b>, written <i>f</i>. A short focal length is a strong lens. A long one is a weak lens. Drag the slider and watch the spot move: a stronger lens (smaller f) brings the light to a point sooner. Try it, and see if you can predict where the spot will land.</p>",
+      "keynotes": [
+        "A lens is a piece of clear material shaped so that it bends light; one thick in the middle brings the beams together at the focus.",
+        "How strongly it bends is described by its focal length f: a short focal length is a strong lens and a long one is weak.",
+        "A stronger lens (smaller f) brings the light to a point sooner."
+      ]
+    },
+    "predict": {
+      "body": "<p>Quick, guess first! Lens A has a focal length of 50 mm. Lens B has a focal length of 200 mm. Which lens bends light more strongly? Remember what you just learned about short and long focal lengths before you answer.</p>",
+      "keynotes": [
+        "Lens A has a focal length of 50 mm and lens B has 200 mm.",
+        "A shorter focal length means a stronger lens, so lens A bends light more strongly."
+      ]
+    },
+    "worked": {
+      "body": "<p>Let’s measure something huge. Sunlight takes about 8 minutes to reach us. How far away is the Sun? Light travels at 300,000 km/s. First, convert 8 minutes into seconds, because the speed is in km per second: 8 × 60 = 480 s. Distance is speed multiplied by time: d = v × t = 300 000 × 480 = 144 000 000 km.</p><p>That is about 144 million km. The true distance is about 150 million km. Our answer is close because “8 minutes” was rounded. Not bad for a sum you did at your desk!</p>",
+      "keynotes": [
+        "Sunlight takes about 8 minutes to reach us, which is 8 × 60 = 480 s.",
+        "Distance is speed multiplied by time: 300 000 × 480 = 144 000 000 km.",
+        "The true distance is about 150 million km; our answer is close because 8 minutes was rounded."
+      ]
+    },
+    "practice": {
+      "body": "<p>Now it is your turn. Work through these questions at your own pace: answer each one before you open its explanation, and use the experiments above to check yourself. If you get one wrong, don’t worry. That is exactly how you learn, and you can try again.</p>",
+      "keynotes": [
+        "Answer each question before opening its explanation.",
+        "Use the experiments above to check yourself.",
+        "A wrong answer is a chance to learn: try again."
+      ]
+    }
+  }
+}
