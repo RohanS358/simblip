@@ -132,7 +132,7 @@ export const sceneEdit = registerTool(
     name: 'scene.edit',
     summary: 'Change objects already on the page',
     help:
-      'Ops: add{component,position,name?,params?} | update{id,position?,size?,rotation?,name?} | remove{ids} | setParam{id,name,value} | addBehavior{id,type} | setVariable{name,expr}. Ids come from scene.describe. The whole batch is ONE undo step and is verified first: any bad id aborts everything.',
+      'Ops: add{component,position,name?,params?} | update{id,position?,size?,rotation?,name?} | remove{ids} | setParam{id,name,value} | addBehavior{id,type} | setVariable{name,expr,system?} | removeVariable{name,system?} (system = a system box id or name → variable scoped to it; g/drag/timeScale override the engine there). Ids come from scene.describe. The whole batch is ONE undo step and is verified first: any bad id aborts everything.',
     effect: 'write',
     keywords: ['change', 'move', 'edit', 'set', 'delete', 'remove', 'rename', 'resize', 'rotate', 'heavier', 'bigger', 'smaller'],
     input: opsInput,

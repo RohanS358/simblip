@@ -19,6 +19,7 @@ import { uid } from '@/lib/scene/types'
 import { createBehavior, clampParam } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
 import { CONSTANTS, paramScopeOf } from '@/lib/formula/scope'
+import { isSystem, systemOf, systemScope, systemVarsOf, solveSystemVars } from '@/lib/formula/system-scope'
 import { readBuffer, type Sample } from '@/lib/physics/bus'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 import * as archive from '@/lib/store/page-archive'
@@ -145,6 +146,7 @@ function liveScopeOf(content: PageContent): Scope {
   const refs: LiveRef[] = []
   for (const v of content.variables) extractLiveRefs(v.expr, refs)
   for (const obj of Object.values(content.objects)) {
+    for (const v of systemVarsOf(obj)) extractLiveRefs(v.expr, refs)
     for (const p of Object.values(obj.parameters)) if (p.kind === 'number') extractLiveRefs(p.expr, refs)
     for (const b of obj.behaviors)
       for (const p of Object.values(b.params)) if (p.kind === 'number') extractLiveRefs(p.expr, refs)
@@ -191,9 +193,29 @@ function reevaluate(content: PageContent): { content: PageContent; scope: Scope 
     ...paramScopeOf(content),
     ...liveScopeOf(content),
   })
+  // Per-system variables: solved over the page scope, then laid over it for
+  // the objects inside that system (system > page > engine default).
+  const sysScopes = new Map<string, Scope>()
+  let source = content.objects
+  for (const sys of Object.values(content.objects)) {
+    const vars = systemVarsOf(sys)
+    if (vars.length === 0) continue
+    const solved = solveSystemVars(vars, scope)
+    const next = solved.some((v, i) => v.value !== vars[i].value || v.error !== vars[i].error)
+      ? { ...sys, metadata: { ...sys.metadata, vars: solved } }
+      : sys
+    if (next !== sys) source = { ...source, [sys.id]: next }
+    sysScopes.set(sys.id, systemScope(next, scope))
+  }
+  const scopeFor = (o: SceneObject): Scope => {
+    if (sysScopes.size === 0 || isSystem(o)) return scope
+    const sys = systemOf(source, o)
+    return (sys && sysScopes.get(sys.id)) || scope
+  }
   const objects: Record<string, SceneObject> = {}
-  for (const [id, obj] of Object.entries(content.objects)) {
-    let changed = false
+  for (const [id, obj] of Object.entries(source)) {
+    let changed = obj !== content.objects[id]
+    const scope = scopeFor(obj)
     const parameters = { ...obj.parameters }
     for (const [name, param] of Object.entries(parameters)) {
       if (param.kind === 'number') {
@@ -302,6 +324,25 @@ function renameLiveRefs(
   set((s) => ({ pages: { ...s.pages, [pageId]: { ...page, objects, variables } } }))
 }
 
+/** Rewrite one system's variable list and re-solve the page. No-op when the
+ *  id is not a system — a stale inspector must not write into a plain object. */
+function editSystemVars(
+  set: (fn: (s: DocState) => Partial<DocState>) => void,
+  pageId: string,
+  systemId: string,
+  fn: (vars: Variable[]) => Variable[]
+) {
+  set((s) => {
+    const page = s.pages[pageId]
+    const sys = page?.objects[systemId]
+    if (!page || !isSystem(sys)) return s
+    const vars = fn(systemVarsOf(sys))
+    const objects = { ...page.objects, [systemId]: { ...sys, metadata: { ...sys.metadata, vars } } }
+    const { content, scope } = reevaluate({ ...page, objects })
+    return { pages: { ...s.pages, [pageId]: content }, scopes: { ...s.scopes, [pageId]: scope } }
+  })
+}
+
 interface DocState {
   pages: Record<string, PageContent>
   tool: Tool
@@ -378,6 +419,13 @@ interface DocState {
   upsertVariable: (pageId: string, name: string, expr: string) => void
   updateVariable: (pageId: string, id: string, patch: { name?: string; expr?: string }) => void
   removeVariable: (pageId: string, id: string) => void
+  /** Per-system variables (lib/formula/system-scope). Same shape as the page
+   *  ones but stored on the system object and visible only inside it. */
+  addSystemVariable: (pageId: string, systemId: string, name?: string, expr?: string) => void
+  /** By name, no history entry — create-or-redefine (AI / script path). */
+  upsertSystemVariable: (pageId: string, systemId: string, name: string, expr: string) => void
+  updateSystemVariable: (pageId: string, systemId: string, id: string, patch: { name?: string; expr?: string }) => void
+  removeSystemVariable: (pageId: string, systemId: string, id: string) => void
 
   setTool: (tool: Tool, option?: string | null) => void
   toggleInkToShape: () => void
@@ -1008,6 +1056,34 @@ export const useDocStore = create<DocState>()(
             scopes: { ...s.scopes, [pageId]: scope },
           }
         })
+      },
+
+      addSystemVariable: (pageId, systemId, name, expr = '0') => {
+        get().pushHistory(pageId)
+        editSystemVars(set, pageId, systemId, (vars) => {
+          const base = name ?? 'x'
+          let candidate = base
+          let i = 1
+          while (vars.some((v) => v.name === candidate)) candidate = `${base}${i++}`
+          return [...vars, { id: uid(), name: candidate, expr, value: 0 }]
+        })
+      },
+
+      upsertSystemVariable: (pageId, systemId, name, expr) =>
+        editSystemVars(set, pageId, systemId, (vars) =>
+          vars.some((v) => v.name === name)
+            ? vars.map((v) => (v.name === name ? { ...v, expr } : v))
+            : [...vars, { id: uid(), name, expr, value: 0 }]
+        ),
+
+      updateSystemVariable: (pageId, systemId, id, patch) => {
+        get().pushHistory(pageId)
+        editSystemVars(set, pageId, systemId, (vars) => vars.map((v) => (v.id === id ? { ...v, ...patch } : v)))
+      },
+
+      removeSystemVariable: (pageId, systemId, id) => {
+        get().pushHistory(pageId)
+        editSystemVars(set, pageId, systemId, (vars) => vars.filter((v) => v.id !== id))
       },
 
       setTool: (tool, option = null) => set({ tool, toolOption: option }),

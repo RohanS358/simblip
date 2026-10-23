@@ -20,6 +20,7 @@ import type { SceneObject } from '@/lib/scene/types'
 import { PX_PER_CM, PX_PER_M } from '@/lib/scene/units'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { compileExpr, type Scope } from '@/lib/formula/engine'
+import { systemOf, systemScope } from '@/lib/formula/system-scope'
 import { useDocStore } from '@/lib/store/document'
 import { pushSample, notify, clearBuffer } from './bus'
 import { connectorPath } from '@/lib/render/connector-path'
@@ -104,6 +105,8 @@ interface BodyEntry {
   angle0: number
   motors: ((scope: Scope) => number)[]
   forces: { fx: (s: Scope) => number; fy: (s: Scope) => number }[]
+  /** System this body sits in on a whole-page run — its g / drag override the page's. */
+  sysId?: string
 }
 
 interface ConnectorEntry {
@@ -456,6 +459,7 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
       angle0: body.angle,
       motors,
       forces,
+      sysId: scopeId ? undefined : systemOf(page?.objects ?? {}, obj)?.id,
     })
     Matter.Composite.add(engine.world, body)
     if (kind === 'dynamic') {
@@ -924,6 +928,14 @@ function springForces(w: World, frameScope: Scope) {
   }
 }
 
+/** The variable scope a run solves against: the page's, and — for a run
+ *  confined to one system — that system's own variables laid over it. */
+function worldScope(w: World): Scope {
+  const doc = useDocStore.getState()
+  const page = doc.scopes[w.pageId] ?? {}
+  return w.scopeId ? systemScope(doc.pages[w.pageId]?.objects[w.scopeId], page) : page
+}
+
 function applyLiveParams(w: World, scope: Scope, dtMs: number) {
   // gravity: page variable g in m/s². Matter's gravity acceleration is
   // gravity.y·gravity.scale px/ms², i.e. ×10⁶/PPM m/s² — the old g/9.81
@@ -934,7 +946,17 @@ function applyLiveParams(w: World, scope: Scope, dtMs: number) {
   // air resistance: page variable `drag` (Matter's frictionAir). Default 0 —
   // real air drag on a lab-scale mass is negligible over a demo's seconds.
   const drag = typeof scope.drag === 'number' ? Math.max(0, scope.drag) : 0
-  for (const b of w.bodies) if (!b.body.isStatic) b.body.frictionAir = drag
+  // Whole-page run: a body inside a system with its own g / drag uses those.
+  // Gravity is one engine-wide value, so the difference is added per body.
+  const objects = w.scopeId ? null : useDocStore.getState().pages[w.pageId]?.objects
+  for (const b of w.bodies) {
+    if (b.body.isStatic) continue
+    const sc = objects && b.sysId ? systemScope(objects[b.sysId], scope) : scope
+    b.body.frictionAir = sc === scope ? drag : typeof sc.drag === 'number' ? Math.max(0, sc.drag) : 0
+    if (sc !== scope && typeof sc.g === 'number' && sc.g !== g) {
+      Matter.Body.applyForce(b.body, b.body.position, { x: 0, y: b.body.mass * (sc.g - g) * N_TO_MATTER })
+    }
+  }
 
   const frameScope = { ...scope, t: w.t }
   springForces(w, frameScope)
@@ -1460,7 +1482,7 @@ function sample(w: World) {
   // live values a numerical question needs plotted and read.
   if (w.dielectrics.length > 0) {
     const pageObjs = useDocStore.getState().pages[w.pageId]?.objects ?? {}
-    const scope = { ...(useDocStore.getState().scopes[w.pageId] ?? {}), t: w.t }
+    const scope = { ...worldScope(w), t: w.t }
     for (const d of w.dielectrics) {
       const region = pageObjs[d.objectId]
       if (!region) continue
@@ -1495,7 +1517,7 @@ function frame(now: number) {
   w.acc += elapsed
 
   const docState = useDocStore.getState()
-  const scope = docState.scopes[w.pageId] ?? {}
+  const scope = worldScope(w)
   const pageObjects = docState.pages[w.pageId]?.objects ?? {}
   // `timeScale` variable: slow-motion / fast-forward without losing accuracy
   const ts = Math.min(5, Math.max(0, typeof scope.timeScale === 'number' ? scope.timeScale : 1))
@@ -1573,7 +1595,7 @@ export function pause() {
 export function stepFrame() {
   if (!world) return
   const docState = useDocStore.getState()
-  const scope = docState.scopes[world.pageId] ?? {}
+  const scope = worldScope(world)
   const pageObjects = docState.pages[world.pageId]?.objects ?? {}
   pushHistory(world)
   // one display frame = two 120 Hz physics steps
@@ -1599,7 +1621,7 @@ export function stepBack() {
   if (!snap) return
   if (useRuntimeStore.getState().mode === 'running') pause()
   restoreSnapshot(world, snap)
-  const scope = useDocStore.getState().scopes[world.pageId] ?? {}
+  const scope = worldScope(world)
   syncDom(world)
   syncTracers(world, scope, STEP / 1000)
   syncCircuitDom(world)

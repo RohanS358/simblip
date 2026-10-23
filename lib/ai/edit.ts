@@ -42,7 +42,9 @@ OPS
 - {"op":"add","component":"<id>","position":{"x":0,"y":0},"name":"…","params":{"text":"…"}} — add something new. Set its content in "params" HERE; you cannot setParam on an object this plan is still creating.
 - {"op":"remove","ids":["<id>"]}
 - {"op":"addBehavior","id":"<id>","type":"<behavior>"}
-- {"op":"setVariable","name":"<name>","expr":"<expression>"}
+- {"op":"setVariable","name":"<name>","expr":"<expression>"} — a page-wide variable.
+- {"op":"setVariable","name":"<name>","expr":"<expression>","system":"<system id or name>"} — a variable for ONE system box only; inside it, it beats the page's same-named one. Names g (gravity m/s²), drag (air resistance) and timeScale (speed ×) override the engine for that system alone — "moon gravity in the left box" is {"op":"setVariable","name":"g","expr":"1.62","system":"<id>"}.
+- {"op":"removeVariable","name":"<name>","system":"<optional system id or name>"} — delete a variable (a system's engine override reverts to the page's value).
 
 RULES
 - Object ids come from the page listing. NEVER invent one. If the request names something not on the page, add it instead.

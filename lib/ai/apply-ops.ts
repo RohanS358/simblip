@@ -18,6 +18,7 @@ import { componentById, createGeometry } from '@/lib/scene/factory'
 import { uid } from '@/lib/scene/types'
 import { verifyPlan, ADDABLE_GEOMETRY, type EditPlan } from '@/lib/ai/edit-ops'
 import type { GeometryKind } from '@/lib/scene/types'
+import { findSystem, systemVarsOf } from '@/lib/formula/system-scope'
 
 const GEOMETRY_KINDS = new Set<string>(ADDABLE_GEOMETRY)
 
@@ -106,9 +107,22 @@ export function applyPlan(pageId: string, plan: EditPlan): ApplyResult {
           // The type was checked against BEHAVIOR_TYPES by verifyPlan.
           store.addBehavior(pageId, op.id, op.type as Parameters<typeof store.addBehavior>[2])
           break
-        case 'setVariable':
-          store.upsertVariable(pageId, op.name, op.expr)
+        case 'setVariable': {
+          const sys = op.system ? findSystem(useDocStore.getState().pages[pageId]?.objects ?? {}, op.system) : undefined
+          if (op.system && !sys) throw new Error(`no system "${op.system}"`)
+          if (sys) store.upsertSystemVariable(pageId, sys.id, op.name, op.expr)
+          else store.upsertVariable(pageId, op.name, op.expr)
           break
+        }
+        case 'removeVariable': {
+          const page = useDocStore.getState().pages[pageId]
+          const sys = op.system ? findSystem(page?.objects ?? {}, op.system) : undefined
+          const hit = (sys ? systemVarsOf(sys) : page?.variables ?? []).find((v) => v.name === op.name)
+          if (!hit) throw new Error(`no variable "${op.name}"`)
+          if (sys) store.removeSystemVariable(pageId, sys.id, hit.id)
+          else store.removeVariable(pageId, hit.id)
+          break
+        }
       }
       applied++
     } catch (e) {

@@ -123,6 +123,7 @@ import {
 } from '@/lib/scene/bindings'
 import { pxToCmRounded, cmToPx } from '@/lib/scene/units'
 import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
+import { ENGINE_VARS } from '@/lib/formula/system-scope'
 import { InfoPopover } from './info-popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ColumnPicker } from './column-picker'
@@ -3653,6 +3654,8 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
             resistor, box → battery/gate, blob → bulb/BJT, lines → wires.
             Scribble a small mark near any part to write its value or name.
           </p>
+          <SectionTitle>System variables</SectionTitle>
+          <VariablesPanel pageId={pageId} systemId={object.id} />
         </div>
       )}
 
@@ -3715,13 +3718,10 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
   )
 }
 
-// Engine defaults surfaced as editable variables. Overriding one creates a
-// normal page variable the runtime reads live — delete it to restore default.
-const SYSTEM_VARS = [
-  { name: 'g', def: '9.81', label: 'Gravity (m/s²)' },
-  { name: 'drag', def: '0.01', label: 'Air resistance (0 = vacuum)' },
-  { name: 'timeScale', def: '1', label: 'Simulation speed ×' },
-]
+// Engine defaults surfaced as editable variables (ENGINE_VARS). Overriding one
+// creates a normal variable the runtime reads live — delete it to restore the
+// default. On a system it overrides the engine for that system alone.
+const SYSTEM_VARS = ENGINE_VARS
 
 /** One-click starters for an empty page. A button that writes a real variable
  *  teaches the concept faster than a paragraph describing one. */
@@ -3730,11 +3730,20 @@ const STARTER_VARS = [
   { name: 'speed', expr: '10', why: 'Name a value once, use it in every field' },
 ]
 
-function VariablesPanel({ pageId }: { pageId: string }) {
-  const variables = useDocStore((s) => s.pages[pageId]?.variables ?? EMPTY_VARIABLES)
-  const addVariable = useDocStore((s) => s.addVariable)
-  const updateVariable = useDocStore((s) => s.updateVariable)
-  const removeVariable = useDocStore((s) => s.removeVariable)
+/** The page's variables, or — given a `systemId` — one system's own. Same
+ *  rows, same editors; only the store calls and the copy change. */
+function VariablesPanel({ pageId, systemId }: { pageId: string; systemId?: string }) {
+  const pageVars = useDocStore((s) => s.pages[pageId]?.variables ?? EMPTY_VARIABLES)
+  const sysVars = useDocStore((s) => (systemId ? s.pages[pageId]?.objects[systemId]?.metadata.vars : undefined))
+  const variables = systemId ? ((sysVars as typeof pageVars | undefined) ?? EMPTY_VARIABLES) : pageVars
+  const store = useDocStore.getState
+  const addVariable = (pid: string, name?: string, expr?: string) =>
+    systemId ? store().addSystemVariable(pid, systemId, name, expr) : store().addVariable(pid, name, expr)
+  const updateVariable = (pid: string, id: string, patch: { name?: string; expr?: string }) =>
+    systemId ? store().updateSystemVariable(pid, systemId, id, patch) : store().updateVariable(pid, id, patch)
+  const removeVariable = (pid: string, id: string) =>
+    systemId ? store().removeSystemVariable(pid, systemId, id) : store().removeVariable(pid, id)
+  const scopeWord = systemId ? 'system' : 'page'
 
   const unsetSystem = SYSTEM_VARS.filter((sv) => !variables.some((v) => v.name === sv.name))
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -3748,7 +3757,9 @@ function VariablesPanel({ pageId }: { pageId: string }) {
         // that write a real, working variable you can immediately edit.
         <div className="py-3 text-center">
           <p className="text-ui-sm leading-relaxed text-muted-foreground">
-            A value you name once and reuse in any field on this page.
+            {systemId
+              ? 'A value only this system sees — it beats the page variable of the same name.'
+              : 'A value you name once and reuse in any field on this page.'}
           </p>
           <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
             {STARTER_VARS.map((s) => (
@@ -3851,7 +3862,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
 
       {unsetSystem.length > 0 && (
         <div className="pt-2">
-          <SectionTitle>System (engine defaults)</SectionTitle>
+          <SectionTitle>{systemId ? 'Engine (this system only)' : 'System (engine defaults)'}</SectionTitle>
           {unsetSystem.map((sv) => (
             <div key={sv.name} className="flex items-center gap-1.5 py-0.5">
               <span className="w-20 shrink-0 font-mono text-ui-xs text-muted-foreground">{sv.name}</span>
@@ -3866,8 +3877,8 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             </div>
           ))}
           <p className="mt-1 text-ui-2xs leading-relaxed text-muted-foreground">
-            Edit a value to override it for this page — it becomes a normal
-            variable above (delete it to restore the default).
+            Edit a value to override it for this {scopeWord} — it becomes a normal
+            variable above (delete it to restore the {systemId ? "page's value" : 'default'}).
           </p>
         </div>
       )}

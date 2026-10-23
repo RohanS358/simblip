@@ -41,6 +41,11 @@ const EDIT_RE = new RegExp(
     // user says textbox/box/label/card for the same thing the code calls a
     // note or a text object.
     'this (?:page|slide|note|object|one|text ?box|box|text|label|card|component|shape|table|graph|chart)',
+    // Variables, page-wide or scoped to one system box ("moon gravity in the
+    // left box"). Qualified so a bare "explain gravity" stays an explanation.
+    '\\b(?:add|create|new|define|delete|remove|rename)\\b[^;!?]*\\bvariables?\\b',
+    '\\b(?:system|box|region)\\b[^;!?]*\\b(?:gravity|drag|air resistance|variables?|time ?scale|slow[- ]?motion)\\b',
+    '\\b(?:gravity|drag|air resistance|variables?|time ?scale)\\b[^;!?]*\\b(?:in|inside|of|for|on)\\b[^;!?]*\\b(?:system|box|region)\\b',
     '\\bthese\\b|\\bthe selected\\b|\\bselection\\b|\\bselected (?:one|object|item)s?\\b',
   ].join('|'),
   'i'

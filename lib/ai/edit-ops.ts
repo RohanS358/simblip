@@ -25,6 +25,7 @@ import { z } from 'zod'
 import { COMPONENTS } from '@/lib/scene/factory'
 import { BEHAVIOR_TYPES } from '@/lib/behaviors/registry'
 import type { GeometryKind, PageDoc } from '@/lib/scene/types'
+import { findSystem, systemVarsOf } from '@/lib/formula/system-scope'
 
 /** Plain geometry kinds an `add` may name.
  *
@@ -86,7 +87,11 @@ export const editOpSchema = z.discriminatedUnion('op', [
     id: z.string(),
     type: z.string(),
   }),
-  z.object({ op: z.literal('setVariable'), name: z.string(), expr: z.string() }),
+  // `system` (id or name) scopes the variable to that system box alone; it
+  // beats the page's same-named variable inside it. g / drag / timeScale are
+  // the engine overrides. Omit `system` for a page-wide variable.
+  z.object({ op: z.literal('setVariable'), name: z.string(), expr: z.string(), system: z.string().optional() }),
+  z.object({ op: z.literal('removeVariable'), name: z.string(), system: z.string().optional() }),
 ])
 
 export const editPlanSchema = z.object({
@@ -193,9 +198,23 @@ export function verifyPlan(raw: unknown, doc: PageDoc | undefined): VerifyResult
         if (!BEHAVIOR_SET.has(op.type)) errors.push(`${at}: unknown behavior "${op.type}"`)
         break
       }
-      case 'setVariable': {
+      case 'setVariable':
+      case 'removeVariable': {
         if (!/^[A-Za-z_]\w*$/.test(op.name)) {
           errors.push(`${at}: "${op.name}" is not a usable variable name`)
+        }
+        if (op.system !== undefined) {
+          const sys = findSystem(doc.objects, op.system)
+          if (!sys) {
+            const have = Object.values(doc.objects).filter((o) => o.metadata.render === 'system')
+            errors.push(
+              `${at}: no system "${op.system}" on this page${have.length ? ` (systems: ${have.map((o) => `${o.id} "${o.name}"`).join(', ')})` : ''}`
+            )
+          } else if (op.op === 'removeVariable' && !systemVarsOf(sys).some((v) => v.name === op.name)) {
+            errors.push(`${at}: system "${sys.name}" has no variable "${op.name}"`)
+          }
+        } else if (op.op === 'removeVariable' && !doc.variables.some((v) => v.name === op.name)) {
+          errors.push(`${at}: page has no variable "${op.name}"`)
         }
         break
       }
@@ -233,7 +252,9 @@ export function describePlan(plan: EditPlan, doc: PageDoc | undefined): string[]
       case 'addBehavior':
         return `Give ${nameOf(op.id)} ${op.type}`
       case 'setVariable':
-        return `Set variable ${op.name} = ${op.expr}`
+        return `Set ${op.system ? `${nameOf(findSystem(doc?.objects ?? {}, op.system)?.id ?? op.system)} ` : ''}variable ${op.name} = ${op.expr}`
+      case 'removeVariable':
+        return `Delete ${op.system ? `${nameOf(findSystem(doc?.objects ?? {}, op.system)?.id ?? op.system)} ` : ''}variable ${op.name}`
     }
   })
 }

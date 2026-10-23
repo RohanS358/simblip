@@ -17,6 +17,7 @@
 // something that already exists), only parameters a human would name, and a
 // hard cap with selected objects kept first.
 
+import { systemVarsOf } from '@/lib/formula/system-scope'
 import type { PageDoc, PageKind, SceneObject } from '@/lib/scene/types'
 
 /** The space the model is writing into. Without this it picks coordinates
@@ -155,6 +156,12 @@ export function buildDigest(doc: PageDoc | undefined, selectedIds: string[] = []
   const parts: string[] = []
   if (doc.variables.length > 0) {
     parts.push(`Variables: ${doc.variables.map((v) => `${v.name}=${v.expr}`).join(', ')}`)
+  }
+  for (const sys of all) {
+    const sv = systemVarsOf(sys)
+    if (sv.length > 0) {
+      parts.push(`System ${sys.id} "${sys.name}" variables (override the page's inside it): ${sv.map((v) => `${v.name}=${v.expr}`).join(', ')}`)
+    }
   }
   if (lines.length > 0) parts.push(`Objects (${all.length}):\n${lines.join('\n')}`)
   if (shown < all.length) parts.push(`(${all.length - shown} more not listed)`)
