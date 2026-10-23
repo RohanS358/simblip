@@ -14,7 +14,7 @@
 import { lintSimScript } from '@/lib/ai/simscript-lint'
 import { getEngine, runEngine } from '@/lib/steplab/registry'
 import { runCpp } from '@/lib/dsa/interpreter'
-import { capabilityPrompt, isComputing, matchLabs } from './catalog'
+import { capabilityPrompt, isComputing, isOtherLanguage, matchLabs } from './catalog'
 import { lintStoryboard, storyboardSchema, type Beat, type Storyboard } from './storyboard'
 import { circuitRecipe } from './recipes'
 import { parsePlan, planSystemPrompt, planUserPrompt, type Level, type Plan } from './plan'
@@ -219,7 +219,7 @@ export async function routePlan(topic: string, plan: Plan, d: Pick<DirectorDeps,
   const slots = steps.length >= 4 ? [1, 3] : steps.length >= 2 ? [1, 0] : [0]
   if (labs.length) {
     labs.slice(0, slots.length).forEach((m, k) => { steps[slots[k]] = { ...steps[slots[k]], lab: { engine: m.cap.id, ...(Object.keys(m.settings).length ? { settings: m.settings } : {}) }, code: undefined } })
-  } else {
+  } else if (!isOtherLanguage(topic)) { // the DSA Lab runs C++ only: never pass off C++ as a lesson on another language
     try {
       const code = (await d.llm.complete(PROGRAM_SYSTEM, `Topic: ${topic}`, { signal: d.signal })).replace(/```[a-z+]*/gi, '').trim()
       if (code.includes('main') && code.length >= 20 && code.length <= 1800) steps[slots[0]] = { ...steps[slots[0]], code }

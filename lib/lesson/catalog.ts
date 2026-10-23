@@ -71,5 +71,8 @@ export function matchLabs(topic: string, max = 2): LabMatch[] {
 }
 
 /** Topics that are about computing — where a physics scene is the wrong picture and a program or a stepper is the right one. */
-const COMPUTING = /\b(sort(ing)?|search(ing)?|stack|queue|array|linked list|recursion|recursive|pointer|hash(ing| table| map)?|binary tree|bst|heap|graph|dfs|bfs|dijkstra|dynamic programming|memoi[sz]ation|big[- ]?o|time complexity|algorithm|data structure|c\+\+|loops?|sliding window|two pointers?|backtracking|greedy)\b/i
-export const isComputing = (topic: string) => COMPUTING.test(topic)
+const COMPUTING = /\b(sort(ing|ed)?|search(ing)?|stacks?|queues?|deques?|arrays?|vectors?|linked lists?|recursion|recursive|pointers?|references?|hash(ing| tables?| maps?| sets?)?|binary trees?|bst|heaps?|priority queues?|graphs?|dfs|bfs|dijkstra|dynamic programming|memoi[sz]ation|big[- ]?o|time complexity|algorithms?|data structures?|c\+\+|c programming|loops?|for loop|while loop|if else|conditionals?|variables?|functions?|structs?|classes?|objects?|strings?|sliding window|two pointers?|backtracking|greedy|trees?|iteration|compile[rd]?|debugging)\b/i
+/** Languages the DSA Lab cannot run (it interprets C++ only). Such a topic is still computing — no physics scene — but nothing can be executed for it. */
+const OTHER_LANGUAGE = /\b(python|javascript|typescript|java|rust|golang|go lang|ruby|php|swift|kotlin|sql|html|css|react|bash|shell|matlab)\b/i
+export const isOtherLanguage = (topic: string) => OTHER_LANGUAGE.test(topic)
+export const isComputing = (topic: string) => COMPUTING.test(topic) || OTHER_LANGUAGE.test(topic)
