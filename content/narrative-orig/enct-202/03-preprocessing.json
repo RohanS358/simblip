@@ -1,0 +1,42 @@
+{
+  "title": "Understanding and cleaning data",
+  "subtitle": "Most of a data scientist’s time goes here: real data is missing, duplicated, mis-typed and on wildly different scales.",
+  "sections": {
+    "profile": {
+      "title": "Profiling a dataset",
+      "body": "<p>Before changing anything, ask: how many rows and columns? what type is each? how many values are missing? what are the min, max, mean? are there duplicates? Quick profiling catches a column of ages containing −1 or 999 before a model learns from it.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "missing": {
+      "title": "Missing values",
+      "body": "<p>Options: <b>drop</b> rows or columns (fine if few), <b>impute</b> with mean/median/mode, or model the missing value from others. Median is safer for skewed data. Adding a “was missing” flag preserves the information that it was absent.</p>",
+      "after": "",
+      "steps": "Ages: 20, 22, 24, —, 90. The median of the known ones. Mean would be 39, dragged up by 90; fill with 23."
+    },
+    "outlier": {
+      "title": "Outliers",
+      "body": "<p>Flag a value if |z| &gt; 3, or if it lies beyond 1.5·IQR from the quartiles. Then <em>investigate</em>: a typo is fixed, a real extreme is kept (or modelled separately). Never delete just because it is inconvenient.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "scale": {
+      "title": "Scaling and encoding",
+      "body": "<p>Distance-based and gradient-based methods are thrown off by features in different units (salary in lakhs vs age in years). <b>Min–max</b>: (x − min)/(max − min) maps to [0, 1]. <b>Standardise</b>: (x − μ)/σ. Categories become numbers by <b>one-hot</b> encoding (one 0/1 column per category), or by ordering for ordinals.</p>",
+      "after": "",
+      "steps": "Ages 20, 30, 50. Min–max of 30:"
+    },
+    "pipe": {
+      "title": "A cleaning pipeline",
+      "body": "<p>A repeatable pipeline: load → fix types → remove duplicates → handle missing → treat outliers → encode → scale → split. Fit scalers on the training set only and apply them to the test set; fitting on all data leaks information.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "integ": {
+      "title": "Combining sources",
+      "body": "<p>Datasets are merged by a key (join). Watch for duplicate keys, mismatched formats (“NP” vs “Nepal”), and inconsistent units. Validate counts before and after a join; an inner join loses unmatched rows, a left join keeps them with blanks.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

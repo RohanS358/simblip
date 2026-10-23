@@ -1,0 +1,42 @@
+{
+  "title": "Regression and prediction",
+  "subtitle": "Fit a line, read its slope, predict, and see how one outlier can betray it.",
+  "sections": {
+    "idea": {
+      "title": "Predicting a number",
+      "body": "<p>Regression predicts a continuous target y from features x. Simple linear regression: ŷ = a + bx. The slope b is “change in y per unit x”; the intercept a is y at x = 0. Classification, by contrast, predicts a category.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "fit": {
+      "title": "Least squares",
+      "body": "<p>Choose a, b minimising the sum of squared residuals. For the sample data slope = <b>0.9</b>, intercept = <b>1.3</b>, R² = <b>0.81</b>.</p>",
+      "after": "",
+      "steps": "Slope b = Sxy / Sxx = 9 / 10. Intercept a = ȳ − b x̄ = 4 − 0.9·3."
+    },
+    "outl": {
+      "title": "Outliers can steer the line",
+      "body": "<p>Replace the last point (5, 6) with (5, 30): slope jumps to <b>5.7</b> and R² falls to <b>0.5732</b>. Squaring makes big errors dominate; robust methods or removing a verified error is the remedy.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "metrics": {
+      "title": "Measuring error",
+      "body": "<p>MAE = mean |error|; MSE = mean error²; RMSE = √MSE (same units as y); R² = 1 − SSres/SStot. RMSE punishes large errors more than MAE. Always compare to a baseline: predicting the mean has R² = 0.</p>",
+      "after": "",
+      "steps": "Errors: 1, −2, 3. MSE = (1 + 4 + 9)/3 = 4.67, so RMSE = 2.16 while MAE = 2."
+    },
+    "multi": {
+      "title": "Many features and overfitting",
+      "body": "<p>ŷ = b₀ + b₁x₁ + … + b_k x_k. Adding features always lowers training error, but a model that memorises noise (<em class=\"term\">overfits</em>) does worse on new data. Regularisation (ridge/lasso) adds a penalty on large coefficients; validation (next chapter) detects the problem.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "logi": {
+      "title": "From regression to classification",
+      "body": "<p>To predict a yes/no outcome, pass the linear score through the sigmoid σ(s) = 1/(1 + e⁻ˢ) to get a probability in (0, 1), then threshold at 0.5. It is fitted by gradient descent, exactly as in chapter 2.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

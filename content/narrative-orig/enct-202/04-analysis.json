@@ -1,0 +1,42 @@
+{
+  "title": "Exploring data with summaries and charts",
+  "subtitle": "Before modelling, look: the right chart answers a question in a glance.",
+  "sections": {
+    "eda": {
+      "title": "Exploratory data analysis",
+      "body": "<p><em class=\"term\">EDA</em> means summarising and plotting data to find its shape, oddities and relationships before modelling. Start univariate (one variable), then bivariate (pairs), then multivariate.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summ": {
+      "title": "Summary statistics",
+      "body": "<p>Centre: mean, median. Spread: standard deviation, IQR. Shape: skewness. For categories: counts and proportions. Group summaries (mean income by region) are the most common first insight — “group by, then aggregate”.</p>",
+      "after": "",
+      "steps": "Sales (k): North 10, 12, 14; South 20, 22. Group means: 12 and 21."
+    },
+    "chart": {
+      "title": "Choosing a chart",
+      "body": "<table><thead><tr><th>Question</th><th>Chart</th></tr></thead><tbody><tr><td>Distribution of one number</td><td>histogram / box plot</td></tr><tr><td>Compare categories</td><td>bar chart</td></tr><tr><td>Change over time</td><td>line chart</td></tr><tr><td>Relationship of two numbers</td><td>scatter plot</td></tr><tr><td>Part of a whole</td><td>bar (pie only for few parts)</td></tr></tbody></table>",
+      "after": "",
+      "steps": ""
+    },
+    "corr": {
+      "title": "Relationships",
+      "body": "<p>A scatter plot shows direction, strength and curvature; the correlation r summarises only the linear part. For the sample data r = <b>0.9</b> and R² = <b>0.81</b>. A correlation matrix (heat map) scans many pairs at once.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mislead": {
+      "title": "Honest charts",
+      "body": "<p>Start bar charts at zero; keep scales comparable; label axes and units; do not use 3-D effects; show the sample size. Simpson’s paradox: a trend in every group can reverse when groups are pooled — so check subgroups.</p>",
+      "after": "",
+      "steps": "Treatment A cures 81/87 (93 %) of small stones and 192/263 (73 %) of large; B: 234/270 (87 %) and 55/80 (69 %). A wins in both groups, yet pooled A = 273/350 = 78 % and B = 289/350 = 83 %: the mix of stone sizes reverses the ranking."
+    },
+    "story": {
+      "title": "Telling the story",
+      "body": "<p>A finding is useful only if the audience acts on it. Lead with the conclusion, show one chart per message, state uncertainty, and note the limits (sample, period, missing data).</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

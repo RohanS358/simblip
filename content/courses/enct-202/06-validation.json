@@ -1,14 +1,14 @@
 {
   "title": "Training, validation and clustering",
   "kicker": "ENCT 202 · Foundation of Data Science · Chapter 6",
-  "subtitle": "How do you know a model works? Hide some data, test on it — and learn what to do when there are no labels at all.",
+  "subtitle": "How do you know a model works? Hide some data, test on it, and learn what to do when there are no labels at all.",
   "sections": [
     {
       "id": "types",
       "locator": "6.1",
       "title": "Supervised and unsupervised",
       "eyebrow": "Kinds of learning",
-      "body": "<p><b>Supervised</b>: examples come with answers (labels) — regression, classification. <b>Unsupervised</b>: no labels; find structure — clustering, dimensionality reduction. <b>Reinforcement</b>: learn from reward by acting.</p>",
+      "body": "<p>There are three ways a machine can learn, and they match three ways you learned yourself. <b>Supervised</b>: a teacher gives examples with answers (labels), as in regression and classification. <b>Unsupervised</b>: no labels at all, so you find structure on your own, as in clustering and dimensionality reduction. <b>Reinforcement</b>: you learn from reward by acting, like a child discovering what the stove does.</p><p>So grouping customers with no predefined labels is unsupervised learning. Keep the three names straight; they appear everywhere.</p>",
       "questions": [
         {
           "id": "sup",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Supervised learning has examples with answers (labels): regression and classification.",
+        "Unsupervised learning has no labels and finds structure: clustering and dimensionality reduction.",
+        "Reinforcement learning learns from reward by acting."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "6.2",
       "title": "A learning loop: the perceptron",
       "eyebrow": "Learn from mistakes",
-      "body": "<p>A perceptron predicts sign(w·x + b). For every mistake, nudge the weights toward the correct class: w ← w + η·y·x. On separable data it converges: here in <b>6</b> epochs to w = (1, 0.5), b = -1. Training is this loop: predict, measure error, adjust.</p>",
+      "body": "<p>Let’s watch learning happen in its simplest form. A perceptron predicts sign(w·x + b). Whenever it makes a mistake, it nudges the weights toward the correct class: w ← w + η·y·x. Right answers change nothing.</p><p>On separable data it converges. Here it takes <b>6</b> epochs to reach w = (1, 0.5), b = −1, and in the figure you can see the boundary rotate after each misclassified point. That is the whole loop of training: predict, measure error, adjust. A perceptron updates its weights only when it misclassifies a point.</p>",
       "questions": [
         {
           "id": "perq",
@@ -93,6 +98,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A perceptron predicts sign(w·x + b) and, for every mistake, nudges the weights: w ← w + η·y·x.",
+        "On separable data it converges: here in 6 epochs to w = (1, 0.5), b = −1.",
+        "Training is a loop: predict, measure error, adjust."
       ]
     },
     {
@@ -100,7 +110,7 @@
       "locator": "6.3",
       "title": "Train / validation / test",
       "eyebrow": "Honest evaluation",
-      "body": "<p>Judging a model on the data it trained on rewards memorising. Split: <b>train</b> (fit, e.g. 70 %), <b>validation</b> (choose settings, 15 %), <b>test</b> (final unbiased score, 15 %, used once). <b>k-fold cross-validation</b> rotates the validation part k times and averages — good for small data.</p>",
+      "body": "<p>Here is a question every honest scientist must answer: how do you know your model works on data it has never seen? Not by asking it about the data it was trained on, because judging a model on its own training data rewards memorising, like testing a student on the exact questions she practised.</p><p>So split the data. <b>Train</b> (fit, e.g. 70 %), <b>validation</b> (choose settings, 15 %) and <b>test</b> (the final unbiased score, 15 %, used once). With 1000 rows that is 700 training, 150 validation and 150 test rows. The test set is touched only at the end, as the figure says. For small data, <b>k-fold cross-validation</b> rotates the validation part k times and averages. Used once, the test set stays honest.</p>",
       "worked": [
         {
           "toc": "Split",
@@ -152,6 +162,11 @@
           "note": "The test set is touched only at the end.",
           "script": "diagram(\"Dataset -> Train 70% : fit\\nDataset -> Validation 15% : tune\\nDataset -> Test 15% : final score\\nTrain 70% -> Model\\nValidation 15% -> Model : choose settings\\nModel -> Test 15% : evaluate once\");"
         }
+      ],
+      "keynotes": [
+        "Judging a model on its training data rewards memorising.",
+        "Split into train (about 70 %), validation (15 %) to choose settings and test (15 %) for the final score, used once.",
+        "1000 rows split 70 / 15 / 15 give 700 training, 150 validation and 150 test rows; k-fold cross-validation rotates the validation part k times."
       ]
     },
     {
@@ -159,7 +174,7 @@
       "locator": "6.4",
       "title": "Classification metrics",
       "eyebrow": "Beyond accuracy",
-      "body": "<p>Confusion matrix: TP, FP, FN, TN. Accuracy = (TP + TN)/all; precision = TP/(TP + FP); recall = TP/(TP + FN); F1 is their harmonic mean. With rare positives accuracy is deceiving.</p>",
+      "body": "<p>Accuracy sounds like the obvious score, but it can fool you badly when positives are rare. So we look inside the mistakes with a confusion matrix: TP, FP, FN, TN. Accuracy = (TP + TN)/all; precision = TP/(TP + FP); recall = TP/(TP + FN); and F1 is their harmonic mean.</p><p>Work an example: TP = 8, FP = 2, FN = 4, TN = 86. Precision = 8/10 = 0.8; recall = 8/12 = 0.67; accuracy = 94/100. Notice how a good-looking accuracy hides the four missed cases. A cancer screen must miss few real cases, so you should maximise recall.</p>",
       "worked": [
         {
           "toc": "Counts",
@@ -210,6 +225,11 @@
           "prompt": "<p>Precision 0.8 and recall 0.667. Find F1.</p>",
           "answer": "F1 = 2PR/(P + R) = 1.0667/1.4667 = <b>0.727</b>."
         }
+      ],
+      "keynotes": [
+        "The confusion matrix has TP, FP, FN and TN; accuracy = (TP + TN)/all, precision = TP/(TP + FP), recall = TP/(TP + FN), and F1 is their harmonic mean.",
+        "With TP = 8, FP = 2, FN = 4, TN = 86: precision 0.8, recall 0.67 and accuracy 94/100.",
+        "With rare positives accuracy is deceiving; a cancer screen should maximise recall."
       ]
     },
     {
@@ -217,7 +237,7 @@
       "locator": "6.5",
       "title": "k-means clustering",
       "eyebrow": "Unlabelled groups",
-      "body": "<p>Pick k centroids; assign each point to the nearest; move each centroid to its cluster mean; repeat until stable. On the sample data it stops in <b>3</b> iterations with centroids <b>(1.25,1.5) (3.9,5.1)</b> and within-cluster SSE <b>8.525</b>. Choose k with the “elbow” of SSE vs k.</p>",
+      "body": "<p>What if there are no labels at all? You can still find groups. k-means does it with a simple dance: pick k centroids, assign each point to the nearest one, move each centroid to the mean of its cluster, and repeat until stable.</p><p>On the sample data it stops in <b>3</b> iterations with centroids <b>(1.25,1.5) (3.9,5.1)</b> and within-cluster SSE <b>8.525</b>. Watch the crosses move in the figure. How do you choose k? Look for the “elbow” of SSE against k, where adding more clusters stops paying off. k-means alternates between assigning points and updating centroids.</p>",
       "questions": [
         {
           "id": "kmq",
@@ -263,6 +283,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "k-means picks k centroids, assigns each point to the nearest, moves each centroid to its cluster mean and repeats until stable.",
+        "On the sample data it stops in 3 iterations with centroids (1.25,1.5) and (3.9,5.1) and within-cluster SSE 8.525.",
+        "Choose k with the elbow of SSE against k."
       ]
     },
     {
@@ -270,7 +295,7 @@
       "locator": "6.6",
       "title": "Bias–variance",
       "eyebrow": "The central trade-off",
-      "body": "<p>Too simple a model is biased (underfits: high error everywhere). Too flexible a model has high variance (overfits: low train, high test error). The best model sits between. More data reduces variance; better features reduce bias.</p>",
+      "body": "<p>Every model lives between two failures. A model that is too simple is biased: it underfits, with high error everywhere, like a straight line forced through a curve. A model that is too flexible has high variance: it overfits, with low train error and high test error, like memorising the noise.</p><p>The best model sits between them. And you have levers: more data reduces variance, and better features reduce bias. So if both train and test error are high, you are underfitting, and a more flexible model is the cure.</p>",
       "questions": [
         {
           "id": "bvq",
@@ -302,6 +327,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Too simple a model is biased (underfits): high error everywhere.",
+        "Too flexible a model has high variance (overfits): low train error and high test error.",
+        "More data reduces variance and better features reduce bias."
       ]
     }
   ]

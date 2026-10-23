@@ -1,0 +1,42 @@
+{
+  "title": "Gradient descent, distributions and sampling",
+  "subtitle": "The four mathematical ideas behind almost every model: optimise by following the slope, describe uncertainty with distributions, and trust averages.",
+  "sections": {
+    "vec": {
+      "title": "Vectors, matrices, dot products",
+      "body": "<p>A row of a table is a vector; the table is a matrix X (rows = examples, columns = features). The dot product w·x = Σwᵢxᵢ is a weighted sum — the heart of linear models and neurons. Matrix product Xw scores every row at once. Distance ‖a − b‖ measures similarity.</p>",
+      "after": "",
+      "steps": "w = (2, −1), x = (3, 4). Dot product."
+    },
+    "deriv": {
+      "title": "Derivatives and the gradient",
+      "body": "<p>f′(x) is the slope; it points uphill. For several variables the gradient ∇f collects partial derivatives and points in the steepest-ascent direction. To minimise a loss, walk the opposite way. At a minimum the gradient is zero.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "gd": {
+      "title": "Gradient descent",
+      "body": "<p>Repeat x ← x − η f′(x), with learning rate η. For f = x² − 4x + 5 (minimum at x = 2) and η = 0.2 from x = −1, after 15 steps x = <b>1.99859</b>. With η = 1.1 the steps overshoot more than they correct and it oscillates. Too small is slow; too large is unstable.</p>",
+      "after": "",
+      "steps": "f′(x) = 2x − 4. At x = −1, f′ = −6. Step: x₁ = −1 − 0.2·(−6)."
+    },
+    "dist": {
+      "title": "Distributions",
+      "body": "<p>A distribution assigns probabilities to outcomes. Binomial counts successes in n trials; Poisson counts events per interval; the normal N(μ, σ²) models measurement noise. About 95 % of a normal lies within ±1.96σ: here P = <b>0.95</b>. Standardise z = (x − μ)/σ to compare different scales.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "clt": {
+      "title": "Sampling and the central limit theorem",
+      "body": "<p>Means of samples of size n are roughly normal with standard error σ/√n, whatever the population. Simulated means of 30 from a skewed exponential population have sd <b>0.184</b> versus theory <b>0.183</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ci": {
+      "title": "Confidence intervals",
+      "body": "<p>x̄ ± 1.96σ/√n is a 95 % interval. In 40 simulated studies <b>97.5%</b> of intervals caught the true mean, with half-width 3.92.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

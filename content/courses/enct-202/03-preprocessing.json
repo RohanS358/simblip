@@ -8,7 +8,7 @@
       "locator": "3.1",
       "title": "Profiling a dataset",
       "eyebrow": "First look",
-      "body": "<p>Before changing anything, ask: how many rows and columns? what type is each? how many values are missing? what are the min, max, mean? are there duplicates? Quick profiling catches a column of ages containing −1 or 999 before a model learns from it.</p>",
+      "body": "<p>You wouldn’t buy a second-hand car without lifting the bonnet. Do the same with data. Before changing anything, ask: how many rows and columns? what type is each? how many values are missing? what are the min, max and mean? are there duplicates?</p><p>A quick profile catches nasty surprises, like a column of ages containing −1 or 999, before a model learns from them. If an age column has a maximum of 999, it is most likely a stand-in code for “unknown”, not a very old person.</p>",
       "questions": [
         {
           "id": "prof",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Before changing anything, check rows and columns, types, missing values, min, max, mean and duplicates.",
+        "Profiling catches a column of ages containing −1 or 999 before a model learns from it.",
+        "A maximum age of 999 is most likely a stand-in code for unknown."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "3.2",
       "title": "Missing values",
       "eyebrow": "Holes in the table",
-      "body": "<p>Options: <b>drop</b> rows or columns (fine if few), <b>impute</b> with mean/median/mode, or model the missing value from others. Median is safer for skewed data. Adding a “was missing” flag preserves the information that it was absent.</p>",
+      "body": "<p>Real tables have holes. What do you do about them? You have three options: <b>drop</b> rows or columns (fine if few), <b>impute</b> with the mean, median or mode, or model the missing value from the others. For skewed data the median is safer. And add a “was missing” flag, which preserves the information that it was absent.</p><p>See why the median matters. Ages: 20, 22, 24, —, 90. The median of the known ones is 23. The mean would be 39, dragged up by the 90, so fill with 23. For skewed income data, the median is the robust choice.</p>",
       "worked": [
         {
           "toc": "Median",
@@ -98,6 +103,11 @@
           "prompt": "<p>Values 4, 6, 8, —, 100: mean vs median imputation for the gap?</p>",
           "answer": "Mean of known = 29.5; median = <b>7</b>. The median ignores the outlier 100."
         }
+      ],
+      "keynotes": [
+        "Options: drop rows or columns, impute with mean, median or mode, or model the missing value from others.",
+        "The median is safer for skewed data, and a “was missing” flag preserves the information.",
+        "For ages 20, 22, 24, —, 90 the median is 23 while the mean would be 39, dragged up by 90."
       ]
     },
     {
@@ -105,7 +115,7 @@
       "locator": "3.3",
       "title": "Outliers",
       "eyebrow": "Unusual points",
-      "body": "<p>Flag a value if |z| &gt; 3, or if it lies beyond 1.5·IQR from the quartiles. Then <em>investigate</em>: a typo is fixed, a real extreme is kept (or modelled separately). Never delete just because it is inconvenient.</p>",
+      "body": "<p>Some points sit far from the crowd. Are they mistakes or discoveries? Flag a value if |z| &gt; 3, or if it lies beyond 1.5·IQR from the quartiles. For quartiles 10 and 20 the IQR is 10, so the upper fence is 20 + 1.5·10 = 35.</p><p>Then comes the important part: <em>investigate</em>. A typo is fixed; a real extreme is kept (or modelled separately). Never delete a point just because it is inconvenient. It may be the most interesting row you have.</p>",
       "questions": [
         {
           "id": "out",
@@ -137,6 +147,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Flag a value if |z| > 3 or if it lies beyond 1.5·IQR from the quartiles.",
+        "Quartiles 10 and 20 give an IQR of 10 and an upper fence of 35.",
+        "Investigate: fix typos, keep real extremes, and never delete just because it is inconvenient."
       ]
     },
     {
@@ -144,7 +159,7 @@
       "locator": "3.4",
       "title": "Scaling and encoding",
       "eyebrow": "Making features comparable",
-      "body": "<p>Distance-based and gradient-based methods are thrown off by features in different units (salary in lakhs vs age in years). <b>Min–max</b>: (x − min)/(max − min) maps to [0, 1]. <b>Standardise</b>: (x − μ)/σ. Categories become numbers by <b>one-hot</b> encoding (one 0/1 column per category), or by ordering for ordinals.</p>",
+      "body": "<p>Imagine comparing salary (in lakhs) with age (in years) using a ruler. The salary column shouts, the age column whispers. Distance-based and gradient-based methods are thrown off by features in different units, so we put them on a common scale.</p><p><b>Min–max</b>: (x − min)/(max − min) maps to [0, 1]. For ages 20, 30, 50 the value 30 becomes (30 − 20)/(50 − 20) = 0.33. <b>Standardise</b>: (x − μ)/σ. Categories become numbers by <b>one-hot</b> encoding (one 0/1 column per category), or by ordering for ordinals. Colour ∈ {red, green, blue}, one-hot encoded, gives three columns.</p>",
       "worked": [
         {
           "toc": "Min–max",
@@ -184,6 +199,12 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Distance-based and gradient-based methods are thrown off by features in different units.",
+        "Min–max maps to [0, 1] with (x − min)/(max − min); standardise with (x − μ)/σ.",
+        "Ages 20, 30, 50: min–max of 30 is 0.33.",
+        "One-hot encoding makes one 0/1 column per category."
       ]
     },
     {
@@ -191,7 +212,7 @@
       "locator": "3.5",
       "title": "A cleaning pipeline",
       "eyebrow": "Do it in order",
-      "body": "<p>A repeatable pipeline: load → fix types → remove duplicates → handle missing → treat outliers → encode → scale → split. Fit scalers on the training set only and apply them to the test set; fitting on all data leaks information.</p>",
+      "body": "<p>Cleaning is easiest when it is a recipe you can repeat, so do it in order: load → fix types → remove duplicates → handle missing → treat outliers → encode → scale → split. Each stage takes the previous stage’s output.</p><p>One golden rule: fit scalers on the training set only and apply them to the test set. Why? If you compute the scaling mean using the test set, information from the exam leaks into your revision. That is data leakage, and it makes results look better than they are.</p>",
       "questions": [
         {
           "id": "leak",
@@ -231,6 +252,11 @@
           "note": "Each stage takes the previous stage’s output.",
           "script": "diagram(\"Raw data -> Fix types\\nFix types -> Drop duplicates\\nDrop duplicates -> Impute missing\\nImpute missing -> Handle outliers\\nHandle outliers -> Encode\\nEncode -> Scale\\nScale -> Clean data\");"
         }
+      ],
+      "keynotes": [
+        "A repeatable pipeline: load, fix types, remove duplicates, handle missing, treat outliers, encode, scale, split.",
+        "Fit scalers on the training set only and apply them to the test set.",
+        "Fitting on all data leaks information."
       ]
     },
     {
@@ -238,7 +264,7 @@
       "locator": "3.6",
       "title": "Combining sources",
       "eyebrow": "Joins and integrity",
-      "body": "<p>Datasets are merged by a key (join). Watch for duplicate keys, mismatched formats (“NP” vs “Nepal”), and inconsistent units. Validate counts before and after a join; an inner join loses unmatched rows, a left join keeps them with blanks.</p>",
+      "body": "<p>Data rarely arrives in one tidy table, so you will merge sources by a key (a join). Watch for traps: duplicate keys, mismatched formats (“NP” vs “Nepal”), and inconsistent units. Validate the counts before and after a join.</p><p>The join type matters. An inner join loses unmatched rows; a left join keeps them with blanks. So if you want to keep all customers even if they have no orders, use a left join from the customers table.</p>",
       "questions": [
         {
           "id": "join",
@@ -270,6 +296,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Datasets are merged by a key (join); watch for duplicate keys, mismatched formats (“NP” vs “Nepal”) and inconsistent units.",
+        "Validate counts before and after a join.",
+        "An inner join loses unmatched rows; a left join keeps them with blanks."
       ]
     }
   ]

@@ -1,0 +1,42 @@
+{
+  "title": "Responsible data science",
+  "subtitle": "A model that is accurate on average can still be unfair, invasive or impossible to explain.",
+  "sections": {
+    "bias": {
+      "title": "Bias in data and models",
+      "body": "<p>Sources: <b>sampling bias</b> (some groups under-represented), <b>historical bias</b> (past decisions encoded in labels), <b>measurement bias</b> (proxies such as postcode for income), <b>feedback loops</b> (predictions change the data they are retrained on). A model trained on biased history reproduces it.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "fair": {
+      "title": "Measuring fairness",
+      "body": "<p>Compare groups: selection rate, false-positive rate, recall. The “four-fifths rule” flags concern if one group’s selection rate is below 80 % of the highest. Different fairness definitions can conflict, so choose deliberately and explain it.</p>",
+      "after": "",
+      "steps": "Group A approved 50 of 100; group B 30 of 100. Ratio B/A = 0.30/0.50."
+    },
+    "priv": {
+      "title": "Privacy and consent",
+      "body": "<p>Collect only what you need; obtain consent; anonymise (removing names is often not enough: a birth date + postcode + gender can re-identify). Techniques: aggregation, k-anonymity, differential privacy (adding calibrated noise). Laws such as GDPR and Nepal’s Privacy Act set rights over personal data.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "xai": {
+      "title": "Explainability",
+      "body": "<p>Linear and tree models are interpretable; deep networks are not. Tools: feature importance, partial-dependence, LIME/SHAP local explanations. High-stakes uses (loans, health) need reasons a person can contest.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "trend": {
+      "title": "Recent trends",
+      "body": "<p>Large language and foundation models, AutoML, MLOps (monitoring, versioning, retraining), edge AI on devices, federated learning (train without centralising data), and synthetic data. Each brings new cost, bias and privacy questions.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "code": {
+      "title": "A practical checklist",
+      "body": "<ul><li>Is the question worth answering, and by whom?</li><li>Is the data legal, consented and representative?</li><li>Were groups evaluated separately?</li><li>Can the result be explained and challenged?</li><li>Who monitors it afterwards?</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

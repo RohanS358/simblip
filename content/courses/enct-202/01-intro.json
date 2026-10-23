@@ -1,14 +1,14 @@
 {
   "title": "The data-science lifecycle",
   "kicker": "ENCT 202 · Foundation of Data Science · Chapter 1",
-  "subtitle": "Data science is a loop, not a line: ask, collect, clean, explore, model, check, deploy — and go round again.",
+  "subtitle": "Data science is a loop, not a line: ask, collect, clean, explore, model, check, deploy, and go round again.",
   "sections": [
     {
       "id": "what",
       "locator": "1.1",
       "title": "What data science is",
       "eyebrow": "Definition",
-      "body": "<p><em class=\"term\">Data science</em> extracts knowledge and decisions from data using statistics, programming and domain understanding. It sits between three skills: mathematics/statistics (what is true?), computing (how to do it at scale?) and the domain (is it meaningful?). Related terms: <b>analytics</b> describes the past, <b>machine learning</b> learns patterns to predict, <b>big data</b> means volume, velocity and variety beyond one machine.</p>",
+      "body": "<p>Every time a streaming app guesses your next favourite show, or a hospital spots a patient at risk before anyone notices, someone has turned a pile of data into a decision. That is the craft you are about to learn.</p><p><em class=\"term\">Data science</em> extracts knowledge and decisions from data using statistics, programming and domain understanding. It sits where three skills meet: mathematics/statistics (what is true?), computing (how do we do it at scale?) and the domain (is it meaningful?). Take away any one and the whole thing wobbles like a three-legged stool.</p><p>You will hear some cousin terms, so let’s sort them out. <b>Analytics</b> describes the past. <b>Machine learning</b> learns patterns to predict. <b>Big data</b> means volume, velocity and variety beyond one machine. So what is the aim of data science? To turn data into knowledge and better decisions.</p>",
       "questions": [
         {
           "id": "dsdef",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Data science extracts knowledge and decisions from data using statistics, programming and domain understanding.",
+        "It sits between mathematics/statistics (what is true?), computing (at scale?) and the domain (is it meaningful?).",
+        "Analytics describes the past, machine learning learns patterns to predict, and big data means volume, velocity and variety beyond one machine."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "1.2",
       "title": "The lifecycle",
       "eyebrow": "A loop",
-      "body": "<p>Typical stages (CRISP-DM style): business understanding → data collection → preparation → exploration → modeling → evaluation → deployment → monitoring. Results at any stage often send you back: poor evaluation means revisit features or collect more data.</p>",
+      "body": "<p>Here is the first surprise: data science is not a straight road from question to answer. It is a loop. The typical stages (CRISP-DM style) run business understanding → data collection → preparation → exploration → modeling → evaluation → deployment → monitoring.</p><p>But results at any stage often send you back. Poor evaluation means you revisit the features or collect more data, like a chef who tastes the soup and goes back to the spice rack. Follow the arrows in the figure, and see the “not yet” arrow: that is the loop. If your model scores badly, where do you go? Back, of course, not forward.</p>",
       "questions": [
         {
           "id": "loopq",
@@ -87,6 +92,11 @@
           "note": "Follow the arrows; the “not yet” arrow is the loop.",
           "script": "diagram(\"Question -> Collect : what data answers it?\\nCollect -> Clean : raw data\\nClean -> Explore : tidy data\\nExplore -> Model : features\\nModel -> Evaluate : predictions\\nEvaluate -> Deploy : good enough\\nEvaluate -> Clean : not yet\\nDeploy -> Question : monitor and refine\");"
         }
+      ],
+      "keynotes": [
+        "Stages: business understanding, data collection, preparation, exploration, modeling, evaluation, deployment, monitoring.",
+        "Results at any stage often send you back.",
+        "Poor evaluation means revisiting features or collecting more data."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "1.3",
       "title": "Kinds of data",
       "eyebrow": "Structure",
-      "body": "<table><thead><tr><th>Kind</th><th>Examples</th></tr></thead><tbody><tr><td>Structured</td><td>tables, SQL rows</td></tr><tr><td>Semi-structured</td><td>JSON, XML, logs</td></tr><tr><td>Unstructured</td><td>text, images, audio</td></tr></tbody></table><p>Variables are <b>numeric</b> (discrete or continuous) or <b>categorical</b> (nominal, or ordinal if ordered). The type decides which summary and chart are allowed.</p>",
+      "body": "<p>Not all data looks alike, and the shape of your data decides what you can do with it. Here are the three big families.</p><table><thead><tr><th>Kind</th><th>Examples</th></tr></thead><tbody><tr><td>Structured</td><td>tables, SQL rows</td></tr><tr><td>Semi-structured</td><td>JSON, XML, logs</td></tr><tr><td>Unstructured</td><td>text, images, audio</td></tr></tbody></table><p>Inside a table, variables are <b>numeric</b> (discrete or continuous) or <b>categorical</b> (nominal, or ordinal if ordered). The type decides which summary and chart are allowed: you can average ages but not colours. Is “small, medium, large” nominal or ordinal? It has an order, so it is ordinal.</p>",
       "questions": [
         {
           "id": "ord",
@@ -126,6 +136,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Structured data is tables and SQL rows; semi-structured is JSON, XML and logs; unstructured is text, images and audio.",
+        "Variables are numeric (discrete or continuous) or categorical (nominal, or ordinal if ordered).",
+        "The type decides which summary and chart are allowed."
       ]
     },
     {
@@ -133,7 +148,7 @@
       "locator": "1.4",
       "title": "Sources and tools",
       "eyebrow": "Where data comes from",
-      "body": "<p>Sources: databases, APIs, sensors/IoT, web scraping, surveys, logs. Typical tools: Python (pandas, NumPy, scikit-learn), SQL, notebooks, visualisation libraries. Data engineers build pipelines; analysts explain; scientists model.</p>",
+      "body": "<p>Where does data actually come from, and who handles it? Sources include databases, APIs, sensors/IoT, web scraping, surveys and logs. Sensor readings streaming from a machine are a perfect example of IoT data.</p><p>The usual tools are Python (pandas, NumPy, scikit-learn), SQL, notebooks and visualisation libraries. And it takes a team: data engineers build pipelines, analysts explain, and scientists model. You will wear all three hats at some point.</p>",
       "questions": [
         {
           "id": "src",
@@ -165,6 +180,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Sources: databases, APIs, sensors/IoT, web scraping, surveys and logs.",
+        "Typical tools: Python (pandas, NumPy, scikit-learn), SQL, notebooks and visualisation libraries.",
+        "Data engineers build pipelines, analysts explain and scientists model."
       ]
     },
     {
@@ -172,7 +192,7 @@
       "locator": "1.5",
       "title": "Good questions and samples",
       "eyebrow": "Before any code",
-      "body": "<p>A vague goal (“improve sales”) becomes a measurable question (“which customers will churn in 30 days?”). Sampling matters: a random sample represents the population; convenience or self-selected samples are biased. More data does not fix a biased sample.</p>",
+      "body": "<p>A manager says, “improve sales.” Where do you even begin? A vague goal like that has to become a measurable question, such as “which customers will churn in 30 days?”. Good questions come before any code.</p><p>Then comes the sample, and here is a warning you will thank me for later: a random sample represents the population; convenience or self-selected samples are biased. More data does not fix a biased sample. A bigger crowd of the wrong people is still the wrong people. An online poll answered only by people who chose to click is a self-selected sample.</p><p>One more trap. A shop has 400 customers and 60 churned last month, a churn rate of 60/400 = 0.15. Predicting “no churn” for everyone is right 85 % of the time, yet useless, because accuracy alone misleads on imbalanced data.</p>",
       "worked": [
         {
           "toc": "Rate",
@@ -216,6 +236,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A vague goal such as “improve sales” becomes a measurable question such as “which customers will churn in 30 days?”.",
+        "A random sample represents the population; convenience or self-selected samples are biased, and more data does not fix that.",
+        "With 60 of 400 customers churning (0.15), predicting no churn for everyone is right 85 % of the time yet useless."
       ]
     },
     {
@@ -223,7 +248,7 @@
       "locator": "1.6",
       "title": "What data cannot tell you",
       "eyebrow": "Limits",
-      "body": "<p>Correlation is not causation; past patterns may not hold; a model is only as good as its data (“garbage in, garbage out”). Randomised experiments (A/B tests) are how causal claims are earned.</p>",
+      "body": "<p>Data is powerful, but it is not magic, and an honest scientist knows where the edges are. Correlation is not causation: ice-cream sales and sunburn rise together, yet ice cream does not burn you. Past patterns may not hold tomorrow. And a model is only as good as its data: garbage in, garbage out.</p><p>So how do you earn a causal claim? With a randomised experiment, an A/B test, where chance alone decides who gets which treatment. That is the design that best supports a causal claim.</p>",
       "questions": [
         {
           "id": "ab",
@@ -255,6 +280,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Correlation is not causation, and past patterns may not hold.",
+        "A model is only as good as its data: garbage in, garbage out.",
+        "Randomised experiments (A/B tests) are how causal claims are earned."
       ]
     }
   ]

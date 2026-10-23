@@ -1,0 +1,42 @@
+{
+  "title": "Training, validation and clustering",
+  "subtitle": "How do you know a model works? Hide some data, test on it — and learn what to do when there are no labels at all.",
+  "sections": {
+    "types": {
+      "title": "Supervised and unsupervised",
+      "body": "<p><b>Supervised</b>: examples come with answers (labels) — regression, classification. <b>Unsupervised</b>: no labels; find structure — clustering, dimensionality reduction. <b>Reinforcement</b>: learn from reward by acting.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "perc": {
+      "title": "A learning loop: the perceptron",
+      "body": "<p>A perceptron predicts sign(w·x + b). For every mistake, nudge the weights toward the correct class: w ← w + η·y·x. On separable data it converges: here in <b>6</b> epochs to w = (1, 0.5), b = -1. Training is this loop: predict, measure error, adjust.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "split": {
+      "title": "Train / validation / test",
+      "body": "<p>Judging a model on the data it trained on rewards memorising. Split: <b>train</b> (fit, e.g. 70 %), <b>validation</b> (choose settings, 15 %), <b>test</b> (final unbiased score, 15 %, used once). <b>k-fold cross-validation</b> rotates the validation part k times and averages — good for small data.</p>",
+      "after": "",
+      "steps": "1000 rows split 70 / 15 / 15. That is 700 training, 150 validation, 150 test rows."
+    },
+    "conf": {
+      "title": "Classification metrics",
+      "body": "<p>Confusion matrix: TP, FP, FN, TN. Accuracy = (TP + TN)/all; precision = TP/(TP + FP); recall = TP/(TP + FN); F1 is their harmonic mean. With rare positives accuracy is deceiving.</p>",
+      "after": "",
+      "steps": "TP = 8, FP = 2, FN = 4, TN = 86. Precision = 8/10 = 0.8; recall = 8/12 = 0.67; accuracy = 94/100."
+    },
+    "km": {
+      "title": "k-means clustering",
+      "body": "<p>Pick k centroids; assign each point to the nearest; move each centroid to its cluster mean; repeat until stable. On the sample data it stops in <b>3</b> iterations with centroids <b>(1.25,1.5) (3.9,5.1)</b> and within-cluster SSE <b>8.525</b>. Choose k with the “elbow” of SSE vs k.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "bv": {
+      "title": "Bias–variance",
+      "body": "<p>Too simple a model is biased (underfits: high error everywhere). Too flexible a model has high variance (overfits: low train, high test error). The best model sits between. More data reduces variance; better features reduce bias.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

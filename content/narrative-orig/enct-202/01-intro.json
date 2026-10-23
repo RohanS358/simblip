@@ -1,0 +1,42 @@
+{
+  "title": "The data-science lifecycle",
+  "subtitle": "Data science is a loop, not a line: ask, collect, clean, explore, model, check, deploy — and go round again.",
+  "sections": {
+    "what": {
+      "title": "What data science is",
+      "body": "<p><em class=\"term\">Data science</em> extracts knowledge and decisions from data using statistics, programming and domain understanding. It sits between three skills: mathematics/statistics (what is true?), computing (how to do it at scale?) and the domain (is it meaningful?). Related terms: <b>analytics</b> describes the past, <b>machine learning</b> learns patterns to predict, <b>big data</b> means volume, velocity and variety beyond one machine.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "loop": {
+      "title": "The lifecycle",
+      "body": "<p>Typical stages (CRISP-DM style): business understanding → data collection → preparation → exploration → modeling → evaluation → deployment → monitoring. Results at any stage often send you back: poor evaluation means revisit features or collect more data.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "types": {
+      "title": "Kinds of data",
+      "body": "<table><thead><tr><th>Kind</th><th>Examples</th></tr></thead><tbody><tr><td>Structured</td><td>tables, SQL rows</td></tr><tr><td>Semi-structured</td><td>JSON, XML, logs</td></tr><tr><td>Unstructured</td><td>text, images, audio</td></tr></tbody></table><p>Variables are <b>numeric</b> (discrete or continuous) or <b>categorical</b> (nominal, or ordinal if ordered). The type decides which summary and chart are allowed.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "roles": {
+      "title": "Sources and tools",
+      "body": "<p>Sources: databases, APIs, sensors/IoT, web scraping, surveys, logs. Typical tools: Python (pandas, NumPy, scikit-learn), SQL, notebooks, visualisation libraries. Data engineers build pipelines; analysts explain; scientists model.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "bias": {
+      "title": "Good questions and samples",
+      "body": "<p>A vague goal (“improve sales”) becomes a measurable question (“which customers will churn in 30 days?”). Sampling matters: a random sample represents the population; convenience or self-selected samples are biased. More data does not fix a biased sample.</p>",
+      "after": "",
+      "steps": "A shop has 400 customers; 60 churned last month. Churn rate: Predicting “no churn” for everyone is right 85 % of the time yet useless — accuracy alone misleads on imbalanced data."
+    },
+    "lim": {
+      "title": "What data cannot tell you",
+      "body": "<p>Correlation is not causation; past patterns may not hold; a model is only as good as its data (“garbage in, garbage out”). Randomised experiments (A/B tests) are how causal claims are earned.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

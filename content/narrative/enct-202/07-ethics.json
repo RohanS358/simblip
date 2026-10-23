@@ -1,0 +1,54 @@
+{
+  "subtitle": "A model that is accurate on average can still be unfair, invasive or impossible to explain.",
+  "sections": {
+    "bias": {
+      "body": "<p>A model has no opinions of its own; it learns yours. If the history it studies is unfair, the model will faithfully reproduce the unfairness. Where does it creep in? Four doors are worth knowing, and you should check each: <b>sampling bias</b> (some groups under-represented), <b>historical bias</b> (past decisions encoded in labels), <b>measurement bias</b> (proxies such as postcode for income) and <b>feedback loops</b> (predictions change the data they are retrained on).</p><p>So a hiring model trained on past hires favouring one group will keep favouring that group. A model trained on biased history reproduces it, and it does so with a confident smile.</p>",
+      "keynotes": [
+        "Bias enters through sampling bias, historical bias, measurement bias (proxies such as postcode for income) and feedback loops.",
+        "A model trained on biased history reproduces it.",
+        "A hiring model trained on past hires favouring one group will keep favouring it."
+      ]
+    },
+    "fair": {
+      "body": "<p>How do you turn “is it fair?” into something you can check? Compare the groups: selection rate, false-positive rate, recall. The “four-fifths rule” flags concern if one group’s selection rate is below 80 % of the highest.</p><p>Try it. Group A is approved 50 of 100; group B 30 of 100. The ratio B/A = 0.30/0.50 = 0.6, which is below 0.8, so it raises a flag. One honest warning: different fairness definitions can conflict, so choose deliberately and explain your choice.</p>",
+      "keynotes": [
+        "Compare groups on selection rate, false-positive rate and recall.",
+        "The four-fifths rule flags concern if one group’s selection rate is below 80 % of the highest.",
+        "Group A approved 50 of 100 and group B 30 of 100 gives a ratio of 0.6, below 0.8.",
+        "Different fairness definitions can conflict, so choose deliberately and explain it."
+      ]
+    },
+    "priv": {
+      "body": "<p>Behind every row is a person. So collect only what you need, and get consent. And be careful with “anonymous”: removing names is often not enough, because a birth date + postcode + gender can re-identify a person. Many a supposedly anonymous dataset has been unmasked this way.</p><p>Better tools exist: aggregation, k-anonymity, and differential privacy (adding calibrated noise). Laws such as GDPR and Nepal’s Privacy Act set rights over personal data. Removing names alone makes a dataset only pseudo-anonymous.</p>",
+      "keynotes": [
+        "Collect only what you need and obtain consent.",
+        "Removing names is often not enough: a birth date, postcode and gender can re-identify a person.",
+        "Techniques: aggregation, k-anonymity and differential privacy (calibrated noise); laws such as GDPR and Nepal’s Privacy Act set rights over personal data."
+      ]
+    },
+    "xai": {
+      "body": "<p>Imagine a bank refusing your loan and saying only, “the computer said no.” You would feel helpless, and rightly so. Linear and tree models are interpretable; deep networks are not. Tools help open the box: feature importance, partial-dependence, and LIME/SHAP local explanations.</p><p>For high-stakes uses (loans, health) people need reasons they can contest. So when a denied applicant asks why, the lender should be able to give the main factors behind the decision.</p>",
+      "keynotes": [
+        "Linear and tree models are interpretable; deep networks are not.",
+        "Tools include feature importance, partial-dependence and LIME/SHAP local explanations.",
+        "High-stakes uses such as loans and health need reasons a person can contest."
+      ]
+    },
+    "trend": {
+      "body": "<p>The field never stands still. Today you will hear about large language and foundation models, AutoML, MLOps (monitoring, versioning, retraining), edge AI on devices, federated learning (train without centralising data), and synthetic data. Each brings its own new questions about cost, bias and privacy.</p><p>MLOps in particular closes the loop with monitoring, as the figure shows. What does monitoring a deployed model mainly detect? Drift: the world changes, and the model’s accuracy quietly decays.</p>",
+      "keynotes": [
+        "Trends: large language and foundation models, AutoML, MLOps, edge AI, federated learning and synthetic data.",
+        "MLOps covers monitoring, versioning and retraining.",
+        "Each trend brings new cost, bias and privacy questions."
+      ]
+    },
+    "code": {
+      "body": "<p>Pilots run through a checklist before every flight, and so should you before shipping a model. Ask yourself five things.</p><ul><li>Is the question worth answering, and by whom?</li><li>Is the data legal, consented and representative?</li><li>Were groups evaluated separately?</li><li>Can the result be explained and challenged?</li><li>Who monitors it afterwards?</li></ul><p>Which one is essential? All of them, but if you skip the last one, a good model slowly turns into a bad one without anyone noticing.</p>",
+      "keynotes": [
+        "Is the question worth answering, and by whom?",
+        "Is the data legal, consented and representative, and were groups evaluated separately?",
+        "Can the result be explained and challenged, and who monitors it afterwards?"
+      ]
+    }
+  }
+}

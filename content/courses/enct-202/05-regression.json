@@ -8,7 +8,7 @@
       "locator": "5.1",
       "title": "Predicting a number",
       "eyebrow": "Regression",
-      "body": "<p>Regression predicts a continuous target y from features x. Simple linear regression: ŷ = a + bx. The slope b is “change in y per unit x”; the intercept a is y at x = 0. Classification, by contrast, predicts a category.</p>",
+      "body": "<p>How much will this house sell for? How many units will we sell next month? Whenever the answer is a number on a scale, you are doing regression. Regression predicts a continuous target y from features x. The simplest version draws a straight line: ŷ = a + bx.</p><p>Read the two numbers like a story. The slope b is “change in y per unit x”: how much more you pay for each extra square metre. The intercept a is y at x = 0, the starting level. Classification, by contrast, predicts a category. So predicting a house price is regression; predicting “spam or not” is not.</p>",
       "questions": [
         {
           "id": "rc",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Regression predicts a continuous target y from features x; simple linear regression is ŷ = a + bx.",
+        "The slope b is the change in y per unit x; the intercept a is y at x = 0.",
+        "Classification, by contrast, predicts a category."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "5.2",
       "title": "Least squares",
       "eyebrow": "The best line",
-      "body": "<p>Choose a, b minimising the sum of squared residuals. For the sample data slope = <b>0.9</b>, intercept = <b>1.3</b>, R² = <b>0.81</b>.</p>",
+      "body": "<p>Many lines could pass through a cloud of points. Which one is “best”? The one that makes the total of the squared gaps as small as possible. Those dashed gaps in the figure are the residuals, the difference between the real value and the line’s prediction.</p><p>For the sample data the answer comes out as slope = <b>0.9</b>, intercept = <b>1.3</b>, R² = <b>0.81</b>. Here is where they come from: the slope b = Sxy / Sxx = 9 / 10 = 0.9, and the intercept a = ȳ − b x̄ = 4 − 0.9·3 = 1.3. Two short sums, and you have the line that fits.</p>",
       "worked": [
         {
           "toc": "Slope",
@@ -114,6 +119,11 @@
           "prompt": "<p>With ŷ = 1.3 + 0.9x, predict y at x = 4 and find the residual if the actual is 4.</p>",
           "answer": "ŷ = 4.9; residual = 4 − 4.9 = <b>−0.9</b>."
         }
+      ],
+      "keynotes": [
+        "Least squares chooses a and b to minimise the sum of squared residuals; a residual is the gap between the actual value and the line’s prediction.",
+        "For the sample data the slope is 0.9, the intercept 1.3 and R² = 0.81.",
+        "The slope is Sxy / Sxx = 9 / 10 and the intercept is ȳ − b x̄ = 4 − 0.9·3."
       ]
     },
     {
@@ -121,7 +131,7 @@
       "locator": "5.3",
       "title": "Outliers can steer the line",
       "eyebrow": "Sensitivity",
-      "body": "<p>Replace the last point (5, 6) with (5, 30): slope jumps to <b>5.7</b> and R² falls to <b>0.5732</b>. Squaring makes big errors dominate; robust methods or removing a verified error is the remedy.</p>",
+      "body": "<p>A line is only as honest as its data. Watch what a single bad point can do. Replace the last point (5, 6) with (5, 30) and the slope jumps to <b>5.7</b>, while R² falls to <b>0.5732</b>. One far-away point has tilted the whole line, as you can see in the figure.</p><p>Why so easily? Because squaring makes big errors dominate: a miss of 10 costs 100, a miss of 1 costs just 1. The remedy is to use robust methods, or to remove the point if you have verified that it is an error. Never remove it merely because the fit looks nicer.</p>",
       "questions": [
         {
           "id": "ls",
@@ -167,6 +177,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Replacing the last point (5, 6) with (5, 30) makes the slope jump to 5.7 and R² fall to 0.5732.",
+        "Squaring makes big errors dominate, so least squares is sensitive to outliers.",
+        "The remedy is robust methods or removing a verified error."
       ]
     },
     {
@@ -174,7 +189,7 @@
       "locator": "5.4",
       "title": "Measuring error",
       "eyebrow": "How wrong is it?",
-      "body": "<p>MAE = mean |error|; MSE = mean error²; RMSE = √MSE (same units as y); R² = 1 − SSres/SStot. RMSE punishes large errors more than MAE. Always compare to a baseline: predicting the mean has R² = 0.</p>",
+      "body": "<p>How wrong is the model, in a number? There are several yardsticks. MAE = mean |error|. MSE = mean error². RMSE = √MSE, which has the same units as y, so you can say it in plain words. R² = 1 − SSres/SStot. RMSE punishes large errors more than MAE does.</p><p>Always compare to a baseline: predicting the mean has R² = 0. Try the arithmetic with errors 1, −2, 3. MSE = (1 + 4 + 9)/3 = 4.67, so RMSE = 2.16 while MAE = 2. RMSE is preferred over MSE for reporting because it is in the same units as the target.</p>",
       "worked": [
         {
           "toc": "Errors",
@@ -218,6 +233,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "MAE is the mean |error|, MSE the mean error², RMSE = √MSE (same units as y), and R² = 1 − SSres/SStot.",
+        "RMSE punishes large errors more than MAE; always compare to a baseline, since predicting the mean has R² = 0.",
+        "For errors 1, −2, 3: MSE = 4.67, RMSE = 2.16 and MAE = 2."
       ]
     },
     {
@@ -225,7 +245,7 @@
       "locator": "5.5",
       "title": "Many features and overfitting",
       "eyebrow": "More is not always better",
-      "body": "<p>ŷ = b₀ + b₁x₁ + … + b_k x_k. Adding features always lowers training error, but a model that memorises noise (<em class=\"term\">overfits</em>) does worse on new data. Regularisation (ridge/lasso) adds a penalty on large coefficients; validation (next chapter) detects the problem.</p>",
+      "body": "<p>If one feature helps, surely ten help more? Up to a point. ŷ = b₀ + b₁x₁ + … + b_k x_k. Adding features always lowers the training error, but there is a catch: a model that memorises noise (<em class=\"term\">overfits</em>) does worse on new data. It is the student who learned last year’s paper by heart.</p><p>Two defences. Regularisation (ridge or lasso) adds a penalty on large coefficients, and validation (next chapter) detects the problem. When you see a tiny training error but a large test error, suspect overfitting.</p>",
       "questions": [
         {
           "id": "ov",
@@ -257,6 +277,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Adding features always lowers training error, but a model that memorises noise (overfits) does worse on new data.",
+        "Regularisation (ridge or lasso) adds a penalty on large coefficients.",
+        "Tiny training error with large test error suggests overfitting."
       ]
     },
     {
@@ -264,7 +289,7 @@
       "locator": "5.6",
       "title": "From regression to classification",
       "eyebrow": "Logistic regression",
-      "body": "<p>To predict a yes/no outcome, pass the linear score through the sigmoid σ(s) = 1/(1 + e⁻ˢ) to get a probability in (0, 1), then threshold at 0.5. It is fitted by gradient descent, exactly as in chapter 2.</p>",
+      "body": "<p>What if the answer is not a number but a yes or no? Will this customer leave? Here is a neat bridge from regression to classification: compute the same linear score, then squeeze it through the sigmoid σ(s) = 1/(1 + e⁻ˢ). The output is a probability strictly between 0 and 1, and you threshold it at 0.5 to decide.</p><p>It is fitted by gradient descent, exactly as in chapter 2, so you already know how it learns. What is σ(0)? With s = 0 the exponent is e⁰ = 1, so σ(0) = 1/2 = 0.5, the point of complete indecision.</p>",
       "questions": [
         {
           "id": "sig",
@@ -296,6 +321,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Logistic regression passes the linear score through the sigmoid σ(s) = 1/(1 + e⁻ˢ) to get a probability in (0, 1).",
+        "A yes/no decision thresholds the probability at 0.5.",
+        "It is fitted by gradient descent, exactly as in chapter 2, and σ(0) = 0.5."
       ]
     }
   ]

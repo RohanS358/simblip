@@ -8,7 +8,7 @@
       "locator": "2.1",
       "title": "Vectors, matrices, dot products",
       "eyebrow": "Data as arrays",
-      "body": "<p>A row of a table is a vector; the table is a matrix X (rows = examples, columns = features). The dot product w·x = Σwᵢxᵢ is a weighted sum — the heart of linear models and neurons. Matrix product Xw scores every row at once. Distance ‖a − b‖ measures similarity.</p>",
+      "body": "<p>Forget scary maths for a moment, because you already know this: a spreadsheet is already a matrix. A row of a table is a vector; the whole table is a matrix X, with rows as examples and columns as features.</p><p>The star operation is the dot product w·x = Σwᵢxᵢ, a weighted sum, and it sits at the heart of linear models and neurons. Try it: w = (2, −1), x = (3, 4) gives 2·3 + (−1)·4 = 2. The matrix product Xw scores every row at once, so one line of code scores a million customers. And the distance ‖a − b‖ measures similarity: close vectors are alike. What is (1, 2, 3)·(4, 5, 6)? Multiply pair by pair and add.</p>",
       "worked": [
         {
           "toc": "Vectors",
@@ -52,6 +52,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A row of a table is a vector; the table is a matrix X with rows as examples and columns as features.",
+        "The dot product w·x = Σwᵢxᵢ is a weighted sum, the heart of linear models and neurons; for w = (2, −1) and x = (3, 4) it is 2.",
+        "Xw scores every row at once, and the distance ‖a − b‖ measures similarity."
       ]
     },
     {
@@ -59,7 +64,7 @@
       "locator": "2.2",
       "title": "Derivatives and the gradient",
       "eyebrow": "Slope as direction",
-      "body": "<p>f′(x) is the slope; it points uphill. For several variables the gradient ∇f collects partial derivatives and points in the steepest-ascent direction. To minimise a loss, walk the opposite way. At a minimum the gradient is zero.</p>",
+      "body": "<p>Imagine standing on a hill with your eyes closed. How do you find the way down? You feel the slope with your feet. That slope is the derivative: f′(x) is the slope, and it points uphill. With several variables the gradient ∇f collects the partial derivatives and points in the steepest-ascent direction.</p><p>So to minimise a loss, walk the opposite way. And when you reach the bottom? The ground is flat, so at a minimum the gradient is zero. To reduce a loss, then, move against the gradient.</p>",
       "questions": [
         {
           "id": "grad",
@@ -91,6 +96,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "f′(x) is the slope and points uphill.",
+        "The gradient ∇f collects partial derivatives and points in the steepest-ascent direction.",
+        "To minimise a loss walk the opposite way; at a minimum the gradient is zero."
       ]
     },
     {
@@ -98,7 +108,7 @@
       "locator": "2.3",
       "title": "Gradient descent",
       "eyebrow": "Downhill in small steps",
-      "body": "<p>Repeat x ← x − η f′(x), with learning rate η. For f = x² − 4x + 5 (minimum at x = 2) and η = 0.2 from x = −1, after 15 steps x = <b>1.99859</b>. With η = 1.1 the steps overshoot more than they correct and it oscillates. Too small is slow; too large is unstable.</p>",
+      "body": "<p>Now put the slope to work. Gradient descent says: repeat x ← x − η f′(x), where η is the learning rate, the size of your step. Take small steps downhill until you stop going down.</p><p>Let’s watch it. For f = x² − 4x + 5 (minimum at x = 2) we have f′(x) = 2x − 4. Starting from x = −1, f′ = −6, so one step gives x₁ = −1 − 0.2·(−6) = 0.2. After 15 steps with η = 0.2, x = <b>1.99859</b>, almost exactly 2: the ball rolls to the bottom. But change η to 1.1 and the steps overshoot more than they correct, so it oscillates, each step landing further away. Too small is slow; too large is unstable. If your loss grows each step, what is the first thing to fix? Shrink the learning rate.</p>",
       "worked": [
         {
           "toc": "Slope",
@@ -174,6 +184,11 @@
           "prompt": "<p>f(x) = x², η = 0.25, x₀ = 4. Find x₂.</p>",
           "answer": "f′ = 2x. x₁ = 4 − 0.25·8 = 2; x₂ = 2 − 0.25·4 = <b>1</b>."
         }
+      ],
+      "keynotes": [
+        "Gradient descent repeats x ← x − η f′(x) with learning rate η.",
+        "For f = x² − 4x + 5 with η = 0.2 from x = −1, one step gives x = 0.2 and after 15 steps x = 1.99859.",
+        "With η = 1.1 the steps overshoot and it oscillates; too small is slow, too large is unstable."
       ]
     },
     {
@@ -181,7 +196,7 @@
       "locator": "2.4",
       "title": "Distributions",
       "eyebrow": "Describing uncertainty",
-      "body": "<p>A distribution assigns probabilities to outcomes. Binomial counts successes in n trials; Poisson counts events per interval; the normal N(μ, σ²) models measurement noise. About 95 % of a normal lies within ±1.96σ: here P = <b>0.95</b>. Standardise z = (x − μ)/σ to compare different scales.</p>",
+      "body": "<p>Life is uncertain, and a distribution is how mathematics describes uncertainty: it assigns probabilities to outcomes. The binomial counts successes in n trials; the Poisson counts events per interval; the normal N(μ, σ²) models measurement noise, the famous bell.</p><p>One fact worth carrying in your head: about 95 % of a normal lies within ±1.96σ. In the simulation, that area is <b>0.95</b>. To compare different scales, standardise: z = (x − μ)/σ. Suppose an exam score is 70, the class mean is 60 and σ = 5. Then z = (70 − 60)/5 = 2, two standard deviations above average. See the shaded area in the figure: that is the probability.</p>",
       "questions": [
         {
           "id": "zsc",
@@ -226,6 +241,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A distribution assigns probabilities to outcomes: binomial counts successes in n trials, Poisson counts events per interval, normal N(μ, σ²) models noise.",
+        "About 95 % of a normal lies within ±1.96σ.",
+        "Standardise with z = (x − μ)/σ: a score of 70 with mean 60 and σ = 5 has z = 2."
       ]
     },
     {
@@ -233,7 +253,7 @@
       "locator": "2.5",
       "title": "Sampling and the central limit theorem",
       "eyebrow": "Why averages are trusted",
-      "body": "<p>Means of samples of size n are roughly normal with standard error σ/√n, whatever the population. Simulated means of 30 from a skewed exponential population have sd <b>0.184</b> versus theory <b>0.183</b>.</p>",
+      "body": "<p>Here is a result so remarkable that it feels like cheating. Take any population, however lopsided, and draw samples of size n. The means of those samples are roughly normal, with standard error σ/√n, whatever the population looks like. That is the central limit theorem, and it is why averages can be trusted.</p><p>Don’t just believe it; see it. Simulated means of 30 from a skewed exponential population have sd <b>0.184</b>, versus theory <b>0.183</b>. A lopsided population, a bell-shaped pile of means. CLT says sample means become approximately normal as n grows.</p>",
       "questions": [
         {
           "id": "cltq",
@@ -279,6 +299,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Means of samples of size n are roughly normal with standard error σ/√n, whatever the population.",
+        "Simulated means of 30 from a skewed exponential population have sd 0.184 against theory 0.183.",
+        "This is why averages can be trusted."
       ]
     },
     {
@@ -286,7 +311,7 @@
       "locator": "2.6",
       "title": "Confidence intervals",
       "eyebrow": "Quantified doubt",
-      "body": "<p>x̄ ± 1.96σ/√n is a 95 % interval. In 40 simulated studies <b>97.5%</b> of intervals caught the true mean, with half-width 3.92.</p>",
+      "body": "<p>A single number, like “the average is 52”, hides how sure you are. A confidence interval puts honest doubt into numbers: x̄ ± 1.96σ/√n is a 95 % interval.</p><p>What does 95 % mean? Run the experiment 40 times. In the simulation <b>97.5%</b> of the intervals caught the true mean, with half-width 3.92, and the rose-coloured ones missed it. So a 95 % CI means that the method catches the true value about 95 % of the time over repeated studies, not that this one interval has a 95 % chance. Subtle, and worth getting right.</p>",
       "questions": [
         {
           "id": "ciq",
@@ -331,6 +356,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "x̄ ± 1.96σ/√n is a 95 % confidence interval.",
+        "In 40 simulated studies 97.5 % of intervals caught the true mean, with half-width 3.92.",
+        "A 95 % CI means the method catches the truth about 95 % of the time over repeated studies."
       ]
     }
   ]

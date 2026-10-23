@@ -1,0 +1,52 @@
+{
+  "subtitle": "Before modelling, look: the right chart answers a question in a glance.",
+  "sections": {
+    "eda": {
+      "body": "<p>A detective walks around the scene before accusing anyone. Exploratory data analysis, or <em class='term'>EDA</em>, is that walk: summarising and plotting data to find its shape, oddities and relationships before modelling.</p><p>You start simple. Go univariate (one variable), then bivariate (pairs), then multivariate. EDA is done before modelling, not after, and it saves you from building a model on a misunderstanding.</p>",
+      "keynotes": [
+        "EDA means summarising and plotting data to find its shape, oddities and relationships before modelling.",
+        "Start univariate (one variable), then bivariate (pairs), then multivariate."
+      ]
+    },
+    "summ": {
+      "body": "<p>Four numbers tell you a surprising amount. Centre: the mean and the median. Spread: the standard deviation and the IQR. Shape: skewness. For categories: counts and proportions.</p><p>The most common first insight is a group summary, mean income by region, and it follows a two-word recipe: “group by, then aggregate”. Try it: sales (k) are North 10, 12, 14 and South 20, 22. The group means are 12 and 21. Group by region then mean produces one row per region.</p>",
+      "keynotes": [
+        "Centre: mean and median; spread: standard deviation and IQR; shape: skewness.",
+        "For categories use counts and proportions.",
+        "“Group by, then aggregate” gives group means: North 12 and South 21."
+      ]
+    },
+    "chart": {
+      "body": "<p>Choosing a chart is easy once you know the question. Start with what you want to learn, and the picture follows.</p><table><thead><tr><th>Question</th><th>Chart</th></tr></thead><tbody><tr><td>Distribution of one number</td><td>histogram / box plot</td></tr><tr><td>Compare categories</td><td>bar chart</td></tr><tr><td>Change over time</td><td>line chart</td></tr><tr><td>Relationship of two numbers</td><td>scatter plot</td></tr><tr><td>Part of a whole</td><td>bar (pie only for few parts)</td></tr></tbody></table><p>So how would you show monthly rainfall over a year? Time on the x-axis, so a line chart.</p>",
+      "keynotes": [
+        "A histogram or box plot shows the distribution of one number; a bar chart compares categories.",
+        "A line chart shows change over time; a scatter plot shows the relationship of two numbers.",
+        "For part of a whole use a bar chart, with a pie only for few parts."
+      ]
+    },
+    "corr": {
+      "body": "<p>Do two things move together? A scatter plot lets you see direction, strength and curvature at a glance. The correlation r then summarises only the linear part of that story. For the sample data r = <b>0.9</b> and R² = <b>0.81</b>, a rising cloud with a fitted line through it.</p><p>When you have many variables, a correlation matrix (heat map) scans many pairs at once. And what if r is near 0? That means no linear relationship, not no relationship at all: a perfect U-shaped curve can have r near 0.</p>",
+      "keynotes": [
+        "A scatter plot shows direction, strength and curvature; the correlation r summarises only the linear part.",
+        "For the sample data r = 0.9 and R² = 0.81.",
+        "A correlation matrix (heat map) scans many pairs at once."
+      ]
+    },
+    "mislead": {
+      "body": "<p>Charts can lie, even when every number is true. Start bar charts at zero, keep scales comparable, label axes and units, avoid 3-D effects, and show the sample size.</p><p>And beware Simpson’s paradox, where a trend in every group can reverse when you pool them. Treatment A cures 81/87 (93 %) of small stones and 192/263 (73 %) of large; B cures 234/270 (87 %) and 55/80 (69 %). A wins in both groups, yet pooled A = 273/350 = 78 % and B = 289/350 = 83 %. The mix of stone sizes reverses the ranking! So always check the subgroups.</p>",
+      "keynotes": [
+        "Start bar charts at zero, keep scales comparable, label axes and units, avoid 3-D effects and show the sample size.",
+        "Simpson’s paradox: a trend in every group can reverse when groups are pooled.",
+        "Treatment A wins in both stone sizes yet pooled A = 78 % and B = 83 %, because the mix of sizes differs."
+      ]
+    },
+    "story": {
+      "body": "<p>You can do beautiful analysis and still change nothing, if nobody understands it. A finding is useful only if the audience acts on it. So lead with the conclusion, show one chart per message, state the uncertainty, and note the limits (sample, period, missing data).</p><p>A good chart title states the message, not just the topic: “Sales fell 12 % in March” beats “Monthly sales”.</p>",
+      "keynotes": [
+        "A finding is useful only if the audience acts on it.",
+        "Lead with the conclusion, show one chart per message and state uncertainty.",
+        "Note the limits: sample, period and missing data."
+      ]
+    }
+  }
+}
