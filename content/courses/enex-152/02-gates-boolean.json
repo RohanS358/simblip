@@ -1,14 +1,14 @@
 {
   "title": "Gates, Boolean algebra and Karnaugh maps",
   "kicker": "ENEX 152 · Digital Logic · Gates, Boolean algebra and K-maps",
-  "subtitle": "Six gates, a handful of algebra rules and one picture (the K-map) — enough to design and shrink any combinational circuit.",
+  "subtitle": "Six gates, a handful of algebra rules and one picture (the K-map): enough to design and shrink any combinational circuit.",
   "sections": [
     {
       "id": "gates",
       "locator": "2.1",
       "title": "The basic gates",
       "eyebrow": "Building blocks",
-      "body": "<p>AND outputs 1 only if <i>all</i> inputs are 1; OR if <i>any</i> is 1; NOT inverts; NAND and NOR are the inverted AND/OR; XOR is 1 when the inputs <i>differ</i>. NAND and NOR are <b>universal</b>: any circuit can be built from one of them alone. Try the AND gate: only A = B = 1 lights the output.</p>",
+      "body": "<p>Every digital chip you have ever held is built from a few tiny decision-makers called gates. Learn them, and you can read any circuit. AND outputs 1 only if <i>all</i> inputs are 1 (think “both switches must be on”). OR outputs 1 if <i>any</i> is 1. NOT inverts. NAND and NOR are the inverted AND/OR. XOR is 1 when the inputs <i>differ</i>.</p><p>One of the most useful facts is that NAND and NOR are <b>universal</b>: any circuit can be built from one of them alone. Try the AND gate: only A = B = 1 lights the output. Flip A and B, and the table in the figure lists all four rows. XOR output is 1 when its two inputs are different.</p>",
       "questions": [
         {
           "id": "xor",
@@ -48,6 +48,11 @@
           "note": "Flip A and B; the table lists all four rows.",
           "script": "var a = create(\"input\", { value: 1, name: \"A\" });\nvar b = create(\"input\", { value: 0, name: \"B\" });\nvar g = create(\"and-gate\", { name: \"AND\" });\nvar y = create(\"output\", { name: \"Y\" });\nconnect(a.out, g.in1, \"wire\");\nconnect(b.out, g.in2, \"wire\");\nconnect(g.out, y.in, \"wire\");\nvar s_a = create(\"slider\", { min: 0, max: 1, step: 1, value: 1, label: \"A\", targetObjectId: a, targetParamName: \"value\" });\nvar s_b = create(\"slider\", { min: 0, max: 1, step: 1, value: 0, label: \"B\", targetObjectId: b, targetParamName: \"value\" });\nvar tt = create(\"truthtable\", { inputs: a.id + \";\" + b.id, outputs: y.id });"
         }
+      ],
+      "keynotes": [
+        "AND outputs 1 only if all inputs are 1; OR if any is 1; NOT inverts; NAND and NOR are the inverted AND and OR; XOR is 1 when the inputs differ.",
+        "NAND and NOR are universal: any circuit can be built from one of them alone.",
+        "For the AND gate, only A = B = 1 lights the output."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "2.2",
       "title": "Universality of NAND",
       "eyebrow": "One gate is enough",
-      "body": "<p>NAND with its inputs tied together is NOT. NAND followed by a NOT-made-of-NAND is AND. By De Morgan, NAND with inverted inputs is OR. Hence chip makers stock one kind of gate and wire it up to do everything.</p>",
+      "body": "<p>Here is a trick that surprises people: you only need one kind of gate to build a whole computer. NAND with its inputs tied together is NOT. NAND followed by a NOT-made-of-NAND is AND. By De Morgan, NAND with inverted inputs is OR. Hence chip makers stock one kind of gate and wire it up to do everything. How do you get NOT from a NAND gate? Tie its two inputs together. Flip A and B in the figure and check the table.</p>",
       "questions": [
         {
           "id": "uni",
@@ -95,6 +100,11 @@
           "note": "Flip A and B; the table lists all four rows.",
           "script": "var a = create(\"input\", { value: 1, name: \"A\" });\nvar b = create(\"input\", { value: 0, name: \"B\" });\nvar g = create(\"nand-gate\", { name: \"NAND\" });\nvar y = create(\"output\", { name: \"Y\" });\nconnect(a.out, g.in1, \"wire\");\nconnect(b.out, g.in2, \"wire\");\nconnect(g.out, y.in, \"wire\");\nvar s_a = create(\"slider\", { min: 0, max: 1, step: 1, value: 1, label: \"A\", targetObjectId: a, targetParamName: \"value\" });\nvar s_b = create(\"slider\", { min: 0, max: 1, step: 1, value: 0, label: \"B\", targetObjectId: b, targetParamName: \"value\" });\nvar tt = create(\"truthtable\", { inputs: a.id + \";\" + b.id, outputs: y.id });"
         }
+      ],
+      "keynotes": [
+        "NAND with its inputs tied together is NOT.",
+        "NAND followed by a NOT-made-of-NAND is AND, and by De Morgan NAND with inverted inputs is OR.",
+        "Chip makers can stock one kind of gate and wire it up to do everything."
       ]
     },
     {
@@ -102,7 +112,7 @@
       "locator": "2.3",
       "title": "Boolean algebra",
       "eyebrow": "Rules for simplifying",
-      "body": "<table><thead><tr><th>Law</th><th>Form</th></tr></thead><tbody><tr><td>Identity</td><td>A + 0 = A, A·1 = A</td></tr><tr><td>Null</td><td>A + 1 = 1, A·0 = 0</td></tr><tr><td>Complement</td><td>A + A′ = 1, A·A′ = 0</td></tr><tr><td>Absorption</td><td>A + AB = A</td></tr><tr><td>De Morgan</td><td>(AB)′ = A′ + B′, (A + B)′ = A′B′</td></tr></tbody></table>",
+      "body": "<p>Algebra can shrink a circuit before you build it, and that saves chips, power and money. Here are the rules you need, and you will use them so often they become habit.</p><table><thead><tr><th>Law</th><th>Form</th></tr></thead><tbody><tr><td>Identity</td><td>A + 0 = A, A·1 = A</td></tr><tr><td>Null</td><td>A + 1 = 1, A·0 = 0</td></tr><tr><td>Complement</td><td>A + A′ = 1, A·A′ = 0</td></tr><tr><td>Absorption</td><td>A + AB = A</td></tr><tr><td>De Morgan</td><td>(AB)′ = A′ + B′, (A + B)′ = A′B′</td></tr></tbody></table><p>Simplify F = AB + AB′. Factor A: A(B + B′). Since B + B′ = 1, F = A. Two AND gates and an OR collapse into a plain wire! And (A + B)′ equals A′B′ by De Morgan.</p>",
       "worked": [
         {
           "toc": "Start",
@@ -157,6 +167,11 @@
           "prompt": "<p>Simplify F = A + A′B.</p>",
           "answer": "A + A′B = A + B (absorption variant). <b>F = A + B</b>."
         }
+      ],
+      "keynotes": [
+        "Identity: A + 0 = A and A·1 = A; null: A + 1 = 1 and A·0 = 0; complement: A + A′ = 1 and A·A′ = 0.",
+        "Absorption: A + AB = A; De Morgan: (AB)′ = A′ + B′ and (A + B)′ = A′B′.",
+        "F = AB + AB′ simplifies to A(B + B′) = A."
       ]
     },
     {
@@ -164,7 +179,7 @@
       "locator": "2.4",
       "title": "Sum of products and minterms",
       "eyebrow": "From a truth table to a circuit",
-      "body": "<p>Every truth table is an OR of <em class=\"term\">minterms</em> (AND terms for each row where F = 1). This <b>sum of products</b> (SOP) is correct but usually bigger than needed. Shorthand F = Σm(1, 3, 5, 7) lists the rows. Dually, the product of maxterms (POS) uses rows where F = 0.</p>",
+      "body": "<p>You can always build a circuit from a truth table, and the recipe is mechanical. Every truth table is an OR of <em class=\"term\">minterms</em> (an AND term for each row where F = 1). This <b>sum of products</b> (SOP) is correct but usually bigger than needed. Shorthand: F = Σm(1, 3, 5, 7) lists the rows. Dually, the product of maxterms (POS) uses the rows where F = 0.</p><p>Look at F = 1 at minterms 1, 3, 5, 7 of three variables (A, B, C). Those are exactly the rows with C = 1, so F = C. All that machinery for a single wire! A 4-variable function can have at most 16 minterms.</p>",
       "worked": [
         {
           "toc": "Rows",
@@ -208,6 +223,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Every truth table is an OR of minterms (an AND term for each row where F = 1): the sum of products.",
+        "Shorthand F = Σm(1, 3, 5, 7) lists the rows; the product of maxterms (POS) uses rows where F = 0.",
+        "F = 1 at minterms 1, 3, 5, 7 of three variables is just F = C."
       ]
     },
     {
@@ -215,7 +235,7 @@
       "locator": "2.5",
       "title": "Karnaugh maps",
       "eyebrow": "Simplify by sight",
-      "body": "<p>A K-map lays the truth table out so that neighbouring cells differ in one variable (Gray-code order, wrapping around the edges). Circle rectangular groups of 1s of size 1, 2, 4, 8, 16 — the larger, the simpler — and each group gives one product term with only the variables that stay constant. For the minterms 1, 3, 5, 7 the four cells form one group: F = <b>C</b>. The default 4-variable example minimises to <b>B'C' + CD' + A'BD</b> (3 terms).</p>",
+      "body": "<p>Algebra is fine, but your eyes are better at finding patterns. A Karnaugh map lays the truth table out so that neighbouring cells differ in one variable (Gray-code order, wrapping around the edges). Then circle rectangular groups of 1s of size 1, 2, 4, 8, 16: the larger, the simpler. Each group gives one product term with only the variables that stay constant.</p><p>For the minterms 1, 3, 5, 7 the four cells form one group: F = <b>C</b>. The default 4-variable example minimises to <b>B'C' + CD' + A'BD</b> (3 terms). The coloured rings in the figure are the groups. Why does it work? Four adjacent 1s in a row or square share two constant variables, so a group of 4 removes two variables; a group of 2ᵏ cells eliminates k variables. A group of 8 cells on a 4-variable map leaves a term with just one variable.</p>",
       "worked": [
         {
           "toc": "Group",
@@ -283,6 +303,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A K-map lays the truth table out so neighbouring cells differ in one variable (Gray-code order, wrapping around the edges).",
+        "Circle rectangular groups of 1s of size 1, 2, 4, 8, 16; each group gives one product term with only the variables that stay constant, and a group of 2ᵏ cells eliminates k variables.",
+        "The minterms 1, 3, 5, 7 give F = C; the default 4-variable example minimises to B'C' + CD' + A'BD (3 terms)."
       ]
     },
     {
@@ -290,7 +315,7 @@
       "locator": "2.6",
       "title": "Don’t-cares",
       "eyebrow": "Free choices",
-      "body": "<p>Some input combinations never occur (a BCD digit never exceeds 9). Mark them X: you may treat each X as 1 if it lets a group grow, or 0 if not. This often yields a much simpler circuit. Only <i>include</i> an X in a group when it helps.</p>",
+      "body": "<p>Sometimes the best help is a freedom. Some input combinations never occur (a BCD digit never exceeds 9). Mark them X: you may treat each X as 1 if it lets a group grow, or 0 if not. This often yields a much simpler circuit. But only <i>include</i> an X in a group when it helps you. A don’t-care condition lets you choose its value to make the circuit simpler.</p>",
       "questions": [
         {
           "id": "x",
@@ -322,6 +347,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Some input combinations never occur, such as a BCD digit above 9; mark them X.",
+        "Treat each X as 1 if it lets a group grow, or 0 if not, which often yields a much simpler circuit.",
+        "Only include an X in a group when it helps."
       ]
     }
   ]

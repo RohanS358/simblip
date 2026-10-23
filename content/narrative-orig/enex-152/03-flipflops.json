@@ -1,0 +1,42 @@
+{
+  "title": "Latches and flip-flops",
+  "subtitle": "Combinational logic has no memory. Feed an output back to an input and you get a circuit that remembers.",
+  "sections": {
+    "seq": {
+      "title": "Memory from feedback",
+      "body": "<p>A combinational output depends only on the present inputs. A <em class=\"term\">sequential</em> circuit’s output also depends on its <i>state</i> — what happened before — stored in latches or flip-flops. The simplest memory is two cross-coupled NOR (or NAND) gates: each output feeds the other’s input, so the pair holds whichever state it was last pushed into.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "sr": {
+      "title": "The SR latch",
+      "body": "<p>Inputs S (set) and R (reset): S = 1 forces Q = 1; R = 1 forces Q = 0; S = R = 0 <b>holds</b> the previous Q; S = R = 1 is forbidden (both outputs collapse, and releasing both at once is unpredictable). Toggle S and R below and watch Q remember.</p>",
+      "after": "",
+      "steps": "Start with Q = 0. Set S = 1, R = 0 → Q = 1. Return S to 0. With S = R = 0 the latch holds Q = 1: memory."
+    },
+    "d": {
+      "title": "Gated latch and the D flip-flop",
+      "body": "<p>A <b>D latch</b> is transparent while the enable is high — its output follows D. A <b>D flip-flop</b> is edge-triggered: it samples D only at the clock’s rising edge and holds it until the next. Edge triggering makes whole systems predictable: every flip-flop changes at the same instant.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "jkt": {
+      "title": "JK and T flip-flops",
+      "body": "<table><thead><tr><th>J K</th><th>Next Q</th></tr></thead><tbody><tr><td>0 0</td><td>Q (hold)</td></tr><tr><td>0 1</td><td>0 (reset)</td></tr><tr><td>1 0</td><td>1 (set)</td></tr><tr><td>1 1</td><td>Q′ (toggle)</td></tr></tbody></table><p>The JK fixes the forbidden state by making 1,1 toggle. Tie J and K together and you get a T flip-flop: T = 1 toggles every clock, which <b>halves the frequency</b>.</p>",
+      "after": "",
+      "steps": "A T flip-flop with T = 1 is clocked at 8 MHz. Q toggles once per clock, so one full Q cycle takes two clocks."
+    },
+    "time": {
+      "title": "Setup and hold time",
+      "body": "<p>D must be stable for a <b>setup time</b> before the clock edge and a <b>hold time</b> after it, or the flip-flop may go metastable (neither 0 nor 1 for a while). The clock period must cover clock-to-Q delay + logic delay + setup time.</p>",
+      "after": "",
+      "steps": "t_cq = 2 ns, logic = 8 ns, setup = 1 ns. Minimum period = 11 ns, so f_max ≈ 91 MHz."
+    },
+    "tbl": {
+      "title": "Characteristic tables and excitation",
+      "body": "<p>The <b>characteristic equation</b> gives the next state: D: Q⁺ = D; T: Q⁺ = T⊕Q; JK: Q⁺ = JQ′ + K′Q. The <b>excitation table</b> runs the other way: given the wanted transition Q → Q⁺, what inputs are needed? For JK, 0→1 needs J = 1 (K = X); 1→0 needs K = 1 (J = X). Used when designing counters and state machines.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

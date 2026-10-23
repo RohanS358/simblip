@@ -1,0 +1,53 @@
+{
+  "subtitle": "Turn a behaviour described in words into states, a transition table and finally flip-flops and gates, then meet the silicon it runs on.",
+  "sections": {
+    "fsm": {
+      "body": "<p>A vending machine is a perfect example of a state machine: it remembers how much money you have put in, and it reacts to the next coin accordingly. A <em class='term'>finite state machine</em> has a set of states, inputs, a next-state rule and outputs. In a <b>Moore</b> machine the output depends only on the state; in a <b>Mealy</b> machine on state <i>and</i> input, so it can react a clock earlier and may need fewer states. A state diagram draws states as circles and transitions as labelled arrows. In a Moore machine, the output depends on the current state alone.</p>",
+      "keynotes": [
+        "A finite state machine has a set of states, inputs, a next-state rule and outputs.",
+        "In a Moore machine the output depends only on the state; in a Mealy machine it depends on state and input, so it can react a clock earlier and may need fewer states.",
+        "A state diagram draws states as circles and transitions as labelled arrows."
+      ]
+    },
+    "seq": {
+      "body": "<p>Let’s design one. Make a detector that raises its output when the input ends in <b>11</b>. We need three states: q0 (no progress), q1 (last bit was a 1), q2 (saw 11). On input 1 move forward (q0→q1→q2, and q2 stays); on input 0 fall back to q0.</p><p>Test it. For 0110111 the final state is q2, so the machine accepts: <b>yes</b>. For 0101 the final state is q1, so <b>no</b>. Step through the string in the figure and see that the machine lives in q2 only after two 1s in a row. With overlapping detection, after seeing “111” the machine should be in q2, ready to fire on the next 1.</p>",
+      "keynotes": [
+        "A detector for input ending in 11 has states q0 (no progress), q1 (last bit was a 1) and q2 (saw 11).",
+        "On input 1 move forward (q0→q1→q2, and q2 stays); on input 0 fall back to q0.",
+        "It accepts 0110111 (final q2) and rejects 0101 (final q1)."
+      ]
+    },
+    "design": {
+      "body": "<p>How do you go from a diagram to a real circuit? Follow a recipe, and it works every time. 1) Draw the state diagram. 2) Assign binary codes to states (n flip-flops for up to 2ⁿ states). 3) Write the state table: present state, input → next state, output. 4) Use each flip-flop’s excitation table to get input equations, and simplify them with K-maps. 5) Draw the circuit and check unused states go somewhere safe.</p><p>Each step refines the previous one, as the figure shows. How many flip-flops do you need? A machine with 5 states needs ⌈log₂ 5⌉ = 3, since 2² = 4 &lt; 5 ≤ 8 = 2³. A 9-state machine needs four.</p>",
+      "keynotes": [
+        "Recipe: draw the state diagram, assign binary codes to states, write the state table, use excitation tables and K-maps for the input equations, then draw the circuit and check unused states.",
+        "n flip-flops cover up to 2ⁿ states.",
+        "A machine with 5 states needs ⌈log₂ 5⌉ = 3 flip-flops."
+      ]
+    },
+    "ttl": {
+      "body": "<p>Gates are physical things made of transistors, and different technologies give different trade-offs. You will meet them in every datasheet you read. Gates are built in families. <b>TTL</b> (bipolar, 5 V) is fast but power-hungry; <b>CMOS</b> (complementary MOSFETs) uses almost no power except when switching and is the basis of all modern chips.</p><p>The key figures to compare are propagation delay (how long an output takes to change), power dissipation, <b>noise margin</b> (NM = V<sub>IH</sub> − V<sub>OH</sub> style gap between output and input thresholds) and <b>fan-out</b> (how many inputs one output can drive). Suppose a gate outputs at least 4.0 V for a 1 and the next gate accepts any input ≥ 3.5 V as 1. The high-level noise margin = V_OH(min) − V_IH(min) = 4.0 − 3.5 = 0.5 V. A larger noise margin means the circuit tolerates more noise.</p>",
+      "keynotes": [
+        "TTL (bipolar, 5 V) is fast but power-hungry; CMOS uses almost no power except when switching and is the basis of all modern chips.",
+        "Key figures are propagation delay, power dissipation, noise margin and fan-out (how many inputs one output can drive).",
+        "A gate outputting at least 4.0 V for a 1 into an input needing 3.5 V has a high-level noise margin of 0.5 V."
+      ]
+    },
+    "cmos": {
+      "body": "<p>Look inside a CMOS inverter and you find two switches working as a team. A CMOS inverter is a PMOS (pull-up to V<sub>DD</sub>) over an NMOS (pull-down to ground) sharing gate and output: input 0 turns the PMOS on, output 1; input 1 turns the NMOS on, output 0. With input 0 the PMOS connects the output to VDD, as the figure shows.</p><p>Only one conducts in steady state, so static power is near zero; power is spent charging and discharging load capacitance: P = C·V²·f. A NAND puts two NMOS in series and two PMOS in parallel. Try C = 10 pF, V = 3.3 V, f = 50 MHz: dynamic power P = C V² f = 10 pF · 3.3² · 50 MHz = 5.4 mW. CMOS uses almost no static power because one of the two transistors is always off.</p>",
+      "keynotes": [
+        "A CMOS inverter is a PMOS (pull-up to VDD) over an NMOS (pull-down to ground) sharing gate and output.",
+        "Only one conducts in steady state, so static power is near zero; power is spent charging load capacitance: P = C·V²·f.",
+        "With C = 10 pF, V = 3.3 V and f = 50 MHz, P = 5.4 mW; a NAND puts two NMOS in series and two PMOS in parallel."
+      ]
+    },
+    "mem": {
+      "body": "<p>Instead of wiring gates by hand, what if you could load a configuration into a chip? That is programmable logic. A ROM is a look-up table (2ⁿ words of m bits implement any m functions of n inputs); a PLA/PAL programs AND and OR planes; an FPGA has thousands of small look-up tables and flip-flops joined by programmable routing.</p><p>A 4-input look-up table stores one output bit for each input pattern, 2⁴ = 16 bits. Memory comes in two kinds too: SRAM (flip-flop cell, fast, 6 transistors) and DRAM (capacitor, dense, refreshed). A 6-input LUT can implement any function of six inputs.</p>",
+      "keynotes": [
+        "A ROM is a look-up table: 2ⁿ words of m bits implement any m functions of n inputs.",
+        "A PLA/PAL programs AND and OR planes; an FPGA has thousands of small look-up tables and flip-flops joined by programmable routing.",
+        "A 4-input look-up table stores 2⁴ = 16 bits; SRAM (6 transistors, fast) differs from DRAM (capacitor, dense, refreshed)."
+      ]
+    }
+  }
+}

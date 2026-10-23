@@ -8,7 +8,7 @@
       "locator": "4.1",
       "title": "Registers",
       "eyebrow": "Storing a word",
-      "body": "<p>An n-bit register is n D flip-flops sharing one clock: on each clock edge all bits load in parallel. A <b>load-enable</b> input decides whether the register takes new data or holds. Registers are how a CPU keeps values between steps.</p>",
+      "body": "<p>One flip-flop remembers one bit. Want to remember a whole number? Line them up. An n-bit register is n D flip-flops sharing one clock: on each clock edge all bits load in parallel. A <b>load-enable</b> input decides whether the register takes new data or holds. Registers are how a CPU keeps values between steps. A 16-bit register needs one flip-flop per bit, so 16 of them. Without a load-enable, a register built from D flip-flops would reload new data on every clock edge and could never hold a value.</p>",
       "worked": [
         {
           "toc": "Count",
@@ -52,6 +52,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "An n-bit register is n D flip-flops sharing one clock: on each clock edge all bits load in parallel.",
+        "A load-enable input decides whether the register takes new data or holds.",
+        "A 16-bit register needs 16 flip-flops, one per bit."
       ]
     },
     {
@@ -59,7 +64,7 @@
       "locator": "4.2",
       "title": "Shift registers",
       "eyebrow": "Moving bits",
-      "body": "<p>Connect each flip-flop’s Q to the next one’s D: on every clock edge the word shifts one place. Serial-in/serial-out delays data by n clocks; serial-in/parallel-out turns a bit stream into a word (and the reverse converts parallel to serial, used in UART/SPI). Shifting left multiplies by 2; right divides by 2.</p>",
+      "body": "<p>Now connect them in a line, like people passing a bucket. Connect each flip-flop’s Q to the next one’s D: on every clock edge the word shifts one place. Serial-in/serial-out delays data by n clocks; serial-in/parallel-out turns a bit stream into a word (and the reverse converts parallel to serial, used in UART/SPI). Shifting left multiplies by 2; right divides by 2.</p><p>Shift 1011 left by one, with a new bit 0: you get 0110, the old top bit dropped, so the value doubles in effect. In the figure a bit entered now comes out four clocks later: a 4-bit serial-in serial-out shift register delays a bit by four clocks.</p>",
       "worked": [
         {
           "toc": "Shift",
@@ -118,6 +123,11 @@
           "prompt": "<p>The byte 0011 0100 (52) is shifted left two places, zero-filled. Value?</p>",
           "answer": "Shifting left by 2 multiplies by 4: 52 × 4 = <b>208</b> = 1101 0000."
         }
+      ],
+      "keynotes": [
+        "Connecting each flip-flop’s Q to the next one’s D shifts the word one place on every clock edge.",
+        "Serial-in/serial-out delays data by n clocks; serial-in/parallel-out turns a bit stream into a word (UART/SPI).",
+        "Shifting left multiplies by 2 and shifting right divides by 2."
       ]
     },
     {
@@ -125,7 +135,7 @@
       "locator": "4.3",
       "title": "Asynchronous (ripple) counters",
       "eyebrow": "Count in binary",
-      "body": "<p>Chain T flip-flops (T = 1) so each one clocks the next: the first toggles every clock, the second every two, and so on — the outputs count in binary. An n-bit counter has 2ⁿ states and its top bit runs at f/2ⁿ. Drawback: the change ripples through, so outputs briefly show wrong values (glitches) and the max clock is limited by the delay of n stages.</p>",
+      "body": "<p>Here is a counter you can build with almost no thought. Chain T flip-flops (T = 1) so each one clocks the next: the first toggles every clock, the second every two, and so on, and the outputs count in binary. An n-bit counter has 2ⁿ states and its top bit runs at f/2ⁿ.</p><p>Try it: a 4-bit counter clocked at 1600 Hz has its top bit Q3 at 1600 ÷ 2⁴ = 100 Hz. The drawback is that the change ripples through, so outputs briefly show wrong values (glitches) and the max clock is limited by the delay of n stages. In the figure Q0 is half the clock, Q1 a quarter, and so on. An n-bit binary counter has 2ⁿ states.</p>",
       "worked": [
         {
           "toc": "Divide",
@@ -177,6 +187,11 @@
           "note": "Q0 is half the clock, Q1 a quarter, and so on.",
           "script": "var c = create(\"clock\", { f: 1, name: \"CLK\" });\nvar k = create(\"counter4\", { mod: \"16\", dir: \"0\", name: \"CNT\" });\nvar q0 = create(\"output\", { name: \"Q0\" });\nvar q1 = create(\"output\", { name: \"Q1\" });\nvar q2 = create(\"output\", { name: \"Q2\" });\nvar q3 = create(\"output\", { name: \"Q3\" });\nconnect(c.out, k.clk, \"wire\");\nconnect(k.q0, q0.in, \"wire\");\nconnect(k.q1, q1.in, \"wire\");\nconnect(k.q2, q2.in, \"wire\");\nconnect(k.q3, q3.in, \"wire\");"
         }
+      ],
+      "keynotes": [
+        "Chained T flip-flops (T = 1) each clock the next, so the outputs count in binary.",
+        "An n-bit counter has 2ⁿ states and its top bit runs at f/2ⁿ: a 4-bit counter at 1600 Hz has Q3 at 100 Hz.",
+        "Drawback: the change ripples through, so outputs briefly show wrong values (glitches) and the max clock is limited by the delay of n stages."
       ]
     },
     {
@@ -184,7 +199,7 @@
       "locator": "4.4",
       "title": "Synchronous counters",
       "eyebrow": "One clock for all",
-      "body": "<p>In a synchronous counter every flip-flop shares the clock and logic decides which toggle: bit k toggles when all lower bits are 1. No ripple, so it is faster and glitch-free at the cost of a few AND gates. Up/down counting just changes that logic.</p>",
+      "body": "<p>Can we count without the ripple? Yes, if you make every flip-flop listen to the same clock. In a synchronous counter every flip-flop shares the clock and logic decides which toggle: bit k toggles when all lower bits are 1. No ripple, so it is faster and glitch-free, at the cost of a few AND gates. Up/down counting just changes that logic. Why is a synchronous counter faster than a ripple counter? Because all bits change together instead of waiting for each other in turn.</p>",
       "questions": [
         {
           "id": "sy",
@@ -216,6 +231,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "In a synchronous counter every flip-flop shares the clock and logic decides which toggle: bit k toggles when all lower bits are 1.",
+        "There is no ripple, so it is faster and glitch-free, at the cost of a few AND gates.",
+        "Up/down counting just changes that logic."
       ]
     },
     {
@@ -223,7 +243,7 @@
       "locator": "4.5",
       "title": "Modulo-N counters",
       "eyebrow": "Counting to a chosen number",
-      "body": "<p>To count 0…N−1, detect the state N and immediately reset (asynchronous clear) or load 0 (synchronous). A decade (mod-10) counter detects 1010 (10) and resets to 0000. Number of flip-flops needed: n = ⌈log₂ N⌉.</p>",
+      "body": "<p>What if you need to count to 10, or to 60 for seconds on a clock? A binary counter naturally counts to a power of two, so you cut it short. To count 0…N−1, detect the state N and immediately reset (asynchronous clear) or load 0 (synchronous). A decade (mod-10) counter detects 1010 (10) and resets to 0000. The number of flip-flops needed is n = ⌈log₂ N⌉.</p><p>For a mod-60 counter for seconds: 2⁵ = 32 &lt; 60 ≤ 64 = 2⁶, so six flip-flops. A mod-10 counter needs at least four flip-flops.</p>",
       "worked": [
         {
           "toc": "Bits",
@@ -274,6 +294,11 @@
           "prompt": "<p>A 1 MHz clock drives a mod-1000 counter built from mod-10 stages. Output frequency?</p>",
           "answer": "1 MHz ÷ 1000 = <b>1 kHz</b>."
         }
+      ],
+      "keynotes": [
+        "To count 0…N−1, detect the state N and reset (asynchronous clear) or load 0 (synchronous).",
+        "A decade (mod-10) counter detects 1010 (10) and resets to 0000.",
+        "The number of flip-flops needed is n = ⌈log₂ N⌉, so a mod-60 counter needs six."
       ]
     },
     {
@@ -281,7 +306,7 @@
       "locator": "4.6",
       "title": "Ring and Johnson counters",
       "eyebrow": "Shift registers that loop",
-      "body": "<p>A <b>ring counter</b> circulates a single 1 round an n-bit shift register: n states, and each state is decoded by one bit (no logic). A <b>Johnson</b> (twisted-ring) counter feeds back the <i>inverted</i> last output, giving 2n states with the same flip-flops.</p>",
+      "body": "<p>Two clever counters need no decoding logic at all. A <b>ring counter</b> circulates a single 1 round an n-bit shift register: n states, and each state is decoded by one bit. A <b>Johnson</b> (twisted-ring) counter feeds back the <i>inverted</i> last output, giving 2n states with the same flip-flops.</p><p>Follow a 4-bit Johnson counter from 0000: 0000 → 1000 → 1100 → 1110 → 1111 → 0111 → 0011 → 0001 → 0000. That is 8 states from 4 flip-flops, so an n-bit Johnson counter has 2n states.</p>",
       "worked": [
         {
           "toc": "Sequence",
@@ -325,6 +350,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A ring counter circulates a single 1 round an n-bit shift register: n states, each decoded by one bit.",
+        "A Johnson (twisted-ring) counter feeds back the inverted last output, giving 2n states with the same flip-flops.",
+        "A 4-bit Johnson counter from 0000 has 8 states."
       ]
     }
   ]
