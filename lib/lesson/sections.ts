@@ -8,6 +8,9 @@ export interface Section {
   title: string
   /** Every canvas object that belongs to this section (scene, heading, equations). */
   ids: string[]
+  /** The heading object. Recorded, never inferred from `ids` order: the scene's own frame can come first in the object
+   *  list, and notes laid out from "the first object" then landed on top of the picture. */
+  heading?: string
   /** Storyboard beat that opened it. */
   beat: number
   /** The "Key points" block beside it, and what it says so far. */

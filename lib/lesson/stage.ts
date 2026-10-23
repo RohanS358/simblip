@@ -95,7 +95,8 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   const current = (): Section | undefined => [...sections()].reverse().find((s) => !!s.aside === !!mode.aside)
   const objectsOf = (ids: string[]) => pageObjects().filter((o) => ids.includes(o.id))
   /** The newest section's picture and formulas — everything but its "Key points" column. */
-  const bodyIds = () => (current()?.ids ?? []).slice(1).filter((id) => id !== current()?.notes)
+  const headingOf = (s: Section | undefined) => objectsOf(s ? [s.heading ?? s.ids[0]] : [])[0]
+  const bodyIds = () => { const c = current(); return (c?.ids ?? []).filter((id) => id !== (c?.heading ?? c?.ids[0]) && id !== c?.notes) }
   /** Lowest edge of the newest section's picture — where the next formula goes. */
   const belowScene = () => {
     const box = boxOf(objectsOf(bodyIds()))
@@ -114,14 +115,14 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     const before = new Set(pageObjects().map((x) => x.id))
     await sceneAdd.run({ component: 'text', text: `## ${n} · ${title.length > 56 ? title.slice(0, 55) + '…' : title}`, x: at.x, y: at.y }, { pageId })
     const ids = pageObjects().filter((x) => !before.has(x.id)).map((x) => x.id)
-    L().set({ sections: [...sections(), { id: `s${n}`, title, ids, beat: L().index, layout: o.layout, ...(mode.aside ? { aside: true } : {}) }] })
+    L().set({ sections: [...sections(), { id: `s${n}`, title, ids, heading: ids[0], beat: L().index, layout: o.layout, ...(mode.aside ? { aside: true } : {}) }] })
   }
   /** Lay out the content column of the newest section: the key points on top, the formula card
    *  beneath them. In a full-width section there is no column, so the formulas sit under the diagram. */
   const layoutContent = () => {
     const cur = current()
     if (!cur) return
-    const heading = objectsOf(cur.ids.slice(0, 1))[0]
+    const heading = headingOf(cur)
     const notes = cur.notes ? objectsOf([cur.notes])[0] : undefined
     const card = cur.formulaBox ? objectsOf([cur.formulaBox])[0] : undefined
     if (!heading || !card) return
@@ -129,7 +130,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     const h = 36 + lines * 64
     let x: number, y: number
     if (cur.layout === 'full') {
-      const pic = boxOf(objectsOf(cur.ids.slice(1).filter((id) => id !== cur.notes && id !== cur.formulaBox)))
+      const pic = boxOf(objectsOf(cur.ids.filter((id) => id !== (cur.heading ?? cur.ids[0]) && id !== cur.notes && id !== cur.formulaBox)))
       x = (pic ? pic.x + pic.w / 2 : heading.position.x + SLIDE_W / 2) - CONTENT_W / 2
       y = (pic ? pic.y + pic.h : heading.position.y + TITLE_H) + 28
     } else {
@@ -157,7 +158,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     // Only a split section has a content column to write in; a full-width diagram carries no text
     // (its notes still go into the study notes).
     if (!notes && bullets.length && cur.layout !== 'full') {
-      const heading = objectsOf(cur.ids.slice(0, 1))[0]
+      const heading = headingOf(cur)
       const at = heading ? contentOrigin(heading.position) : { x: 0, y: 0 }
       const before = new Set(pageObjects().map((o) => o.id))
       await sceneAdd.run({ component: 'text', text: notesMarkdown(bullets, definitions), x: at.x, y: at.y }, { pageId })
@@ -250,7 +251,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
           if (again) { const to2 = diagramOrigin(layout, at, again.w); if (Math.abs(to2.x - again.x) > 2 || Math.abs(to2.y - again.y) > 2) moveBy(ids, to2.x - again.x, to2.y - again.y) }
         }
         const made = pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id)
-        L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, beat: L().index, layout, ...(mode.aside ? { aside: true } : {}) }] })
+        L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, heading: headingId, beat: L().index, layout, ...(mode.aside ? { aside: true } : {}) }] })
       } else {
         place(pageId, script, { reserveBottom: FRAME_BOTTOM })
         addToSection(pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id))
@@ -270,7 +271,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       const index = Math.max(0, lines.indexOf(latex))
       let cardId = cur.formulaBox
       if (!cardId) {
-        const heading = objectsOf(cur.ids.slice(0, 1))[0]
+        const heading = headingOf(cur)
         const at = heading ? contentOrigin(heading.position) : { x: safeBounds(pageId).left + 40, y: safeBounds(pageId).top + 100 }
         const before = new Set(pageObjects().map((o) => o.id))
         await sceneAdd.run({ component: 'formula', text: lines.join('\n'), x: at.x, y: at.y }, { pageId })
@@ -441,7 +442,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
         const id = pageObjects().find((o) => !before.has(o.id))?.id
         if (id) { useDocStore.getState().updateObject(pageId, id, { size: { w: CONTENT_W, h: 36 + shown.length * 64 } }, { history: false }); ids.push(id) }
       }
-      L().set({ sections: [...sections(), { id: `s${n}`, title: 'Summary', ids, beat: sb.beats.length, summary: true, layout: 'split' }] })
+      L().set({ sections: [...sections(), { id: `s${n}`, title: 'Summary', ids, heading: ids[0], beat: sb.beats.length, summary: true, layout: 'split' }] })
       void frame()
       T().set({ mood: 'proud', pose: 'open' })
       await speak('That is the lesson. Everything we covered is gathered here: the key points, the formulas, and the words to remember. Open Study notes whenever you want to print it or revise.')
