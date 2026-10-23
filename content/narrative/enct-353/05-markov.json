@@ -1,0 +1,52 @@
+{
+  "subtitle": "Tomorrow depends only on today. That single assumption predicts weather, web rankings and queue lengths.",
+  "sections": {
+    "def": {
+      "body": "<p>Suppose you are trying to guess tomorrow’s weather. Do you need to know what happened last week, or is today enough? A <em class='term'>Markov chain</em> says today is enough: it moves between states, and the probability of the next state depends <em>only on the current state</em>, not on how it got there. It is a forgetful, and wonderfully useful, kind of story.</p><p>The chain is described by a transition matrix P where P<sub>ij</sub> is the probability of going from i to j, and each row sums to 1. Why must each row sum to 1? Because from any state something must happen next. Example: Sunny → Sunny 0.9, Sunny → Rainy 0.1, Rainy → Sunny 0.5, Rainy → Rainy 0.5. In the figure, sunny stays sunny with probability 0.9, while rainy stays rainy with 0.5.</p>",
+      "keynotes": [
+        "A Markov chain moves between states, and the probability of the next state depends only on the current state.",
+        "It is described by a transition matrix P where P_ij is the probability of going from i to j and each row sums to 1.",
+        "In the weather example Sunny → Sunny is 0.9, Sunny → Rainy 0.1, Rainy → Sunny 0.5 and Rainy → Rainy 0.5."
+      ]
+    },
+    "evolve": {
+      "body": "<p>Now let the weather run, day by day. If π₀ is the starting distribution (a row vector), then π₁ = π₀P, π₂ = π₁P, and so on. The probabilities of each state after n steps are the entries of πₙ.</p><p>Start sunny: π₀ = (1, 0). Then π₁ = (0.9, 0.1). And π₂ = π₁P = (0.9·0.9 + 0.1·0.5, 0.9·0.1 + 0.1·0.5) = (0.86, 0.14). So if it is sunny today, the probability of sun the day after tomorrow is 0.86. Can you see the pattern? Each day you multiply by the same matrix.</p>",
+      "keynotes": [
+        "If π₀ is the starting distribution then π₁ = π₀P, π₂ = π₁P and so on.",
+        "Starting sunny, π₀ = (1, 0), π₁ = (0.9, 0.1) and π₂ = (0.86, 0.14).",
+        "The probability of sun the day after tomorrow is 0.86."
+      ]
+    },
+    "steady": {
+      "body": "<p>If the weather keeps running, does the forecast keep changing for ever? No: for most chains the distribution settles. It converges to a <em class='term'>steady state</em> π satisfying π = πP, regardless of the start. You can solve it yourself: π(1−0.9) = 0.5π₂ gives 0.1π₁ = 0.5π₂, so π₁ = 5π₂. With π₁ + π₂ = 1, π = (5/6, 1/6) = (<b>0.8333</b>, <b>0.1667</b>), so in the long run it is sunny 83% of days.</p><p>The simulation shows convergence from a sunny start; bars and lines settle on the steady state. And for this chain the long-run distribution does not depend on the starting state, so you would end up with the same 83% even if you began on a rainy day.</p>",
+      "keynotes": [
+        "For most chains the distribution converges to a steady state π satisfying π = πP, regardless of the start.",
+        "Solving 0.1π₁ = 0.5π₂ with π₁ + π₂ = 1 gives π = (5/6, 1/6) = (0.8333, 0.1667): sunny on 83% of days.",
+        "For this chain the long-run distribution does not depend on the starting state."
+      ]
+    },
+    "types": {
+      "body": "<p>Not all chains settle, and you should know the reasons. A state is <em class='term'>absorbing</em> if once entered it is never left (P<sub>ii</sub> = 1), like a game’s “ruined” state where the gambler has no money left. A chain is <em class='term'>irreducible</em> if every state can reach every other. It is <em class='term'>periodic</em> if returns happen only at multiples of some period.</p><p>The good case: irreducible, aperiodic chains are <em class='term'>ergodic</em>, and they have a unique steady state. An absorbing state is one where the chain, once in it, stays there for ever.</p>",
+      "keynotes": [
+        "A state is absorbing if once entered it is never left (P_ii = 1), such as a game’s “ruined” state.",
+        "A chain is irreducible if every state can reach every other, and periodic if returns happen only at multiples of some period.",
+        "Irreducible, aperiodic chains are ergodic and have a unique steady state."
+      ]
+    },
+    "app": {
+      "body": "<p>Where do Markov chains turn up? Everywhere you look: weather and text generation, PageRank (a random surfer on the web graph has a steady state that ranks pages), queues (the number in an M/M/1 queue is a birth–death chain), reliability (working/failed states), genetics, finance and speech recognition (hidden Markov models).</p><p>Try a reliability example. A machine is Up or Down. Up → Down 0.1, Down → Up 0.6. The steady state balances the flow: 0.1π_Up = 0.6π_Down, so π_Up = 6π_Down and π_Up = 6/7 ≈ 0.857. The machine works 86% of the time. PageRank models web surfing as a random walk, and the pages most visited in the long run rank highest.</p>",
+      "keynotes": [
+        "Markov chains model weather, text generation, PageRank, queues, reliability, genetics, finance and speech recognition (hidden Markov models).",
+        "PageRank models web surfing as a random walk whose steady state ranks pages.",
+        "A machine with Up → Down 0.1 and Down → Up 0.6 has π_Up = 6/7 ≈ 0.857."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two lines to take away.</p><ul><li>Next state depends on the current state only; π ← πP.</li><li>Ergodic chains have a unique steady state π = πP.</li></ul>",
+      "keynotes": [
+        "The next state depends on the current state only, and the distribution evolves by π ← πP.",
+        "Ergodic chains have a unique steady state π = πP."
+      ]
+    }
+  }
+}

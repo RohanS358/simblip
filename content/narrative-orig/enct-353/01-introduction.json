@@ -1,0 +1,42 @@
+{
+  "title": "What simulation is, and Monte Carlo",
+  "subtitle": "When the real system is too costly, too slow or too dangerous to try, build a model and run that instead.",
+  "sections": {
+    "sys": {
+      "title": "Systems, models and simulation",
+      "body": "<p>A <em class=\"term\">system</em> is a set of entities interacting toward a goal, inside an <em class=\"term\">environment</em>. A <em class=\"term\">model</em> is a simplified representation of it. <em class=\"term\">Simulation</em> is running the model over time to see how the system behaves. Systems are <em class=\"term\">continuous</em> (state changes smoothly: a tank filling) or <em class=\"term\">discrete</em> (state changes at events: customers arriving). Models may be static or dynamic, deterministic or stochastic.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "why": {
+      "title": "When to simulate, and the steps of a study",
+      "body": "<p>Simulate when experimenting on the real system is expensive, dangerous or impossible, when an analytic solution does not exist, or to compare designs cheaply. Advantages: what-if experiments, time compression, insight. Disadvantages: needs skill and data, results are estimates not proofs, can be costly to build. A study proceeds: formulate the problem → set objectives → conceptual model → collect data → translate to a program → verify → validate → design experiments → run → analyse → document.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mc": {
+      "title": "Monte Carlo simulation",
+      "body": "<p><em class=\"term\">Monte Carlo</em> uses random sampling to estimate a quantity. Throw random points at the unit square; the fraction that lands inside the quarter-circle x² + y² ≤ 1 estimates its area π/4. With 5000 points the estimate is <b>3.18</b> (error 0.0384). The error shrinks like 1/√n: a hundred times more points for ten times the accuracy — slow, but it works for problems (high-dimensional integrals, risk) where nothing else does.</p>",
+      "after": "",
+      "steps": "Out of 1000 random points, 786 fall inside the quarter circle. π ≈ 4 × 786/1000."
+    },
+    "des": {
+      "title": "Discrete-event simulation",
+      "body": "<p>A discrete-event simulator keeps a clock and an ordered <em class=\"term\">future event list</em>. Loop: take the earliest event, advance the clock to its time, update the state (and statistics), schedule any new events it causes. Nothing happens between events, so the clock skips over idle time. Arrivals, service completions and breakdowns are typical events.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mcdes": {
+      "title": "Monte Carlo versus discrete-event",
+      "body": "<p>Monte Carlo typically has no notion of time — each trial is independent (estimating π, the chance a project overruns). Discrete-event simulation tracks a system’s evolution in time (queues, factories, networks). Many studies combine them: DES with random inter-arrival and service times <em>is</em> Monte Carlo over a dynamic model.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Model → run → analyse; verify and validate.</li><li>Monte Carlo: error ∝ 1/√n. DES: clock jumps between events.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

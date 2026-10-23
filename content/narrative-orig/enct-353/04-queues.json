@@ -1,0 +1,42 @@
+{
+  "title": "Queueing systems",
+  "subtitle": "Waiting is what most systems are made of. A few formulas tell you when the line explodes.",
+  "sections": {
+    "elems": {
+      "title": "Elements of a queue",
+      "body": "<p>A queueing system has an <em class=\"term\">arrival</em> process (calling population, inter-arrival times), a <em class=\"term\">queue</em> (capacity, discipline — FIFO, LIFO, priority) and one or more <em class=\"term\">servers</em> (service-time distribution). <em class=\"term\">Kendall’s notation</em> A/B/c/K/N/D describes it: M/M/1 = Markovian (Poisson) arrivals, Markovian (exponential) service, one server. Applications: banks, call centres, routers, CPUs, traffic.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mm1": {
+      "title": "M/M/1 in theory",
+      "body": "<p>With arrival rate λ and service rate μ the <em class=\"term\">utilisation</em> is ρ = λ/μ, which must stay below 1. Then L (mean number in system) = ρ/(1−ρ), W (mean time in system) = 1/(μ−λ), Lq = ρ²/(1−ρ), Wq = ρ/(μ−λ), and Little’s law L = λW holds for any stable queue. At ρ = 0.5: L = 1. At ρ = 0.9: L = 9 — waiting explodes as utilisation approaches 100%.</p>",
+      "after": "",
+      "steps": "λ = 0.8 customers/min, μ = 1 customer/min. Mean number in system. Mean time in system, and Little’s law check L = λW."
+    },
+    "sim": {
+      "title": "Simulating it",
+      "body": "<p>Generate exponential inter-arrival and service times, run the event loop, and measure. With λ = 0.5, μ = 1 (ρ = 0.5) over 4000 customers the simulated utilisation is <b>0.512</b> and average number in system <b>1.012</b> against theory ρ = 0.5, L = 1. At ρ = 0.9 the theory says L = 9 and the simulation gives about <b>11.148</b> — with much more noise.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "net": {
+      "title": "Networks of queues",
+      "body": "<p>Real systems chain queues: a customer visits several stations. In a tandem of M/M/1 queues, each behaves (Jackson's theorem) as an independent M/M/1 with the same arrival rate but its own μ, and the total time is the sum. More servers (M/M/c) share the load: the same λ with two half-speed servers behaves differently from one full-speed server.</p>",
+      "after": "",
+      "steps": "Two M/M/1 stations in series, λ = 2/min, μ₁ = 4, μ₂ = 3. W₁ = 1/(4−2) = 0.5 min, W₂ = 1/(3−2) = 1 min."
+    },
+    "app": {
+      "title": "Applications",
+      "body": "<p>Sizing a call-centre (how many agents keep waiting under 30 s), router buffers, CPU scheduling, hospital beds, checkout lanes. The simulator shows the danger zone: keep utilisation below about 70–80% if waiting matters.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>ρ = λ/μ &lt; 1; L = ρ/(1−ρ); W = 1/(μ−λ); L = λW.</li><li>Simulation agrees with theory, with noise growing near ρ = 1.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

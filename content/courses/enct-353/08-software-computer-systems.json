@@ -8,7 +8,7 @@
       "locator": "9.1",
       "title": "Simulation languages and tools",
       "eyebrow": "The landscape",
-      "body": "<p>You can write a simulator in any language — Java, Python (SimPy), C++ — but dedicated tools save effort. <em class=\"term\">GPSS</em> models a system as transactions flowing through blocks (GENERATE, QUEUE, SEIZE, ADVANCE, RELEASE, TERMINATE). Commercial packages (Arena, AnyLogic, Simulink) add graphical building and animation. Whatever the tool, the core is the same: a clock, an event list, random streams and statistics collectors.</p>",
+      "body": "<p>You can write a simulator in any language you like: Java, Python (SimPy), C++. But dedicated tools save effort. <em class=\"term\">GPSS</em> models a system as transactions flowing through blocks (GENERATE, QUEUE, SEIZE, ADVANCE, RELEASE, TERMINATE), much like customers walking through a shop. Commercial packages (Arena, AnyLogic, Simulink) add graphical building and animation.</p><p>Whatever the tool, the core is the same: a clock, an event list, random streams and statistics collectors. The figure shows a GPSS single-server model as a block chain. In GPSS, transactions represent the entities that move through the system, such as customers or jobs.</p>",
       "questions": [
         {
           "id": "gpss",
@@ -48,6 +48,11 @@
           "note": "A GPSS single-server model as a block chain.",
           "script": "diagram(\"direction: right\\n(GENERATE arrivals) as g\\n[QUEUE wait] as q #amber\\n[SEIZE server] as s #blue\\n[ADVANCE service time] as a #violet\\n[RELEASE server] as r #blue\\n(TERMINATE) as t\\ng -> q\\nq -> s\\ns -> a\\na -> r\\nr -> t\\n@0 g -> q : customer\\n@1 q -> s : next\\n@2 s -> a : service\\n@3 a -> r : done\\n@4 r -> t : leaves\\nloop 6\");"
         }
+      ],
+      "keynotes": [
+        "A simulator can be written in any language (Java, Python with SimPy, C++), but dedicated tools save effort.",
+        "GPSS models a system as transactions flowing through blocks: GENERATE, QUEUE, SEIZE, ADVANCE, RELEASE, TERMINATE.",
+        "Whatever the tool, the core is a clock, an event list, random streams and statistics collectors."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "9.2",
       "title": "A queue simulator in code",
       "eyebrow": "From scratch",
-      "body": "<p>Even a few lines of C++ give a working model. This program simulates a single-server queue with a deterministic pattern (arrival every 3 units, service of 2 each) and prints each customer’s wait — run it and step through with the DSA Lab.</p>",
+      "body": "<p>Even a few lines of C++ give a working model, and you can run it right here. This program simulates a single-server queue with a deterministic pattern (arrival every 3 units, service of 2 each) and prints each customer’s wait. Run it and step through with the DSA Lab.</p><p>Why is the total wait 0? Service (2) is faster than arrivals (every 3), so the server is free before each arrival. Now change the service time to 4, and customer i starts at max(arrival, previous finish): the waits become 0,1,2,3,4 units, totalling 10. Same program, one number changed, and the queue appears.</p>",
       "worked": [
         {
           "toc": "Why no wait",
@@ -112,6 +117,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A few lines of C++ simulate a single-server queue with an arrival every 3 units and service of 2 each.",
+        "Service (2) is faster than arrivals (every 3), so nobody waits and the total wait is 0.",
+        "With service time 4, customer i starts at max(arrival, previous finish) and the waits 0,1,2,3,4 total 10."
       ]
     },
     {
@@ -119,7 +129,7 @@
       "locator": "10.1",
       "title": "CPU and memory simulation",
       "eyebrow": "Designing hardware",
-      "body": "<p>Computer architects evaluate designs before building them. A <em class=\"term\">CPU simulator</em> executes instructions and counts cycles; a <em class=\"term\">memory simulator</em> replays an address trace through a cache model. The scheduling chapter's Round Robin with quantum 4 yields an average wait of <b>5.67</b>; a direct-mapped cache on the address trace 0 8 0 6 8 suffers <b>5</b> misses. Changing the parameters and re-running is exactly a simulation experiment.</p>",
+      "body": "<p>Computer architects cannot build a chip to see whether an idea works, because chips cost millions. They simulate. A <em class=\"term\">CPU simulator</em> executes instructions and counts cycles; a <em class=\"term\">memory simulator</em> replays an address trace through a cache model.</p><p>You have already met two examples. The scheduling chapter’s Round Robin with quantum 4 yields an average wait of <b>5.67</b>; a direct-mapped cache on the address trace 0 8 0 6 8 suffers <b>5</b> misses. Changing the parameters and re-running is exactly a simulation experiment. A scheduler is a simulation of a CPU, and a cache is a simulation of memory. Trace-driven simulation of a cache replays a recorded sequence of memory addresses.</p>",
       "questions": [
         {
           "id": "trace",
@@ -176,6 +186,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A CPU simulator executes instructions and counts cycles; a memory simulator replays an address trace through a cache model.",
+        "Round Robin with quantum 4 yields an average wait of 5.67; a direct-mapped cache on the trace 0 8 0 6 8 suffers 5 misses.",
+        "Changing the parameters and re-running is exactly a simulation experiment."
       ]
     },
     {
@@ -183,7 +198,7 @@
       "locator": "10.2",
       "title": "Network simulation",
       "eyebrow": "Packets and links",
-      "body": "<p>Network simulators (ns-3, OMNeT++, Cisco Packet Tracer) model nodes, links, queues and protocols as discrete events: a packet arrives at a router, waits in a queue, is transmitted, propagates. A router output port is exactly an M/M/1-style queue: at ρ = 0.5 the simulated utilisation is <b>0.485</b> and the mean number in system <b>0.863</b>.</p>",
+      "body": "<p>Network simulators (ns-3, OMNeT++, Cisco Packet Tracer) model nodes, links, queues and protocols as discrete events: a packet arrives at a router, waits in a queue, is transmitted, and propagates. So network simulators are discrete-event simulations.</p><p>You already know the theory behind a router port: it is exactly an M/M/1-style queue. At ρ = 0.5 the simulated utilisation is <b>0.485</b> and the mean number in system <b>0.863</b>. Not far from the theory, and you can watch the port as a queue in the figure.</p>",
       "questions": [
         {
           "id": "ns",
@@ -237,6 +252,11 @@
           "prompt": "<p>Why simulate a new cache design rather than build it?</p>",
           "answer": "Building hardware costs months and millions; a trace-driven simulator evaluates hit rate and AMAT for many sizes and policies in minutes and reveals the best design before any silicon is made."
         }
+      ],
+      "keynotes": [
+        "Network simulators (ns-3, OMNeT++, Cisco Packet Tracer) model nodes, links, queues and protocols as discrete events.",
+        "A router output port is exactly an M/M/1-style queue.",
+        "At ρ = 0.5 the simulated utilisation is 0.485 and the mean number in system 0.863."
       ]
     },
     {
@@ -244,7 +264,7 @@
       "locator": "10.3",
       "title": "High-level system simulation",
       "eyebrow": "Whole-machine",
-      "body": "<p>Full-system simulators (gem5, QEMU) boot an operating system on a model of a computer, trading speed for detail — cycle-accurate is slowest. Choosing the abstraction level is the main design decision: the right model answers the question at the lowest cost.</p>",
+      "body": "<p>How detailed should a simulator be? Full-system simulators (gem5, QEMU) boot an operating system on a model of a computer, trading speed for detail: cycle-accurate is slowest. Choosing the abstraction level is the main design decision, because the right model answers the question at the lowest cost. So a more detailed simulator is slower, and you should ask yourself whether you need that detail.</p>",
       "questions": [
         {
           "id": "level",
@@ -276,6 +296,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Full-system simulators (gem5, QEMU) boot an operating system on a model of a computer.",
+        "They trade speed for detail; cycle-accurate is slowest.",
+        "The right model answers the question at the lowest cost."
       ]
     },
     {
@@ -283,7 +308,11 @@
       "locator": "10.4",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Simulation languages package the clock, event list, streams and statistics.</li><li>CPU, memory and network simulators are DES in disguise.</li></ul>"
+      "body": "<p>Two lines to end the course.</p><ul><li>Simulation languages package the clock, event list, streams and statistics.</li><li>CPU, memory and network simulators are DES in disguise.</li></ul>",
+      "keynotes": [
+        "Simulation languages package the clock, event list, random streams and statistics.",
+        "CPU, memory and network simulators are discrete-event simulation in disguise."
+      ]
     }
   ]
 }

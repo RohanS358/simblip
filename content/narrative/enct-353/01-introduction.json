@@ -1,0 +1,52 @@
+{
+  "subtitle": "When the real system is too costly, too slow or too dangerous to try, build a model and run that instead.",
+  "sections": {
+    "sys": {
+      "body": "<p>Would you crash a real aeroplane to learn how it behaves in a storm? Of course not. You would build a copy, a simpler version that behaves in the ways you care about, and crash that. That is the heart of simulation, and here are the words you need.</p><p>A <em class='term'>system</em> is a set of entities interacting toward a goal, inside an <em class='term'>environment</em>. A <em class='term'>model</em> is a simplified representation of it. <em class='term'>Simulation</em> is running the model over time to see how the system behaves. Systems are <em class='term'>continuous</em> (state changes smoothly: a tank filling) or <em class='term'>discrete</em> (state changes at events: customers arriving). Models may be static or dynamic, deterministic or stochastic. A bank queue, where things change when customers arrive and leave, is best modelled as a discrete system.</p>",
+      "keynotes": [
+        "A system is a set of entities interacting toward a goal inside an environment; a model is a simplified representation; simulation is running the model over time.",
+        "Systems are continuous (state changes smoothly, like a tank filling) or discrete (state changes at events, like customers arriving).",
+        "Models may be static or dynamic, deterministic or stochastic."
+      ]
+    },
+    "why": {
+      "body": "<p>When is it worth building a model? You simulate when experimenting on the real system is expensive, dangerous or impossible, when an analytic solution does not exist, or to compare designs cheaply. The advantages are what-if experiments, time compression and insight. The disadvantages: it needs skill and data, the results are estimates not proofs, and it can be costly to build.</p><p>A careful study follows a path, and you should walk it in order: formulate the problem → set objectives → conceptual model → collect data → translate to a program → verify → validate → design experiments → run → analyse → document. Look at the figure: two loops go back, verification and validation. In a simulation study, validation asks whether the model is the right model, one that matches the real system.</p>",
+      "keynotes": [
+        "Simulate when experimenting on the real system is expensive, dangerous or impossible, when no analytic solution exists, or to compare designs cheaply.",
+        "Advantages are what-if experiments, time compression and insight; disadvantages are needing skill and data, estimates rather than proofs, and cost.",
+        "A study runs from formulating the problem to documentation, with two loops back for verification and validation."
+      ]
+    },
+    "mc": {
+      "body": "<p>Here is a delightful trick: you can find the value of π by throwing darts. <em class='term'>Monte Carlo</em> uses random sampling to estimate a quantity. Throw random points at the unit square; the fraction that lands inside the quarter-circle x² + y² ≤ 1 estimates its area π/4. In the figure, green points fell inside the arc and red outside.</p><p>Try it. Out of 1000 random points, 786 fall inside the quarter circle, so π ≈ 4 × 786/1000 = 3.144. With 5000 points the estimate is <b>3.18</b> (error 0.0384). The error shrinks like 1/√n: a hundred times more points for ten times the accuracy. That is slow, but it works for problems (high-dimensional integrals, risk) where nothing else does. To make an estimate 10× more accurate you need about 100× more points.</p>",
+      "keynotes": [
+        "Monte Carlo uses random sampling to estimate a quantity: the fraction of random points inside the quarter-circle x² + y² ≤ 1 estimates π/4.",
+        "786 of 1000 points inside gives π ≈ 3.144; with 5000 points the estimate is 3.18 (error 0.0384).",
+        "The error shrinks like 1/√n, so ten times the accuracy needs a hundred times more points."
+      ]
+    },
+    "des": {
+      "body": "<p>Think of a diary with appointments in time order. You do not live through every empty minute; you jump from one appointment to the next. A discrete-event simulator works exactly like that. It keeps a clock and an ordered <em class='term'>future event list</em>. The loop is: take the earliest event, advance the clock to its time, update the state (and statistics), and schedule any new events it causes.</p><p>Nothing happens between events, so the clock skips over idle time. Arrivals, service completions and breakdowns are typical events. This event loop is the heart of every discrete-event simulator, as the figure shows. Between two events, the simulation clock does not advance at all; it jumps from one to the next.</p>",
+      "keynotes": [
+        "A discrete-event simulator keeps a clock and an ordered future event list.",
+        "The loop takes the earliest event, advances the clock to its time, updates the state and statistics, and schedules new events.",
+        "Nothing happens between events, so the clock skips over idle time."
+      ]
+    },
+    "mcdes": {
+      "body": "<p>You now have two big tools, and a fair question is which one to pick. Monte Carlo typically has no notion of time: each trial is independent (estimating π, or the chance a project overruns). Discrete-event simulation tracks a system’s evolution in time (queues, factories, networks).</p><p>The two are cousins, and many studies combine them: DES with random inter-arrival and service times <em>is</em> Monte Carlo over a dynamic model. So the one that is typically time-independent is Monte Carlo.</p>",
+      "keynotes": [
+        "Monte Carlo typically has no notion of time: each trial is independent.",
+        "Discrete-event simulation tracks a system’s evolution in time, such as queues, factories and networks.",
+        "DES with random inter-arrival and service times is Monte Carlo over a dynamic model."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two lines, and you are set for the chapters ahead.</p><ul><li>Model → run → analyse; verify and validate.</li><li>Monte Carlo: error ∝ 1/√n. DES: clock jumps between events.</li></ul>",
+      "keynotes": [
+        "Build the model, run it, analyse it, and always verify and validate.",
+        "Monte Carlo error falls like 1/√n; in DES the clock jumps between events."
+      ]
+    }
+  }
+}

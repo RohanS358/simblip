@@ -1,0 +1,42 @@
+{
+  "title": "Markov chains",
+  "subtitle": "Tomorrow depends only on today. That single assumption predicts weather, web rankings and queue lengths.",
+  "sections": {
+    "def": {
+      "title": "The Markov property",
+      "body": "<p>A <em class=\"term\">Markov chain</em> moves between states; the probability of the next state depends <em>only on the current state</em>, not on how it got there. The chain is described by a transition matrix P where P<sub>ij</sub> is the probability of going from i to j and each row sums to 1. Example: Sunny → Sunny 0.9, Sunny → Rainy 0.1, Rainy → Sunny 0.5, Rainy → Rainy 0.5.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "evolve": {
+      "title": "Evolving the distribution",
+      "body": "<p>If π₀ is the starting distribution (a row vector), then π₁ = π₀P, π₂ = π₁P, … The probabilities of each state after n steps are the entries of πₙ. Starting sunny: π₀ = (1, 0); π₁ = (0.9, 0.1); π₂ = (0.86, 0.14).</p>",
+      "after": "",
+      "steps": "π₁ = π₀P with π₀ = (1, 0). π₂ = π₁P."
+    },
+    "steady": {
+      "title": "Steady state",
+      "body": "<p>For most chains the distribution converges to a <em class=\"term\">steady state</em> π satisfying π = πP, regardless of the start. Solve π(1−0.9) = 0.5π₂ ⇒ 0.1π₁ = 0.5π₂ ⇒ π₁ = 5π₂, and π₁ + π₂ = 1, so π = (5/6, 1/6) = (<b>0.8333</b>, <b>0.1667</b>): in the long run it is sunny 83% of days. The simulation shows convergence from a sunny start.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "types": {
+      "title": "Kinds of state",
+      "body": "<p>A state is <em class=\"term\">absorbing</em> if once entered it is never left (P<sub>ii</sub> = 1) — a game’s “ruined” state. A chain is <em class=\"term\">irreducible</em> if every state can reach every other; <em class=\"term\">periodic</em> if returns happen only at multiples of some period. Irreducible, aperiodic chains are <em class=\"term\">ergodic</em>: they have a unique steady state.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "app": {
+      "title": "Applications",
+      "body": "<p>Weather and text generation, PageRank (a random surfer on the web graph has a steady state that ranks pages), queues (the number in an M/M/1 queue is a birth–death chain), reliability (working/failed states), genetics, finance and speech recognition (hidden Markov models).</p>",
+      "after": "",
+      "steps": "A machine is Up or Down. Up → Down 0.1, Down → Up 0.6. Steady state: 0.1π_Up = 0.6π_Down ⇒ π_Up = 6π_Down, so π_Up = 6/7."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Next state depends on the current state only; π ← πP.</li><li>Ergodic chains have a unique steady state π = πP.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

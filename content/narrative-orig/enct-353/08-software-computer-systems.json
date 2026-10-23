@@ -1,0 +1,42 @@
+{
+  "title": "Simulation tools and simulating computer systems",
+  "subtitle": "From Python to GPSS, and using simulation to design the very machines that run it.",
+  "sections": {
+    "lang": {
+      "title": "Simulation languages and tools",
+      "body": "<p>You can write a simulator in any language — Java, Python (SimPy), C++ — but dedicated tools save effort. <em class=\"term\">GPSS</em> models a system as transactions flowing through blocks (GENERATE, QUEUE, SEIZE, ADVANCE, RELEASE, TERMINATE). Commercial packages (Arena, AnyLogic, Simulink) add graphical building and animation. Whatever the tool, the core is the same: a clock, an event list, random streams and statistics collectors.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "code": {
+      "title": "A queue simulator in code",
+      "body": "<p>Even a few lines of C++ give a working model. This program simulates a single-server queue with a deterministic pattern (arrival every 3 units, service of 2 each) and prints each customer’s wait — run it and step through with the DSA Lab.</p>",
+      "after": "",
+      "steps": "Arrival every 3, service 2 ⇒ the server is free before each arrival. Change the service time to 4: customer i starts at max(arrival, previous finish)."
+    },
+    "cpu": {
+      "title": "CPU and memory simulation",
+      "body": "<p>Computer architects evaluate designs before building them. A <em class=\"term\">CPU simulator</em> executes instructions and counts cycles; a <em class=\"term\">memory simulator</em> replays an address trace through a cache model. The scheduling chapter's Round Robin with quantum 4 yields an average wait of <b>5.67</b>; a direct-mapped cache on the address trace 0 8 0 6 8 suffers <b>5</b> misses. Changing the parameters and re-running is exactly a simulation experiment.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "net": {
+      "title": "Network simulation",
+      "body": "<p>Network simulators (ns-3, OMNeT++, Cisco Packet Tracer) model nodes, links, queues and protocols as discrete events: a packet arrives at a router, waits in a queue, is transmitted, propagates. A router output port is exactly an M/M/1-style queue: at ρ = 0.5 the simulated utilisation is <b>0.485</b> and the mean number in system <b>0.863</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "tools": {
+      "title": "High-level system simulation",
+      "body": "<p>Full-system simulators (gem5, QEMU) boot an operating system on a model of a computer, trading speed for detail — cycle-accurate is slowest. Choosing the abstraction level is the main design decision: the right model answers the question at the lowest cost.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Simulation languages package the clock, event list, streams and statistics.</li><li>CPU, memory and network simulators are DES in disguise.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

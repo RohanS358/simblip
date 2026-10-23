@@ -1,0 +1,42 @@
+{
+  "title": "Physical and mathematical models",
+  "subtitle": "Four kinds of model, and how a differential equation becomes a program.",
+  "sections": {
+    "types": {
+      "title": "Kinds of model",
+      "body": "<p><em class=\"term\">Physical</em> models are scaled or analogue versions of the real thing — static (a scale model of a building) or dynamic (a wind tunnel, a circuit that mimics a mechanical system). <em class=\"term\">Mathematical</em> models describe behaviour with equations — static (an algebraic relation such as Ohm’s law) or dynamic (differential equations in time). Computers make the dynamic mathematical model the workhorse.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "ode": {
+      "title": "From a differential equation to a simulation",
+      "body": "<p>Most dynamic models are of the form dy/dx = f(x, y). Euler’s method advances in small steps: y<sub>n+1</sub> = y<sub>n</sub> + h·f(x<sub>n</sub>, y<sub>n</sub>). Runge–Kutta 4 uses four slopes per step and is far more accurate. For y′ = x + y, y(0) = 1 (exact y = 2eˣ − x − 1), at x = 1 with h = 0.1: Euler gives <b>3.18748</b>, RK4 gives <b>3.43656</b>, exact <b>3.43656</b>.</p>",
+      "after": "",
+      "steps": "One Euler step from (0, 1) with h = 0.1 for y′ = x + y. Slope f(0,1) = 1, so y₁ = 1 + 0.1·1."
+    },
+    "pde": {
+      "title": "Partial differential equations: heat flow",
+      "body": "<p>When the state varies in space as well as time we have a PDE. The heat equation u<sub>t</sub> = α u<sub>xx</sub> is discretised on a grid: u<sub>i</sub>ⁿ⁺¹ = u<sub>i</sub>ⁿ + r(u<sub>i−1</sub>ⁿ − 2u<sub>i</sub>ⁿ + u<sub>i+1</sub>ⁿ) with r = αΔt/Δx². The explicit scheme is stable only for r ≤ ½. A rod with ends held at 100 and 0 relaxes to the straight line between them: mid-rod temperature <b>49.997</b> after 400 steps (steady value 50).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mech": {
+      "title": "A physical model in the notebook: a damped oscillator",
+      "body": "<p>SIMBLIP’s physics engine is itself a dynamic physical model solving Newton’s second law. A mass on a spring obeys m x″ + c x′ + k x = 0; the solution oscillates with angular frequency ω = √(k/m) and decays if c &gt; 0. Press Simulate and compare the period with 2π√(m/k).</p>",
+      "after": "",
+      "steps": "m = 1 kg, k = 100 N/m. Period."
+    },
+    "use": {
+      "title": "Choosing a model’s level of detail",
+      "body": "<p>A model should be as simple as the question allows. Include what affects the answer; ignore the rest, and state the assumptions (no air resistance, small angles, constant service rate). Validate by comparing with data; refine only where validation fails.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Physical vs mathematical, static vs dynamic.</li><li>ODEs: Euler is simple, RK4 accurate; PDEs: discretise space and time, watch stability.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

@@ -8,7 +8,7 @@
       "locator": "2.1",
       "title": "Kinds of model",
       "eyebrow": "Taxonomy",
-      "body": "<p><em class=\"term\">Physical</em> models are scaled or analogue versions of the real thing — static (a scale model of a building) or dynamic (a wind tunnel, a circuit that mimics a mechanical system). <em class=\"term\">Mathematical</em> models describe behaviour with equations — static (an algebraic relation such as Ohm’s law) or dynamic (differential equations in time). Computers make the dynamic mathematical model the workhorse.</p>",
+      "body": "<p>Models come in a family of four, and you have seen all of them in daily life. <em class=\"term\">Physical</em> models are scaled or analogue versions of the real thing: static (a scale model of a building) or dynamic (a wind tunnel, a circuit that mimics a mechanical system). <em class=\"term\">Mathematical</em> models describe behaviour with equations: static (an algebraic relation such as Ohm’s law) or dynamic (differential equations in time).</p><p>Computers make the dynamic mathematical model the workhorse. So a differential equation describing how a tank level changes is a dynamic mathematical model.</p>",
       "questions": [
         {
           "id": "dyn",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Physical models are scaled or analogue versions of the real thing, static (a scale model of a building) or dynamic (a wind tunnel).",
+        "Mathematical models describe behaviour with equations, static (Ohm’s law) or dynamic (differential equations in time).",
+        "Computers make the dynamic mathematical model the workhorse."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "2.2",
       "title": "From a differential equation to a simulation",
       "eyebrow": "Numerical integration",
-      "body": "<p>Most dynamic models are of the form dy/dx = f(x, y). Euler’s method advances in small steps: y<sub>n+1</sub> = y<sub>n</sub> + h·f(x<sub>n</sub>, y<sub>n</sub>). Runge–Kutta 4 uses four slopes per step and is far more accurate. For y′ = x + y, y(0) = 1 (exact y = 2eˣ − x − 1), at x = 1 with h = 0.1: Euler gives <b>3.18748</b>, RK4 gives <b>3.43656</b>, exact <b>3.43656</b>.</p>",
+      "body": "<p>How does a computer, which can only add and multiply, let you solve an equation about continuous change? By taking small steps, like walking a curve with short straight strides. Most dynamic models are of the form dy/dx = f(x, y). Euler’s method advances in small steps: y<sub>n+1</sub> = y<sub>n</sub> + h·f(x<sub>n</sub>, y<sub>n</sub>). Runge–Kutta 4 uses four slopes per step and is far more accurate.</p><p>Take one step by hand for y′ = x + y with h = 0.1 from (0, 1): the slope f(0,1) = 1, so y₁ = 1 + 0.1·1 = 1.1. Now watch the whole run, y(0) = 1 (exact y = 2eˣ − x − 1), at x = 1 with h = 0.1: Euler gives <b>3.18748</b>, RK4 gives <b>3.43656</b>, exact <b>3.43656</b>. In the figure, the grey line is exact, Euler lags behind, and RK4 sits on top of it. Euler is less accurate because it uses only the slope at the start of each step.</p>",
       "worked": [
         {
           "toc": "Setup",
@@ -106,6 +111,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Euler’s method advances in small steps: y(n+1) = y(n) + h·f(x(n), y(n)); Runge–Kutta 4 uses four slopes per step and is far more accurate.",
+        "One Euler step from (0, 1) with h = 0.1 for y′ = x + y gives y₁ = 1.1.",
+        "At x = 1 with h = 0.1, Euler gives 3.18748, RK4 gives 3.43656 and the exact value is 3.43656."
       ]
     },
     {
@@ -113,7 +123,7 @@
       "locator": "2.3",
       "title": "Partial differential equations: heat flow",
       "eyebrow": "Space and time",
-      "body": "<p>When the state varies in space as well as time we have a PDE. The heat equation u<sub>t</sub> = α u<sub>xx</sub> is discretised on a grid: u<sub>i</sub>ⁿ⁺¹ = u<sub>i</sub>ⁿ + r(u<sub>i−1</sub>ⁿ − 2u<sub>i</sub>ⁿ + u<sub>i+1</sub>ⁿ) with r = αΔt/Δx². The explicit scheme is stable only for r ≤ ½. A rod with ends held at 100 and 0 relaxes to the straight line between them: mid-rod temperature <b>49.997</b> after 400 steps (steady value 50).</p>",
+      "body": "<p>What if things vary across space as well as time, like heat spreading along a metal rod? Then you have a partial differential equation. The heat equation u<sub>t</sub> = α u<sub>xx</sub> is discretised on a grid: u<sub>i</sub>ⁿ⁺¹ = u<sub>i</sub>ⁿ + r(u<sub>i−1</sub>ⁿ − 2u<sub>i</sub>ⁿ + u<sub>i+1</sub>ⁿ) with r = αΔt/Δx². Each point nudges towards the average of its neighbours.</p><p>Beware one rule: the explicit scheme is stable only for r ≤ ½. If r exceeds ½, the numbers blow up. A rod with ends held at 100 and 0 relaxes to the straight line between them: mid-rod temperature <b>49.997</b> after 400 steps (steady value 50). Each curve in the figure is a later time, and the last approaches a straight line.</p>",
       "questions": [
         {
           "id": "stab",
@@ -159,6 +169,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "The heat equation u_t = α u_xx is discretised on a grid with r = αΔt/Δx².",
+        "The explicit scheme is stable only for r ≤ ½; beyond that the numbers blow up.",
+        "A rod with ends held at 100 and 0 relaxes to a straight line: mid-rod temperature 49.997 after 400 steps (steady value 50)."
       ]
     },
     {
@@ -166,7 +181,7 @@
       "locator": "2.4",
       "title": "A physical model in the notebook: a damped oscillator",
       "eyebrow": "Try a physical model",
-      "body": "<p>SIMBLIP’s physics engine is itself a dynamic physical model solving Newton’s second law. A mass on a spring obeys m x″ + c x′ + k x = 0; the solution oscillates with angular frequency ω = √(k/m) and decays if c &gt; 0. Press Simulate and compare the period with 2π√(m/k).</p>",
+      "body": "<p>You are already running a physical model: SIMBLIP’s physics engine solves Newton’s second law. A mass on a spring obeys m x″ + c x′ + k x = 0. The solution oscillates with angular frequency ω = √(k/m) and decays if c &gt; 0. Press Simulate and compare the period with 2π√(m/k).</p><p>With m = 1 kg and k = 100 N/m, ω = √(k/m) = 10 rad/s, and the period T = 2π/ω ≈ 0.63 s. And what happens if you quadruple the mass? The period is multiplied by √4 = 2, so it doubles.</p>",
       "worked": [
         {
           "toc": "Frequency",
@@ -219,6 +234,11 @@
           "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 460, height: 460 });\nvar anchor = create(\"hinge\", { x: 300, y: 80 });\nvar bob = create(\"mass\", { x: 300, y: 300, mass: 1 });\nvar spr = create(\"spring\", { length: 200, k: 100 });\nconnect(spr.a, anchor.centre);\nconnect(spr.b, bob.centre);\ngraph.plot(bob.y);",
           "note": "Press Simulate: m = 1 kg, k = 100 N/m, so T = 2π√(1/100) ≈ 0.63 s."
         }
+      ],
+      "keynotes": [
+        "A mass on a spring obeys m x″ + c x′ + k x = 0 and oscillates with angular frequency ω = √(k/m), decaying if c > 0.",
+        "With m = 1 kg and k = 100 N/m, ω = 10 rad/s and T = 2π/ω ≈ 0.63 s.",
+        "Quadrupling the mass doubles the period."
       ]
     },
     {
@@ -226,7 +246,7 @@
       "locator": "2.5",
       "title": "Choosing a model’s level of detail",
       "eyebrow": "Judgement",
-      "body": "<p>A model should be as simple as the question allows. Include what affects the answer; ignore the rest, and state the assumptions (no air resistance, small angles, constant service rate). Validate by comparing with data; refine only where validation fails.</p>",
+      "body": "<p>A good model is like a good map: it leaves things out on purpose. A model should be as simple as the question allows. Include what affects the answer; ignore the rest, and state the assumptions (no air resistance, small angles, constant service rate).</p><p>Then validate by comparing with data, and refine only where validation fails. Why state a model’s assumptions? So that you, and anyone who uses it, know where it can be trusted and where it cannot.</p>",
       "questions": [
         {
           "id": "assume",
@@ -265,6 +285,11 @@
           "prompt": "<p>A pendulum model assumes small angles. Why, and what breaks for large angles?</p>",
           "answer": "For small θ, sin θ ≈ θ, so the equation becomes linear with period independent of amplitude. For large angles the true period grows with amplitude and the linear model underestimates it."
         }
+      ],
+      "keynotes": [
+        "A model should be as simple as the question allows: include what affects the answer and ignore the rest.",
+        "State the assumptions, such as no air resistance, small angles or a constant service rate.",
+        "Validate by comparing with data and refine only where validation fails."
       ]
     },
     {
@@ -272,7 +297,11 @@
       "locator": "2.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Physical vs mathematical, static vs dynamic.</li><li>ODEs: Euler is simple, RK4 accurate; PDEs: discretise space and time, watch stability.</li></ul>"
+      "body": "<p>Two lines before the next chapter.</p><ul><li>Physical vs mathematical, static vs dynamic.</li><li>ODEs: Euler is simple, RK4 accurate; PDEs: discretise space and time, watch stability.</li></ul>",
+      "keynotes": [
+        "Models are physical or mathematical, static or dynamic.",
+        "For ODEs Euler is simple and RK4 accurate; for PDEs discretise space and time and watch stability."
+      ]
     }
   ]
 }

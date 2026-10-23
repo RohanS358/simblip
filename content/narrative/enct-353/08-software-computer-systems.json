@@ -1,0 +1,52 @@
+{
+  "subtitle": "From Python to GPSS, and using simulation to design the very machines that run it.",
+  "sections": {
+    "lang": {
+      "body": "<p>You can write a simulator in any language you like: Java, Python (SimPy), C++. But dedicated tools save effort. <em class='term'>GPSS</em> models a system as transactions flowing through blocks (GENERATE, QUEUE, SEIZE, ADVANCE, RELEASE, TERMINATE), much like customers walking through a shop. Commercial packages (Arena, AnyLogic, Simulink) add graphical building and animation.</p><p>Whatever the tool, the core is the same: a clock, an event list, random streams and statistics collectors. The figure shows a GPSS single-server model as a block chain. In GPSS, transactions represent the entities that move through the system, such as customers or jobs.</p>",
+      "keynotes": [
+        "A simulator can be written in any language (Java, Python with SimPy, C++), but dedicated tools save effort.",
+        "GPSS models a system as transactions flowing through blocks: GENERATE, QUEUE, SEIZE, ADVANCE, RELEASE, TERMINATE.",
+        "Whatever the tool, the core is a clock, an event list, random streams and statistics collectors."
+      ]
+    },
+    "code": {
+      "body": "<p>Even a few lines of C++ give a working model, and you can run it right here. This program simulates a single-server queue with a deterministic pattern (arrival every 3 units, service of 2 each) and prints each customer’s wait. Run it and step through with the DSA Lab.</p><p>Why is the total wait 0? Service (2) is faster than arrivals (every 3), so the server is free before each arrival. Now change the service time to 4, and customer i starts at max(arrival, previous finish): the waits become 0,1,2,3,4 units, totalling 10. Same program, one number changed, and the queue appears.</p>",
+      "keynotes": [
+        "A few lines of C++ simulate a single-server queue with an arrival every 3 units and service of 2 each.",
+        "Service (2) is faster than arrivals (every 3), so nobody waits and the total wait is 0.",
+        "With service time 4, customer i starts at max(arrival, previous finish) and the waits 0,1,2,3,4 total 10."
+      ]
+    },
+    "cpu": {
+      "body": "<p>Computer architects cannot build a chip to see whether an idea works, because chips cost millions. They simulate. A <em class='term'>CPU simulator</em> executes instructions and counts cycles; a <em class='term'>memory simulator</em> replays an address trace through a cache model.</p><p>You have already met two examples. The scheduling chapter’s Round Robin with quantum 4 yields an average wait of <b>5.67</b>; a direct-mapped cache on the address trace 0 8 0 6 8 suffers <b>5</b> misses. Changing the parameters and re-running is exactly a simulation experiment. A scheduler is a simulation of a CPU, and a cache is a simulation of memory. Trace-driven simulation of a cache replays a recorded sequence of memory addresses.</p>",
+      "keynotes": [
+        "A CPU simulator executes instructions and counts cycles; a memory simulator replays an address trace through a cache model.",
+        "Round Robin with quantum 4 yields an average wait of 5.67; a direct-mapped cache on the trace 0 8 0 6 8 suffers 5 misses.",
+        "Changing the parameters and re-running is exactly a simulation experiment."
+      ]
+    },
+    "net": {
+      "body": "<p>Network simulators (ns-3, OMNeT++, Cisco Packet Tracer) model nodes, links, queues and protocols as discrete events: a packet arrives at a router, waits in a queue, is transmitted, and propagates. So network simulators are discrete-event simulations.</p><p>You already know the theory behind a router port: it is exactly an M/M/1-style queue. At ρ = 0.5 the simulated utilisation is <b>0.485</b> and the mean number in system <b>0.863</b>. Not far from the theory, and you can watch the port as a queue in the figure.</p>",
+      "keynotes": [
+        "Network simulators (ns-3, OMNeT++, Cisco Packet Tracer) model nodes, links, queues and protocols as discrete events.",
+        "A router output port is exactly an M/M/1-style queue.",
+        "At ρ = 0.5 the simulated utilisation is 0.485 and the mean number in system 0.863."
+      ]
+    },
+    "tools": {
+      "body": "<p>How detailed should a simulator be? Full-system simulators (gem5, QEMU) boot an operating system on a model of a computer, trading speed for detail: cycle-accurate is slowest. Choosing the abstraction level is the main design decision, because the right model answers the question at the lowest cost. So a more detailed simulator is slower, and you should ask yourself whether you need that detail.</p>",
+      "keynotes": [
+        "Full-system simulators (gem5, QEMU) boot an operating system on a model of a computer.",
+        "They trade speed for detail; cycle-accurate is slowest.",
+        "The right model answers the question at the lowest cost."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two lines to end the course.</p><ul><li>Simulation languages package the clock, event list, streams and statistics.</li><li>CPU, memory and network simulators are DES in disguise.</li></ul>",
+      "keynotes": [
+        "Simulation languages package the clock, event list, random streams and statistics.",
+        "CPU, memory and network simulators are discrete-event simulation in disguise."
+      ]
+    }
+  }
+}

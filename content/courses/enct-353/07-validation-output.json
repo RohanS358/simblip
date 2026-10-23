@@ -8,7 +8,7 @@
       "locator": "7.1",
       "title": "Verification versus validation",
       "eyebrow": "Two questions",
-      "body": "<p><em class=\"term\">Verification</em>: is the model built <em>right</em>? — does the program faithfully implement the conceptual model (debugging, code walkthroughs, tracing, checking against hand calculations, simple cases with known answers)? <em class=\"term\">Validation</em>: is it the <em>right</em> model? — does it reproduce the real system’s behaviour closely enough for its purpose (comparing with real data, expert review, sensitivity analysis)? Naylor and Finger: build face-valid assumptions, test them, and compare the model’s output with the real system.</p>",
+      "body": "<p>You have built a simulator and it printed a number. Should you trust it? Two different questions hide in that one. <em class=\"term\">Verification</em> asks: is the model built <em>right</em>? Does the program faithfully implement the conceptual model? You check with debugging, code walkthroughs, tracing, hand calculations, and simple cases with known answers.</p><p><em class=\"term\">Validation</em> asks: is it the <em>right</em> model? Does it reproduce the real system’s behaviour closely enough for its purpose? You check by comparing with real data, expert review, and sensitivity analysis. Naylor and Finger: build face-valid assumptions, test them, and compare the model’s output with the real system. Verification checks the last step; validation checks the whole chain, as the figure says. A program that crashes on negative inputs is a verification problem: the code is not doing what it was meant to do.</p>",
       "questions": [
         {
           "id": "vvq",
@@ -48,6 +48,11 @@
           "note": "Verification checks the last step; validation checks the whole chain.",
           "script": "diagram(\"direction: right\\n[Real system] as r #blue\\n[Conceptual model] as c #violet\\n[Computer program] as p #mint\\nr -> c : modelling\\nc -> p : programming\\np --> c : VERIFICATION: same model?\\nc --> r : VALIDATION: same behaviour?\");"
         }
+      ],
+      "keynotes": [
+        "Verification asks whether the model is built right: does the program faithfully implement the conceptual model?",
+        "Validation asks whether it is the right model: does it reproduce the real system’s behaviour closely enough for its purpose?",
+        "Verification checks the last step; validation checks the whole chain."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "7.2",
       "title": "Calibration and sources of error",
       "eyebrow": "Fitting to reality",
-      "body": "<p><em class=\"term\">Calibration</em> adjusts model parameters until the output matches observed data, iterating between model and real system. Errors: wrong assumptions, wrong input distributions, sampling error, programming bugs, truncation. Techniques: the Turing-style test (can experts tell simulated output from real?), extreme-condition tests, sensitivity analysis (vary an input 10% — does the output change sensibly?).</p>",
+      "body": "<p>Even a verified model can be wrong in subtle ways. <em class=\"term\">Calibration</em> adjusts model parameters until the output matches observed data, iterating between model and real system. The errors you should watch for are wrong assumptions, wrong input distributions, sampling error, programming bugs and truncation.</p><p>You have a toolbox of tests: the Turing-style test (can experts tell simulated output from real?), extreme-condition tests, and sensitivity analysis. A sensitivity analysis varies an input (say by 10%) to see whether the output changes sensibly.</p>",
       "questions": [
         {
           "id": "sens",
@@ -87,6 +92,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Calibration adjusts model parameters until the output matches observed data.",
+        "Errors include wrong assumptions, wrong input distributions, sampling error, programming bugs and truncation.",
+        "Techniques: the Turing-style test, extreme-condition tests and sensitivity analysis (vary an input 10%)."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "8.1",
       "title": "Confidence intervals",
       "eyebrow": "How sure are we?",
-      "body": "<p>One run is a sample of size one. Simulation output is random, so report a <em class=\"term\">confidence interval</em> around the estimate: x̄ ± z·s/√n (or t for small n). A 95% interval means: if the experiment were repeated many times, about 95% of such intervals would contain the true mean. The demonstration builds 40 intervals from fresh samples; the coverage is <b>97.5%</b> (expected ≈ 95).</p>",
+      "body": "<p>One simulation run is a sample of size one. If you ran it again with a different seed, you would get a different answer. So you report a <em class=\"term\">confidence interval</em> around the estimate: x̄ ± z·s/√n (or t for small n).</p><p>A 95% interval means: if the experiment were repeated many times, about 95% of such intervals would contain the true mean. The demonstration builds 40 intervals from fresh samples; the coverage is <b>97.5%</b> (expected ≈ 95). Green bars contain μ and red ones miss. Try one: 20 replications give a mean wait of 12.0 min with standard deviation 3.0. The 95% half-width ≈ 1.96·3/√20 = ±1.31 (z), or ±1.40 using t₁₉ = 2.09 for small n. Doubling the number of replications narrows the interval by a factor of about 1/√2 ≈ 0.71.</p>",
       "worked": [
         {
           "toc": "Data",
@@ -152,6 +162,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "One run is a sample of size one, so report a confidence interval x̄ ± z·s/√n (or t for small n).",
+        "A 95% interval means about 95% of such intervals would contain the true mean; 40 intervals gave 97.5% coverage.",
+        "20 replications with mean 12.0 and standard deviation 3.0 give ±1.31 (z) or ±1.40 (t with 2.09)."
       ]
     },
     {
@@ -159,7 +174,7 @@
       "locator": "8.2",
       "title": "Why averages are normal: the central limit theorem",
       "eyebrow": "The justification",
-      "body": "<p>Whatever the shape of the population, the mean of n independent samples is approximately normal with standard deviation σ/√n. The exponential distribution (σ = 1) is very skewed, yet means of samples of 30 have standard deviation <b>0.184</b> against the theoretical <b>0.183</b>. This is why confidence intervals are valid for simulation averages.</p>",
+      "body": "<p>Why can we use a bell-curve interval when the underlying data is not bell-shaped at all? Because of the central limit theorem: whatever the shape of the population, the mean of n independent samples is approximately normal with standard deviation σ/√n.</p><p>See it with the exponential distribution (σ = 1), which is very skewed, yet means of samples of 30 have standard deviation <b>0.184</b> against the theoretical <b>0.183</b>. The histogram of sample means approaches the amber normal curve. This is why confidence intervals are valid for simulation averages. The standard deviation of sample means of size n is σ/√n.</p>",
       "questions": [
         {
           "id": "cltq",
@@ -205,6 +220,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Whatever the shape of the population, the mean of n independent samples is approximately normal with standard deviation σ/√n.",
+        "Means of 30 exponential samples (σ = 1) have standard deviation 0.184 against the theoretical 0.183.",
+        "This is why confidence intervals are valid for simulation averages."
       ]
     },
     {
@@ -212,7 +232,7 @@
       "locator": "8.3",
       "title": "Initial bias, replications and run length",
       "eyebrow": "Practical advice",
-      "body": "<p>A simulation starts empty (an empty queue), which is not typical, so early observations are biased — the <em class=\"term\">warm-up</em> or transient period. Remedies: discard an initial segment (Welch's graphical method decides how much), run long enough, or start in a representative state. Independent <em class=\"term\">replications</em> (different seeds) give independent estimates to average; <em class=\"term\">batch means</em> cut one long run into batches and treat batch means as nearly independent.</p>",
+      "body": "<p>When you open a shop on Monday morning, the queue is empty, which is not typical of a busy day. A simulation starts empty in just the same way, so early observations are biased. This is the <em class=\"term\">warm-up</em> or transient period.</p><p>You have remedies: discard an initial segment (Welch’s graphical method decides how much), run long enough, or start in a representative state. For averaging, independent <em class=\"term\">replications</em> (different seeds) give independent estimates, while <em class=\"term\">batch means</em> cut one long run into batches and treat batch means as nearly independent. The warm-up period is discarded to remove the bias from the unrepresentative starting state.</p>",
       "questions": [
         {
           "id": "warm",
@@ -251,6 +271,11 @@
           "prompt": "<p>A queue simulation starts empty. Why does its average wait underestimate the steady-state value if the first observations are included?</p>",
           "answer": "Early customers find an empty, short queue, so their waits are small; including them pulls the average down. Discarding a warm-up period removes that initial-condition bias."
         }
+      ],
+      "keynotes": [
+        "A simulation starts empty, so early observations are biased: the warm-up or transient period.",
+        "Remedies: discard an initial segment (Welch’s graphical method), run long enough, or start in a representative state.",
+        "Independent replications use different seeds; batch means cut one long run into nearly independent batches."
       ]
     },
     {
@@ -258,7 +283,11 @@
       "locator": "8.4",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Verify the code, validate the model, calibrate the parameters.</li><li>Report confidence intervals; discard warm-up; use replications or batch means.</li></ul>"
+      "body": "<p>Two lines to leave with.</p><ul><li>Verify the code, validate the model, calibrate the parameters.</li><li>Report confidence intervals; discard warm-up; use replications or batch means.</li></ul>",
+      "keynotes": [
+        "Verify the code, validate the model and calibrate the parameters.",
+        "Report confidence intervals, discard warm-up and use replications or batch means."
+      ]
     }
   ]
 }

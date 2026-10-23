@@ -1,0 +1,52 @@
+{
+  "subtitle": "The analog-computer idea, made digital: wire integrators, gains and sums into a diagram and let it run.",
+  "sections": {
+    "analog": {
+      "body": "<p>Before digital computers, engineers solved equations by wiring up electronics, as you might wire a circuit, so that the voltage <i>was</i> the answer. Those machines were <em class='term'>analog computers</em>: op-amp circuits wired as summers, gains and integrators, solving differential equations in real time. A <em class='term'>hybrid</em> computer paired analog parts with a digital controller.</p><p>The idea never died. Modern <em class='term'>continuous system simulation languages</em> (CSSLs, such as Simulink and Modelica) keep the same picture: a <em class='term'>block diagram</em> of integrators, gains and sums. Below is the simulator built into this notebook. An integrator fed a constant 2 ramps at 2 per second, so after 3 seconds it outputs 6.</p>",
+      "keynotes": [
+        "Analog computers wired op-amps as summers, gains and integrators to solve differential equations in real time; hybrid computers paired analog parts with a digital controller.",
+        "Continuous system simulation languages such as Simulink and Modelica keep the block-diagram picture of integrators, gains and sums.",
+        "An integrator fed a constant 2 ramps at 2 per second, giving 6 after 3 seconds."
+      ]
+    },
+    "from": {
+      "body": "<p>How do you turn an equation into a diagram? Here is a recipe you can follow every time. Solve the highest derivative, then integrate down. For y′ + y = u, rearrange to y′ = u − y: a sum forms u − y, an integrator gives y, and a feedback wire returns y to the sum. The figure draws that as a loop.</p><p>With a step input u = step(1), the steady state has y′ = 0, so y = u = 1. The system rises as 1 − e⁻ᵗ, with time constant τ = 1: about 63% (0.632) at t = 1 and 98% near t = 4. Why is there a feedback wire from y back to the sum? Because the equation says the rate of change depends on y itself.</p>",
+      "keynotes": [
+        "Solve for the highest derivative and integrate down: y′ + y = u becomes y′ = u − y, a sum, an integrator and a feedback wire.",
+        "The step response rises as y(t) = 1 − e⁻ᵗ with time constant 1 s.",
+        "About 63% (0.632) is reached at t = 1 and 98% near t = 4."
+      ]
+    },
+    "second": {
+      "body": "<p>Add a second integrator and, as you will see, the system can swing like a pendulum. A second-order plant 1/(s² + 2ζωₙs + ωₙ²) oscillates when the damping ratio ζ is less than 1. With ωₙ = 1 and ζ = 0.2, the step response overshoots by exp(−πζ/√(1−ζ²)) ≈ 52.7%: the simulator gives <b>52.7%</b> overshoot and settles at <b>0.9999</b>.</p><p>Remember the three regimes. ζ = 1 is critical damping, the fastest without overshoot; ζ &gt; 1 is sluggish. So a damping ratio of ζ = 0.2 means the response is underdamped: it overshoots and rings before settling, as the figure shows.</p>",
+      "keynotes": [
+        "A second-order plant 1/(s² + 2ζωₙs + ωₙ²) oscillates when the damping ratio ζ is less than 1.",
+        "With ωₙ = 1 and ζ = 0.2 the overshoot is exp(−πζ/√(1−ζ²)) ≈ 52.7% and the response settles at 0.9999.",
+        "ζ = 1 is critical damping (fastest without overshoot); ζ > 1 is sluggish."
+      ]
+    },
+    "loop": {
+      "body": "<p>Think of steering a car: you look at where you are, compare it with where you want to be, and turn the wheel by the difference. That is feedback control. The output is compared with a reference; the error drives a controller that drives the plant.</p><p>With proportional gain K around the plant 1/(s+1) the closed loop is y = K/(s+1+K) · r, so it settles at K/(1+K) of the reference. For K = 2 that is 2/3 ≈ <b>0.6667</b>, a permanent <em class='term'>steady-state error</em>. Why does proportional control alone leave an error? Because it only acts while there is an error, so at the end it needs one to keep pushing. Adding integral action removes it: a PI controller (kp = 2, ki = 1) settles at <b>0.9999</b>. Compare the two figures to see the integral action driving the error to zero.</p>",
+      "keynotes": [
+        "In feedback control the output is compared with a reference and the error drives a controller that drives the plant.",
+        "With proportional gain K around 1/(s+1) the closed loop settles at K/(1+K); K = 2 gives 0.6667, a permanent steady-state error.",
+        "A PI controller (kp = 2, ki = 1) removes the error and settles at 0.9999."
+      ]
+    },
+    "nonlin": {
+      "body": "<p>Real hardware is never as polite as the equations. Actuators saturate (a motor cannot push harder than its limit) and sensors have delays. Insert a saturation block that clips the output to ±1, and a sine of amplitude 3 becomes a flattened wave, as the figure shows: a first taste of distortion. Delays and saturation are why real systems need more care than their linear models, and it is why you should always test with limits switched on. A saturation block limits how large the output can be.</p>",
+      "keynotes": [
+        "Actuators saturate and sensors have delays.",
+        "A saturation block clips the output, here to ±1, so a sine of amplitude 3 becomes a flattened wave.",
+        "Delays and saturation are why real systems need more care than their linear models."
+      ]
+    },
+    "summary": {
+      "body": "<p>Two lines to carry forward.</p><ul><li>Solve for the highest derivative, integrate down, feed back.</li><li>ζ &lt; 1 overshoots; P alone leaves steady-state error; I removes it.</li></ul>",
+      "keynotes": [
+        "Solve for the highest derivative, integrate down and feed back.",
+        "ζ < 1 overshoots; P alone leaves steady-state error and I removes it."
+      ]
+    }
+  }
+}

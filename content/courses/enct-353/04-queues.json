@@ -8,7 +8,7 @@
       "locator": "4.1",
       "title": "Elements of a queue",
       "eyebrow": "Anatomy",
-      "body": "<p>A queueing system has an <em class=\"term\">arrival</em> process (calling population, inter-arrival times), a <em class=\"term\">queue</em> (capacity, discipline — FIFO, LIFO, priority) and one or more <em class=\"term\">servers</em> (service-time distribution). <em class=\"term\">Kendall’s notation</em> A/B/c/K/N/D describes it: M/M/1 = Markovian (Poisson) arrivals, Markovian (exponential) service, one server. Applications: banks, call centres, routers, CPUs, traffic.</p>",
+      "body": "<p>You have stood in a queue today, or you will. Behind every queue is the same anatomy. A queueing system has an <em class=\"term\">arrival</em> process (calling population, inter-arrival times), a <em class=\"term\">queue</em> (capacity, discipline: FIFO, LIFO, priority) and one or more <em class=\"term\">servers</em> (service-time distribution).</p><p>Engineers describe them with <em class=\"term\">Kendall’s notation</em> A/B/c/K/N/D. The classic one is M/M/1: Markovian (Poisson) arrivals, Markovian (exponential) service, one server. So the second “M” in M/M/1 stands for Markovian service times, exponentially distributed. Applications: banks, call centres, routers, CPUs, traffic.</p>",
       "questions": [
         {
           "id": "kend",
@@ -48,6 +48,11 @@
           "note": "The anatomy of an M/M/1 queue.",
           "script": "diagram(\"direction: right\\n(Arrivals, rate λ) as a\\n[Queue: FIFO, waiting customers] as q #amber\\n[Server, rate μ] as s #mint\\n(Departures) as d\\na -> q\\nq -> s\\ns -> d\\n@0 a -> q : customer\\n@1 q -> s : starts service\\n@2 s -> d : leaves\\nloop 4\");"
         }
+      ],
+      "keynotes": [
+        "A queueing system has an arrival process, a queue (capacity, discipline: FIFO, LIFO, priority) and one or more servers.",
+        "Kendall’s notation A/B/c/K/N/D describes it; M/M/1 means Markovian arrivals, Markovian service and one server.",
+        "Applications include banks, call centres, routers, CPUs and traffic."
       ]
     },
     {
@@ -55,7 +60,7 @@
       "locator": "4.2",
       "title": "M/M/1 in theory",
       "eyebrow": "The formulas",
-      "body": "<p>With arrival rate λ and service rate μ the <em class=\"term\">utilisation</em> is ρ = λ/μ, which must stay below 1. Then L (mean number in system) = ρ/(1−ρ), W (mean time in system) = 1/(μ−λ), Lq = ρ²/(1−ρ), Wq = ρ/(μ−λ), and Little’s law L = λW holds for any stable queue. At ρ = 0.5: L = 1. At ρ = 0.9: L = 9 — waiting explodes as utilisation approaches 100%.</p>",
+      "body": "<p>Here is a result that explains why you feel a nearly full shop is so slow. With arrival rate λ and service rate μ the <em class=\"term\">utilisation</em> is ρ = λ/μ, which must stay below 1. Then L (mean number in system) = ρ/(1−ρ), W (mean time in system) = 1/(μ−λ), Lq = ρ²/(1−ρ), Wq = ρ/(μ−λ), and Little’s law L = λW holds for any stable queue.</p><p>Feel the explosion. At ρ = 0.5: L = 1. At ρ = 0.9: L = 9. Waiting explodes as utilisation approaches 100%. Try λ = 0.8 customers/min and μ = 1 customer/min: ρ = 0.8, L = ρ/(1−ρ) = 4, W = 1/(1−0.8) = 5 min, and λW = 4, which agrees with Little’s law. As ρ → 1 the queue grows without bound.</p>",
       "worked": [
         {
           "toc": "Utilisation",
@@ -105,6 +110,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Utilisation ρ = λ/μ must stay below 1; then L = ρ/(1−ρ), W = 1/(μ−λ), Lq = ρ²/(1−ρ), Wq = ρ/(μ−λ).",
+        "Little’s law L = λW holds for any stable queue.",
+        "At ρ = 0.5, L = 1, but at ρ = 0.9, L = 9: waiting explodes as utilisation approaches 100%."
       ]
     },
     {
@@ -112,7 +122,7 @@
       "locator": "4.3",
       "title": "Simulating it",
       "eyebrow": "Does the simulation agree?",
-      "body": "<p>Generate exponential inter-arrival and service times, run the event loop, and measure. With λ = 0.5, μ = 1 (ρ = 0.5) over 4000 customers the simulated utilisation is <b>0.512</b> and average number in system <b>1.012</b> against theory ρ = 0.5, L = 1. At ρ = 0.9 the theory says L = 9 and the simulation gives about <b>11.148</b> — with much more noise.</p>",
+      "body": "<p>Do the formulas match reality? Let’s test them by simulation. Generate exponential inter-arrival and service times, run the event loop, and measure. With λ = 0.5, μ = 1 (ρ = 0.5) over 4000 customers the simulated utilisation is <b>0.512</b> and the average number in system <b>1.012</b>, against theory ρ = 0.5, L = 1. Close!</p><p>At ρ = 0.9 the theory says L = 9 and the simulation gives about <b>11.148</b>, with much more noise. In the figures, steps show the queue length over time, and near saturation the queue wanders to large values. Why is the ρ = 0.9 run noisier? Because long queues build up slowly and take a long time to drain, so any run is only a short sample of that wandering.</p>",
       "questions": [
         {
           "id": "noise",
@@ -191,6 +201,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "With λ = 0.5, μ = 1 over 4000 customers the simulated utilisation is 0.512 and the average number in system 1.012, against theory ρ = 0.5 and L = 1.",
+        "At ρ = 0.9 the theory says L = 9 and the simulation gives about 11.148, with much more noise.",
+        "Near saturation the queue wanders to large values."
       ]
     },
     {
@@ -198,7 +213,7 @@
       "locator": "4.4",
       "title": "Networks of queues",
       "eyebrow": "Many servers",
-      "body": "<p>Real systems chain queues: a customer visits several stations. In a tandem of M/M/1 queues, each behaves (Jackson's theorem) as an independent M/M/1 with the same arrival rate but its own μ, and the total time is the sum. More servers (M/M/c) share the load: the same λ with two half-speed servers behaves differently from one full-speed server.</p>",
+      "body": "<p>Real customers, you among them, visit several stations: reception, then the doctor, then the pharmacy. In a tandem of M/M/1 queues, each behaves (Jackson’s theorem) as an independent M/M/1 with the same arrival rate but its own μ, and the total time is the sum. More servers (M/M/c) share the load: the same λ with two half-speed servers behaves differently from one full-speed server.</p><p>Compute a tandem. Two M/M/1 stations in series, λ = 2/min, μ₁ = 4, μ₂ = 3. W₁ = 1/(4−2) = 0.5 min and W₂ = 1/(3−2) = 1 min, so the total is W = 0.5 + 1 = 1.5 min. In a tandem of two queues the total time in the system is the sum of the times at each station.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -242,6 +257,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "In a tandem of M/M/1 queues each behaves (Jackson’s theorem) as an independent M/M/1 with the same arrival rate but its own μ, and the total time is the sum.",
+        "With λ = 2/min, μ₁ = 4 and μ₂ = 3: W₁ = 0.5 min, W₂ = 1 min and the total is 1.5 min.",
+        "More servers (M/M/c) share the load."
       ]
     },
     {
@@ -249,7 +269,7 @@
       "locator": "4.5",
       "title": "Applications",
       "eyebrow": "Uses",
-      "body": "<p>Sizing a call-centre (how many agents keep waiting under 30 s), router buffers, CPU scheduling, hospital beds, checkout lanes. The simulator shows the danger zone: keep utilisation below about 70–80% if waiting matters.</p>",
+      "body": "<p>Queueing theory earns its keep in places you will actually work: sizing a call-centre (how many agents keep waiting under 30 s), router buffers, CPU scheduling, hospital beds, checkout lanes. The simulator shows the danger zone: keep utilisation below about 70–80% if waiting matters. Why do real systems avoid 100% utilisation? Because the formulas say the queue would grow without bound, as you saw.</p>",
       "questions": [
         {
           "id": "size",
@@ -281,6 +301,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "Queueing applies to call-centre sizing, router buffers, CPU scheduling, hospital beds and checkout lanes.",
+        "Keep utilisation below about 70–80% if waiting matters.",
+        "At 100% utilisation the queue would grow without bound."
       ]
     },
     {
@@ -288,7 +313,11 @@
       "locator": "4.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>ρ = λ/μ &lt; 1; L = ρ/(1−ρ); W = 1/(μ−λ); L = λW.</li><li>Simulation agrees with theory, with noise growing near ρ = 1.</li></ul>"
+      "body": "<p>The formulas to remember, and the lesson behind them.</p><ul><li>ρ = λ/μ &lt; 1; L = ρ/(1−ρ); W = 1/(μ−λ); L = λW.</li><li>Simulation agrees with theory, with noise growing near ρ = 1.</li></ul>",
+      "keynotes": [
+        "ρ = λ/μ < 1, L = ρ/(1−ρ), W = 1/(μ−λ) and L = λW.",
+        "Simulation agrees with theory, with noise growing near ρ = 1."
+      ]
     }
   ]
 }

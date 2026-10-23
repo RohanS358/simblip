@@ -1,0 +1,42 @@
+{
+  "title": "Random numbers and their tests",
+  "subtitle": "Computers cannot be random, so we build generators whose output passes every test for randomness we can think of.",
+  "sections": {
+    "props": {
+      "title": "What we need from a generator",
+      "body": "<p>We want numbers that look <em class=\"term\">uniformly distributed</em> on [0, 1) and <em class=\"term\">independent</em>. Practical needs: fast, reproducible (same seed, same stream — essential for debugging), a long <em class=\"term\">period</em> before repeating, and the ability to produce several independent streams. Since an algorithm produces them they are <em class=\"term\">pseudo-random</em>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "lcg": {
+      "title": "The linear congruential method",
+      "body": "<p>X<sub>n+1</sub> = (a·X<sub>n</sub> + c) mod m; U<sub>n</sub> = X<sub>n</sub>/m. With a = 5, c = 3, m = 16, X₀ = 7 the sequence is <b>7 6 1 8 11 10 5 12 15 14 9 0 3 2 13 4 7</b> — it visits all 16 values before repeating (<b>full period yes</b>). The Hull–Dobell theorem: full period m iff c and m are coprime, a−1 is divisible by every prime factor of m, and by 4 if m is divisible by 4. A poor choice (a = 4, c = 0, m = 16, X₀ = 1) cycles early: period <b>1</b>. A multiplicative (c = 0) generator can reach at most m−1.</p>",
+      "after": "",
+      "steps": "X₀ = 7, X₁ = (5·7 + 3) mod 16. X₂ = (5·6 + 3) mod 16."
+    },
+    "chi": {
+      "title": "Testing uniformity: χ² and Kolmogorov–Smirnov",
+      "body": "<p>The <em class=\"term\">chi-square test</em> splits [0,1) into k classes and compares observed counts Oᵢ with the expected n/k: χ² = Σ(Oᵢ − Eᵢ)²/Eᵢ; reject uniformity if it exceeds the critical value for k−1 degrees of freedom (14.07 for 8 classes at 5%). The <em class=\"term\">Kolmogorov–Smirnov</em> test compares the empirical CDF with the ideal diagonal: D = max gap, critical value ≈ 1.36/√n. Here χ² = <b>0</b> and D = <b>0.0625</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "other": {
+      "title": "Other tests: gap, poker, autocorrelation",
+      "body": "<p>Uniformity is not enough — the sequence 0.1, 0.2, 0.3… is uniform but not random. Tests of independence: the <em class=\"term\">gap test</em> (gaps between occurrences of a digit should be geometric), the <em class=\"term\">poker test</em> (frequencies of patterns such as all different, one pair, three of a kind), <em class=\"term\">runs tests</em> (lengths of ascending/descending runs), and <em class=\"term\">autocorrelation</em> (correlation between U<sub>i</sub> and U<sub>i+k</sub> should be near 0).</p>",
+      "after": "",
+      "steps": "Poker test on 3-digit groups: probability all three digits differ = 10·9·8/10³. Exactly one pair: 3·10·9/10³ = 0.27; all same 10/10³ = 0.01. Total 1.00."
+    },
+    "dist": {
+      "title": "Generating other distributions",
+      "body": "<p>Given U ~ Uniform(0,1): the <em class=\"term\">inverse transform</em> method sets X = F⁻¹(U). For the exponential with rate λ, F(x) = 1 − e^(−λx), so X = −ln(1−U)/λ. Others: <em class=\"term\">rejection</em> sampling, <em class=\"term\">composition</em> (mix distributions), <em class=\"term\">convolution</em> (sum of variables: Erlang = sum of exponentials). Discrete: divide [0,1) into intervals of the given probabilities.</p>",
+      "after": "",
+      "steps": "Generate an exponential(λ = 2) variate from U = 0.6. ln 0.4 = −0.916."
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>LCG: X ← (aX + c) mod m; full period needs Hull–Dobell.</li><li>Test uniformity (χ², KS) and independence (runs, gaps, autocorrelation).</li><li>Inverse transform: X = F⁻¹(U).</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

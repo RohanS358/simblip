@@ -1,0 +1,42 @@
+{
+  "title": "Continuous systems: feedback and block diagrams",
+  "subtitle": "The analog-computer idea, made digital: wire integrators, gains and sums into a diagram and let it run.",
+  "sections": {
+    "analog": {
+      "title": "Analog computers and block diagrams",
+      "body": "<p>Before digital machines, continuous models ran on <em class=\"term\">analog computers</em>: op-amp circuits wired as summers, gains and integrators, solving differential equations in real time. A <em class=\"term\">hybrid</em> computer paired analog parts with a digital controller. Modern <em class=\"term\">continuous system simulation languages</em> (CSSLs — Simulink, Modelica) keep the same picture: a <em class=\"term\">block diagram</em> of integrators, gains and sums. Below is the simulator built into this notebook.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "from": {
+      "title": "Turning an equation into a diagram",
+      "body": "<p>Solve the highest derivative, then integrate down. For y′ + y = u: y′ = u − y, so a sum forms u − y, an integrator gives y, and a feedback wire returns y to the sum. The first-order system responds to a step by rising as 1 − e⁻ᵗ, with time constant 1 s.</p>",
+      "after": "",
+      "steps": "y′ + y = u, u = step(1). Rearranged y′ = u − y. Steady state: y′ = 0, so y = u = 1. Time constant τ = 1: about 63% (0.632) at t = 1 and 98% near t = 4."
+    },
+    "second": {
+      "title": "Second-order systems: oscillation",
+      "body": "<p>A second-order plant 1/(s² + 2ζωₙs + ωₙ²) oscillates when the damping ratio ζ is less than 1. With ωₙ = 1 and ζ = 0.2 the step response overshoots by exp(−πζ/√(1−ζ²)) ≈ 52.7%: the simulator gives <b>52.7%</b> overshoot and settles at <b>0.9999</b>. ζ = 1 is critical damping (fastest without overshoot); ζ &gt; 1 is sluggish.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "loop": {
+      "title": "Feedback systems",
+      "body": "<p>In a <em class=\"term\">feedback control</em> system the output is compared with a reference; the error drives a controller that drives the plant. With proportional gain K around the plant 1/(s+1) the closed loop settles at K/(1+K) of the reference: K = 2 gives <b>0.6667</b> — a permanent <em class=\"term\">steady-state error</em>. Adding integral action removes it: a PI controller (kp = 2, ki = 1) settles at <b>0.9999</b>.</p>",
+      "after": "",
+      "steps": "Closed loop with gain K around 1/(s+1): y = K/(s+1+K) · r. Final value for a unit step: K/(1+K). For K = 2: 2/3 ≈ 0.667."
+    },
+    "nonlin": {
+      "title": "Nonlinear blocks and limits",
+      "body": "<p>Actuators saturate, sensors have delays. Insert a saturation block: output clipped to ±1. A sine of amplitude 3 becomes a flattened wave — a first taste of distortion. Delays and saturation are why real systems need more care than their linear models.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Solve for the highest derivative, integrate down, feed back.</li><li>ζ &lt; 1 overshoots; P alone leaves steady-state error; I removes it.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}
