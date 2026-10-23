@@ -154,10 +154,11 @@ export function SectionStrip() {
 }
 
 
-/** Whatever the teacher is pointing at glows: a pulsing amber ring that follows the object as the camera moves. */
+/** Whatever the teacher is pointing at glows: a red marker loop drawn around it that fades out, following the object as the camera moves. */
 export function PointerSpot() {
   const spot = useTutor((s) => s.spot)
   const [rects, setRects] = useState<Rect[]>([])
+  const spotKey = spot.join(',') // new target → remount → the marker draws again
 
   useEffect(() => {
     if (!spot.length) { setRects([]); return }
@@ -177,14 +178,16 @@ export function PointerSpot() {
 
   return (
     <>
-      {rects.map((r, i) => (
-        <div
-          key={i}
-          aria-hidden
-          className="lesson-spot pointer-events-none fixed z-[103] rounded-2xl"
-          style={{ left: r.left - 8, top: r.top - 8, width: r.width + 16, height: r.height + 16 }}
-        />
-      ))}
+      {rects.map((r, i) => {
+        const W = r.width + 16, H = r.height + 16, j = (k: number) => Math.sin((i + 1) * 7.3 + k * 12.9) * 3
+        // a hand-drawn loop: wobbly sides, ends overshooting the start like a teacher's marker
+        const d = `M ${10 + j(1)},${8 + j(2)} C ${W * 0.35},${2 + j(3)} ${W * 0.7},${10 + j(4)} ${W - 8},${6 + j(5)} C ${W + 2},${H * 0.3} ${W - 4},${H * 0.7} ${W - 6},${H - 6} C ${W * 0.65},${H + 2} ${W * 0.3},${H - 4} 6,${H - 8} C 0,${H * 0.7} 4,${H * 0.3} 8,12 L ${W * 0.3},${3 + j(6)}`
+        return (
+          <svg key={`${spotKey}-${i}`} aria-hidden className="lesson-spot pointer-events-none fixed z-[103]" style={{ left: r.left - 8, top: r.top - 8 }} width={W} height={H}>
+            <path d={d} pathLength={1} />
+          </svg>
+        )
+      })}
     </>
   )
 }

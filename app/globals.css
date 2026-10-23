@@ -1845,15 +1845,13 @@ html[data-keyboard='open'] .hide-with-keyboard {
   .study-notes-root .no-print { display: none !important; }
 }
 
-/* The thing the teacher is pointing at: a warm ring that breathes, with a soft halo. */
-.lesson-spot {
-  border: 3px solid #f59e0b;
-  background: color-mix(in oklch, #f59e0b 9%, transparent);
-  box-shadow: 0 0 0 6px color-mix(in oklch, #f59e0b 20%, transparent), 0 0 28px 4px color-mix(in oklch, #f59e0b 35%, transparent);
-  animation: lesson-spot 1.4s ease-in-out infinite;
+/* The thing the teacher is pointing at: a red marker loop drawn around it, then it fades away. */
+.lesson-spot { overflow: visible; animation: lesson-spot-fade 4.5s ease-in forwards; }
+.lesson-spot path {
+  fill: none; stroke: #e0312b; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0.88;
+  animation: lesson-spot-draw 0.9s cubic-bezier(0.45, 0.05, 0.3, 1) forwards;
 }
-@keyframes lesson-spot {
-  0%, 100% { box-shadow: 0 0 0 4px color-mix(in oklch, #f59e0b 22%, transparent), 0 0 18px 2px color-mix(in oklch, #f59e0b 28%, transparent); transform: scale(1); }
-  50% { box-shadow: 0 0 0 10px color-mix(in oklch, #f59e0b 12%, transparent), 0 0 34px 8px color-mix(in oklch, #f59e0b 42%, transparent); transform: scale(1.015); }
-}
-@media (prefers-reduced-motion: reduce) { .lesson-spot { animation: none; } }
+@keyframes lesson-spot-draw { to { stroke-dashoffset: 0; } }
+@keyframes lesson-spot-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lesson-spot path { animation: none; stroke-dashoffset: 0; } }
