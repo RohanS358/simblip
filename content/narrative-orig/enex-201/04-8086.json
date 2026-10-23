@@ -1,0 +1,42 @@
+{
+  "title": "8086: BIU, EU, segments and assembly",
+  "subtitle": "A 16-bit processor that fetches the next instruction while executing the current one — and reaches 1 MB with 16-bit registers.",
+  "sections": {
+    "split": {
+      "title": "BIU and EU",
+      "body": "<p>The 8086 is split into a <em class=\"term\">Bus Interface Unit</em> (BIU) that generates addresses, fetches instructions into a 6-byte <em class=\"term\">queue</em> and reads/writes memory, and an <em class=\"term\">Execution Unit</em> (EU) that decodes and executes from the queue. While the EU works on one instruction the BIU is already fetching the next: a two-stage pipeline. A jump empties the queue.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "regs": {
+      "title": "Registers",
+      "body": "<p>General registers AX, BX, CX, DX (each splits into high/low bytes AH/AL…), pointers SP, BP, and index registers SI, DI; segment registers CS, DS, SS, ES; instruction pointer IP; and a flag register with carry, parity, auxiliary carry, zero, sign, overflow and the control flags trap, interrupt, direction. CX often counts loops; BX is a base address; DX holds I/O ports.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "seg": {
+      "title": "Segmented memory: a 20-bit address from 16-bit registers",
+      "body": "<p>16-bit registers reach only 64 KB, yet the 8086 addresses 1 MB. Every address is a <b>segment:offset</b> pair; the physical address is segment × 16 + offset (shift the segment left 4 bits and add). Code is fetched from CS:IP, data from DS:offset, the stack from SS:SP. Many pairs name the same byte: 2000:0010 and 2001:0000 are both 20010H.</p>",
+      "after": "",
+      "steps": "Segment 2000H, offset 0050H. Physical = 2000H × 10H + 0050H. The same byte as 2005H:0000H, since 2005H × 10H = 20050H."
+    },
+    "modes": {
+      "title": "Addressing modes",
+      "body": "<p>Register (MOV AX,BX); immediate (MOV AX,1234H); direct (MOV AX,[2000H]); register indirect (MOV AX,[BX]); based (MOV AX,[BX+4]); indexed (MOV AX,[SI]); based-indexed (MOV AX,[BX+SI+8]). Memory operands default to the DS segment, except those using BP, which default to SS.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "asm": {
+      "title": "Assembly language, assembling and linking",
+      "body": "<p>An assembly statement has label, mnemonic, operands and a comment. Directives (<code>SEGMENT</code>, <code>DB</code>, <code>DW</code>, <code>ASSUME</code>, <code>END</code>) guide the assembler but emit no instructions. The tool chain: editor → assembler (.ASM → .OBJ; a <em class=\"term\">two-pass</em> assembler builds the symbol table on pass 1 and emits code on pass 2) → linker (.OBJ → .EXE) → run. DOS services through <code>INT 21H</code> (AH = 09H prints a string, 4CH terminates) and <code>INT 10H</code> (video).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "prog": {
+      "title": "A first 8086 program, traced with the 8085 engine",
+      "body": "<p>The same patterns — pointer, counter, loop, compare — apply on the 8086 with different mnemonics: <code>MOV CX,4</code>, <code>ADD AL,[SI]</code>, <code>INC SI</code>, <code>LOOP AGAIN</code> (decrements CX and jumps if non-zero). Practise the ideas on the simulator with the 8085 equivalent.</p>",
+      "after": "",
+      "steps": "8086 version of the same loop. MOV CX,3 / MOV SI,2050H / XOR AL,AL / AGAIN: ADD AL,[SI] / INC SI / LOOP AGAIN."
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "subtitle": "A 16-bit processor that fetches the next instruction while executing the current one, and reaches 1 MB with 16-bit registers.",
+  "sections": {
+    "split": {
+      "body": "<p>Imagine, as you read this, a kitchen where one cook prepares the dish while another already fetches the next ingredients. Nobody waits. That is how the 8086 works. It is split into a <em class='term'>Bus Interface Unit</em> (BIU) that generates addresses, fetches instructions into a 6-byte <em class='term'>queue</em> and reads/writes memory, and an <em class='term'>Execution Unit</em> (EU) that decodes and executes from the queue.</p><p>While the EU works on one instruction the BIU is already fetching the next: a two-stage pipeline, as the figure shows. The catch: a jump empties the queue, because the prefetched instructions are no longer the right ones. That is why a jump slows the 8086 down.</p>",
+      "keynotes": [
+        "The Bus Interface Unit generates addresses, fetches instructions into a 6-byte queue and reads and writes memory.",
+        "The Execution Unit decodes and executes from the queue, so fetch and execute overlap in a two-stage pipeline.",
+        "A jump empties the queue."
+      ]
+    },
+    "regs": {
+      "body": "<p>Here is the programmer’s view of the 8086, a cast of characters you will use constantly. General registers AX, BX, CX, DX, each of which splits into high and low bytes (AH/AL…). Pointers SP and BP, and index registers SI and DI. Segment registers CS, DS, SS, ES. The instruction pointer IP. And a flag register with carry, parity, auxiliary carry, zero, sign, overflow, and the control flags trap, interrupt and direction.</p><p>They have habits: CX often counts loops, BX is a base address, DX holds I/O ports. So AL is the low byte of AX, an 8-bit register you can use on its own.</p>",
+      "keynotes": [
+        "General registers AX, BX, CX, DX split into high and low bytes (AH/AL…); pointers are SP and BP, index registers SI and DI.",
+        "Segment registers are CS, DS, SS and ES; IP is the instruction pointer.",
+        "CX often counts loops, BX is a base address and DX holds I/O ports."
+      ]
+    },
+    "seg": {
+      "body": "<p>Here is the cleverest trick in the 8086, and you should enjoy it. 16-bit registers reach only 64 KB, yet the 8086 addresses 1 MB. How? Every address is a <b>segment:offset</b> pair, and the physical address is segment × 16 + offset (shift the segment left 4 bits and add). Code is fetched from CS:IP, data from DS:offset, the stack from SS:SP.</p><p>Work one out. Segment 2000H, offset 0050H: physical = 2000H × 10H + 0050H = 20000H + 0050H = 20050H. The same byte is 2005H:0000H, since 2005H × 10H = 20050H. Many pairs name the same byte: 2000:0010 and 2001:0000 are both 20010H. And for segment 3000H and offset 0100H, the physical address is 30000H + 0100H = 30100H.</p>",
+      "keynotes": [
+        "16-bit registers reach only 64 KB, yet the 8086 addresses 1 MB using segment:offset pairs.",
+        "Physical address = segment × 16 + offset; code is fetched from CS:IP, data from DS:offset and the stack from SS:SP.",
+        "Segment 2000H with offset 0050H gives 20050H, the same byte as 2005H:0000H."
+      ]
+    },
+    "modes": {
+      "body": "<p>You can reach an operand in many ways; here is the menu. Register (MOV AX,BX). Immediate (MOV AX,1234H). Direct (MOV AX,[2000H]). Register indirect (MOV AX,[BX]). Based (MOV AX,[BX+4]). Indexed (MOV AX,[SI]). Based-indexed (MOV AX,[BX+SI+8]).</p><p>Remember the default segment for memory operands: the DS segment, except those using BP, which default to SS. So the default segment register with [BP] is SS, the stack segment.</p>",
+      "keynotes": [
+        "Modes: register, immediate, direct, register indirect, based (MOV AX,[BX+4]), indexed (MOV AX,[SI]) and based-indexed (MOV AX,[BX+SI+8]).",
+        "Memory operands default to the DS segment, except those using BP, which default to SS.",
+        "With [BP] the default segment register is SS, the stack segment."
+      ]
+    },
+    "asm": {
+      "body": "<p>How does a text file become a program that runs? Through a tool chain that you will use constantly. An assembly statement has label, mnemonic, operands and a comment. Directives (<code>SEGMENT</code>, <code>DB</code>, <code>DW</code>, <code>ASSUME</code>, <code>END</code>) guide the assembler but emit no instructions.</p><p>The chain: editor → assembler (.ASM → .OBJ; a <em class='term'>two-pass</em> assembler builds the symbol table on pass 1 and emits code on pass 2) → linker (.OBJ → .EXE) → run. Why two passes? Because a label can be used before it is defined, so the assembler must first learn every label’s address. For services, use DOS <code>INT 21H</code> (AH = 09H prints a string, 4CH terminates) and <code>INT 10H</code> (video).</p>",
+      "keynotes": [
+        "An assembly statement has label, mnemonic, operands and a comment; directives (SEGMENT, DB, DW, ASSUME, END) guide the assembler but emit no instructions.",
+        "A two-pass assembler builds the symbol table on pass 1 and emits code on pass 2.",
+        "The tool chain is editor, assembler (.ASM → .OBJ), linker (.OBJ → .EXE), run; DOS services use INT 21H (AH = 09H prints a string, 4CH terminates) and INT 10H (video)."
+      ]
+    },
+    "prog": {
+      "body": "<p>Good news: the patterns you learned on the 8085 carry straight over. Pointer, counter, loop, compare, with different spellings: <code>MOV CX,4</code>, <code>ADD AL,[SI]</code>, <code>INC SI</code>, <code>LOOP AGAIN</code> (which decrements CX and jumps if non-zero). Practise the ideas on the simulator with the 8085 equivalent.</p><p>Here is the 8086 version of the same loop to sum three bytes: MOV CX,3 / MOV SI,2050H / XOR AL,AL / AGAIN: ADD AL,[SI] / INC SI / LOOP AGAIN. In the figure the three bytes are 0AH + 14H + 1EH = 3CH. The 8086 LOOP instruction decrements CX and jumps back while CX is not zero.</p>",
+      "keynotes": [
+        "The same patterns (pointer, counter, loop, compare) apply on the 8086 with different mnemonics.",
+        "LOOP AGAIN decrements CX and jumps if non-zero.",
+        "Summing three bytes gives 0AH + 14H + 1EH = 3CH."
+      ]
+    }
+  }
+}

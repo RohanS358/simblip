@@ -1,14 +1,14 @@
 {
   "title": "The stored-program computer and its buses",
   "kicker": "ENEX 201 · Microprocessors · Chapter 1",
-  "subtitle": "A processor, a memory and a few wires — and the one idea that made it programmable: instructions are data.",
+  "subtitle": "A processor, a memory and a few wires, and the one idea that made it programmable: instructions are data.",
   "sections": [
     {
       "id": "mp",
       "locator": "1.1",
       "title": "Microprocessor, microcomputer, microcontroller",
       "eyebrow": "Terms",
-      "body": "<p>A <em class=\"term\">microprocessor</em> is a CPU on one chip (ALU, registers, control). A <em class=\"term\">microcomputer</em> adds memory and I/O chips around it. A <em class=\"term\">microcontroller</em> puts CPU, memory, timers and I/O on a single chip — the heart of appliances and embedded devices. History in one line: 4004 (4-bit, 1971) → 8080/8085 (8-bit) → 8086 (16-bit) → 386 (32-bit) → 64-bit multicore.</p>",
+      "body": "<p>Say “computer” and you picture a box on a desk. But the same idea shrinks down to a speck inside your washing machine, and the names tell you how far it has shrunk. A <em class=\"term\">microprocessor</em> is a CPU on one chip (ALU, registers, control). A <em class=\"term\">microcomputer</em> adds memory and I/O chips around it. A <em class=\"term\">microcontroller</em> puts CPU, memory, timers and I/O on a single chip, the heart of appliances and embedded devices.</p><p>History in one line: 4004 (4-bit, 1971) → 8080/8085 (8-bit) → 8086 (16-bit) → 386 (32-bit) → 64-bit multicore. What distinguishes a microcontroller from a microprocessor? You will find memory and I/O on the same chip.</p>",
       "questions": [
         {
           "id": "mc",
@@ -40,6 +40,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "A microprocessor is a CPU on one chip; a microcomputer adds memory and I/O chips; a microcontroller puts CPU, memory, timers and I/O on a single chip.",
+        "History in one line: 4004 (4-bit, 1971), 8080/8085 (8-bit), 8086 (16-bit), 386 (32-bit), 64-bit multicore.",
+        "The microcontroller is the heart of appliances and embedded devices."
       ]
     },
     {
@@ -47,7 +52,7 @@
       "locator": "1.2",
       "title": "Von Neumann architecture",
       "eyebrow": "The idea",
-      "body": "<p>Program and data share one memory, one address space, one bus (von Neumann). The CPU fetches an instruction, then fetches its operands, all over the same bus — the “von Neumann bottleneck”. The <em class=\"term\">Harvard</em> architecture keeps separate memories and buses for code and data, so both can be fetched at once (microcontrollers, DSPs, caches).</p>",
+      "body": "<p>Here is the idea that made computers programmable, and you should know its name: a program is just data. In the von Neumann design, program and data share one memory, one address space and one bus. The CPU fetches an instruction, then fetches its operands, all over the same bus, and that single road is the famous “von Neumann bottleneck”.</p><p>The alternative is the <em class=\"term\">Harvard</em> architecture, which keeps separate memories and buses for code and data, so both can be fetched at once (microcontrollers, DSPs, caches). In the figure, instructions and operands compete for the same bus. Harvard differs from von Neumann in having separate memories and buses for code and data.</p>",
       "questions": [
         {
           "id": "harv",
@@ -87,6 +92,11 @@
           "note": "Instructions and operands compete for the same bus.",
           "script": "diagram(\"direction: right\\n[CPU: control + ALU + registers] as cpu #blue\\n[Memory: program + data] as mem #mint\\n[I/O devices] as io #amber\\ncpu -> mem : address bus\\nmem -> cpu : data bus (instructions and data)\\ncpu -> io : control bus\\n@0 cpu -> mem : address\\n@1.2 mem -> cpu : instruction\\n@2.4 cpu -> mem : address\\n@3.6 mem -> cpu : operand\\nloop 5\");"
         }
+      ],
+      "keynotes": [
+        "In the von Neumann machine program and data share one memory, one address space and one bus, creating the von Neumann bottleneck.",
+        "The Harvard architecture keeps separate memories and buses for code and data so both can be fetched at once.",
+        "Harvard is used in microcontrollers, DSPs and caches."
       ]
     },
     {
@@ -94,7 +104,7 @@
       "locator": "1.3",
       "title": "The three buses",
       "eyebrow": "Wires",
-      "body": "<p>The <em class=\"term\">address bus</em> (one-way, CPU → memory) selects a location; its width fixes the address space: n lines address 2ⁿ locations (the 8085’s 16 lines: 64 KB). The <em class=\"term\">data bus</em> (two-way) carries the value, its width the word size (8 bits). The <em class=\"term\">control bus</em> carries signals such as RD, WR, ALE and IO/M̅.</p>",
+      "body": "<p>A processor talks to memory over three bundles of wires, and you will see that each has a different job. The <em class=\"term\">address bus</em> (one-way, CPU → memory) selects a location; its width fixes the address space: n lines address 2ⁿ locations (the 8085’s 16 lines give 64 KB). The <em class=\"term\">data bus</em> (two-way) carries the value, and its width is the word size (8 bits). The <em class=\"term\">control bus</em> carries signals such as RD, WR, ALE and IO/M̅.</p><p>Try one. A processor has 20 address lines and an 8-bit data bus. Addressable memory = 2²⁰ bytes = 1 MB. Why is the address bus unidirectional? Because only the CPU decides which location to talk to; memory never chooses.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -145,6 +155,11 @@
           "prompt": "<p>How many address lines are needed to address 4 MB?</p>",
           "answer": "4 MB = 2²² bytes → <b>22</b> address lines."
         }
+      ],
+      "keynotes": [
+        "The address bus (one-way, CPU → memory) selects a location: n lines address 2ⁿ locations, and the 8085’s 16 lines give 64 KB.",
+        "The data bus (two-way) carries the value and its width is the word size (8 bits); the control bus carries signals such as RD, WR, ALE and IO/M̅.",
+        "20 address lines address 2²⁰ bytes = 1 MB."
       ]
     },
     {
@@ -152,7 +167,7 @@
       "locator": "1.4",
       "title": "Processing cycle",
       "eyebrow": "Fetch – decode – execute",
-      "body": "<p>The CPU repeatedly: puts the program counter on the address bus and reads the opcode (fetch), decodes it, reads any operands, executes it, updates the PC. Step the 8085 below and watch the program counter move and the registers change.</p>",
+      "body": "<p>The CPU does one thing, forever, like a reader who never stops reading. It puts the program counter on the address bus and reads the opcode (fetch), decodes it, reads any operands, executes it, and updates the PC. Step the 8085 below and watch the program counter move and the registers change; the highlighted line is the instruction about to run. The program counter holds the address of the next instruction to be fetched.</p>",
       "questions": [
         {
           "id": "pc",
@@ -198,6 +213,10 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "The CPU puts the program counter on the address bus and reads the opcode (fetch), decodes it, reads any operands, executes it and updates the PC.",
+        "The program counter holds the address of the next instruction to be fetched."
       ]
     },
     {
@@ -205,7 +224,7 @@
       "locator": "1.5",
       "title": "Memory classes",
       "eyebrow": "Storage",
-      "body": "<p>ROM holds the program permanently (boot code); RAM holds data that changes (static SRAM: fast, flip-flops; dynamic DRAM: denser, needs refresh). Flash/EEPROM are electrically rewritable. The system combines them in one address space: for instance ROM at 0000–1FFF, RAM at 2000–3FFF.</p>",
+      "body": "<p>Memory comes in two broad families, and a real system you build will use both. ROM holds the program permanently (boot code); RAM holds data that changes. RAM itself has two flavours: static SRAM, which is fast and built from flip-flops, and dynamic DRAM, which is denser and needs refresh. Flash and EEPROM are electrically rewritable.</p><p>The system combines them in one address space: for instance ROM at 0000–1FFF and RAM at 2000–3FFF. Why is ROM placed at the start of the address space in many 8085 systems? Because the 8085 begins running at address 0000H after reset, so the boot code must be there.</p>",
       "questions": [
         {
           "id": "ram",
@@ -237,6 +256,11 @@
             }
           ]
         }
+      ],
+      "keynotes": [
+        "ROM holds the program permanently; RAM holds data that changes: static SRAM is fast, dynamic DRAM is denser and needs refresh.",
+        "Flash and EEPROM are electrically rewritable.",
+        "A system combines them in one address space, for instance ROM at 0000–1FFF and RAM at 2000–3FFF."
       ]
     },
     {
@@ -244,7 +268,11 @@
       "locator": "1.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Stored program: code and data in the same memory.</li><li>Address lines fix memory size (2ⁿ); data lines fix word size.</li></ul>"
+      "body": "<p>Two lines to keep.</p><ul><li>Stored program: code and data in the same memory.</li><li>Address lines fix memory size (2ⁿ); data lines fix word size.</li></ul>",
+      "keynotes": [
+        "In a stored-program machine code and data sit in the same memory.",
+        "Address lines fix memory size (2ⁿ) and data lines fix word size."
+      ]
     }
   ]
 }

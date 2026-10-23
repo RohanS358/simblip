@@ -1,0 +1,42 @@
+{
+  "title": "The stored-program computer and its buses",
+  "subtitle": "A processor, a memory and a few wires — and the one idea that made it programmable: instructions are data.",
+  "sections": {
+    "mp": {
+      "title": "Microprocessor, microcomputer, microcontroller",
+      "body": "<p>A <em class=\"term\">microprocessor</em> is a CPU on one chip (ALU, registers, control). A <em class=\"term\">microcomputer</em> adds memory and I/O chips around it. A <em class=\"term\">microcontroller</em> puts CPU, memory, timers and I/O on a single chip — the heart of appliances and embedded devices. History in one line: 4004 (4-bit, 1971) → 8080/8085 (8-bit) → 8086 (16-bit) → 386 (32-bit) → 64-bit multicore.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "von": {
+      "title": "Von Neumann architecture",
+      "body": "<p>Program and data share one memory, one address space, one bus (von Neumann). The CPU fetches an instruction, then fetches its operands, all over the same bus — the “von Neumann bottleneck”. The <em class=\"term\">Harvard</em> architecture keeps separate memories and buses for code and data, so both can be fetched at once (microcontrollers, DSPs, caches).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "bus": {
+      "title": "The three buses",
+      "body": "<p>The <em class=\"term\">address bus</em> (one-way, CPU → memory) selects a location; its width fixes the address space: n lines address 2ⁿ locations (the 8085’s 16 lines: 64 KB). The <em class=\"term\">data bus</em> (two-way) carries the value, its width the word size (8 bits). The <em class=\"term\">control bus</em> carries signals such as RD, WR, ALE and IO/M̅.</p>",
+      "after": "",
+      "steps": "A processor has 20 address lines and an 8-bit data bus. Addressable memory = 2²⁰ bytes."
+    },
+    "cycle": {
+      "title": "Processing cycle",
+      "body": "<p>The CPU repeatedly: puts the program counter on the address bus and reads the opcode (fetch), decodes it, reads any operands, executes it, updates the PC. Step the 8085 below and watch the program counter move and the registers change.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "mem": {
+      "title": "Memory classes",
+      "body": "<p>ROM holds the program permanently (boot code); RAM holds data that changes (static SRAM: fast, flip-flops; dynamic DRAM: denser, needs refresh). Flash/EEPROM are electrically rewritable. The system combines them in one address space: for instance ROM at 0000–1FFF, RAM at 2000–3FFF.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "summary": {
+      "title": "Summary",
+      "body": "<ul><li>Stored program: code and data in the same memory.</li><li>Address lines fix memory size (2ⁿ); data lines fix word size.</li></ul>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

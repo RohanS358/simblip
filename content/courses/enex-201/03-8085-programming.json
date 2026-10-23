@@ -8,7 +8,7 @@
       "locator": "2.7",
       "title": "Your first program: add two numbers",
       "eyebrow": "Arithmetic",
-      "body": "<p>Memory holds 25H at 2050H and 17H at 2051H. Load HL with the address, fetch the first byte into A, step to the next, add it, step on, and store. Result <b>3CH</b> at 2052H (25H + 17H = 3CH). No carry, so CY = <b>0</b>.</p>",
+      "body": "<p>Time to make the chip do something. Your first program adds two numbers, and you can run it right now. Memory holds 25H at 2050H and 17H at 2051H. You load HL with the address, fetch the first byte into A, step to the next, add it, step on, and store. The result is <b>3CH</b> at 2052H (25H + 17H = 3CH), and since nothing overflowed, CY = <b>0</b>.</p><p>Watch HL walk along memory in the figure. And why INX H between the reads? To move the pointer from the first byte to the second one.</p>",
       "questions": [
         {
           "id": "inx",
@@ -56,6 +56,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Memory holds 25H at 2050H and 17H at 2051H; HL points to the data, A takes the first byte and the second is added.",
+        "The result 3CH is stored at 2052H and CY = 0.",
+        "INX H moves the pointer to the next byte between the reads."
       ]
     },
     {
@@ -63,7 +68,7 @@
       "locator": "2.8",
       "title": "Loops and conditions",
       "eyebrow": "Repeating",
-      "body": "<p>A loop is a counter, a body and a conditional jump back. Sum 5+4+3+2+1: B counts down, A accumulates, <code>JNZ LOOP</code> repeats while the zero flag is clear. Result <b>0FH</b> (15), and on exit Z = <b>1</b>.</p>",
+      "body": "<p>Computers shine at repetition, and a loop is simply a counter, a body and a conditional jump back. Let’s sum 5+4+3+2+1: B counts down, A accumulates, and <code>JNZ LOOP</code> repeats while the zero flag is clear. The result is <b>0FH</b> (15), and on exit Z = <b>1</b>.</p><p>Unroll it to see the arithmetic: A = 0, then add B = 5, 4, 3, 2, 1, so 0 + 5 + 4 + 3 + 2 + 1 = 15 = 0FH. In the figure, DCR sets Z when B reaches 0, and JNZ then falls through. JNZ LOOP jumps when the zero flag is not set, so while B has not reached zero.</p>",
       "worked": [
         {
           "toc": "Trace",
@@ -121,6 +126,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "A loop is a counter, a body and a conditional jump back.",
+        "Summing 5+4+3+2+1 with B counting down, A accumulating and JNZ LOOP gives 0FH (15), and on exit Z = 1.",
+        "JNZ jumps while the zero flag is clear."
       ]
     },
     {
@@ -128,7 +138,7 @@
       "locator": "2.9",
       "title": "Comparison and branching",
       "eyebrow": "Decisions",
-      "body": "<p>CMP r compares A with r without changing A: Z = 1 if equal, CY = 1 if A &lt; r. This program stores the larger of two numbers at 2052H: 25H vs 17H → <b>25H</b>. Decision-making is always “set flags, then conditional jump”.</p>",
+      "body": "<p>How does a processor decide anything? It sets flags, then jumps. That is the whole of decision-making. CMP r compares A with r without changing A: Z = 1 if equal, CY = 1 if A &lt; r.</p><p>Use it to find the larger of two numbers. This program stores the larger of 25H and 17H at 2052H, which is <b>25H</b>. As the figure says, CMP sets carry when A &lt; B. So after CMP B, CY = 1 exactly when A is less than B. Remember the pattern: set flags, then conditional jump.</p>",
       "questions": [
         {
           "id": "cy",
@@ -174,6 +184,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "CMP r compares A with r without changing A: Z = 1 if equal, CY = 1 if A < r.",
+        "The example stores the larger of 25H and 17H, which is 25H, at 2052H.",
+        "Decision-making is always set flags, then conditional jump."
       ]
     },
     {
@@ -181,7 +196,7 @@
       "locator": "2.10",
       "title": "Arrays and table processing",
       "eyebrow": "Memory blocks",
-      "body": "<p>Sum four bytes at 2050H–2053H: HL points to the array, C counts four, A accumulates. Result <b>0AH</b> at 2060H (1+2+3+4 = 10 = 0AH). This “pointer + counter + loop” pattern handles any block.</p>",
+      "body": "<p>Real data comes in blocks, and the pattern for handling them is one you will use for life: pointer, counter, loop. Sum four bytes at 2050H–2053H: HL points to the array, C counts four, A accumulates. The result is <b>0AH</b> at 2060H (1+2+3+4 = 10 = 0AH). Four passes through the loop, as the figure shows. In the array loop, it is INX H that moves the pointer along; this pattern handles any block.</p>",
       "questions": [
         {
           "id": "ptr",
@@ -228,6 +243,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "Sum four bytes at 2050H–2053H: HL points to the array, C counts four and A accumulates.",
+        "The result 0AH (1+2+3+4 = 10) is stored at 2060H.",
+        "The pattern pointer + counter + loop handles any block."
       ]
     },
     {
@@ -235,7 +255,7 @@
       "locator": "2.11",
       "title": "BCD arithmetic and DAA",
       "eyebrow": "Decimal on binary hardware",
-      "body": "<p>In BCD each decimal digit occupies a nibble. Adding 38 and 45 in plain binary gives 7DH, not the BCD 83. <code>DAA</code> (decimal adjust accumulator) fixes it: add 6 to a nibble above 9 or with auxiliary carry. Here 38H + 45H = 7DH → DAA → <b>83H</b> (= 83 decimal).</p>",
+      "body": "<p>Here is a puzzle: add 38 and 45 on a binary machine and you do not get 83. In BCD each decimal digit occupies a nibble. Adding 38H and 45H in plain binary gives 7DH, not the BCD 83. The fix is the instruction <code>DAA</code> (decimal adjust accumulator): it adds 6 to a nibble above 9 or with auxiliary carry. Here 38H + 45H = 7DH → DAA → <b>83H</b> (= 83 decimal).</p><p>Step past ADI and again past DAA in the figure and watch the accumulator change. So DAA turns a binary sum of BCD digits into a correct BCD result.</p>",
       "questions": [
         {
           "id": "daa",
@@ -300,6 +320,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "In BCD each decimal digit occupies a nibble.",
+        "Adding 38 and 45 in plain binary gives 7DH, not the BCD 83.",
+        "DAA adds 6 to a nibble above 9 or with auxiliary carry, so 38H + 45H = 7DH becomes 83H."
       ]
     },
     {
@@ -307,7 +332,7 @@
       "locator": "2.12",
       "title": "Subroutines and the stack",
       "eyebrow": "Reuse",
-      "body": "<p>CALL pushes the return address on the stack (SP decreases by 2) and jumps; RET pops it. Always initialise SP first (LXI SP,…). PUSH/POP save registers around a call. The stack grows downward in memory.</p>",
+      "body": "<p>Good programs are built from reusable pieces, called subroutines. CALL pushes the return address on the stack (SP decreases by 2) and jumps; RET pops it. Always initialise SP first (LXI SP,…), or the return address will land somewhere you did not intend. PUSH and POP save registers around a call. The stack grows downward in memory.</p><p>In the figure you can see that after CALL, SP has dropped by 2, and after RET it is restored. After CALL, then, the stack pointer is lower by 2 than before.</p>",
       "questions": [
         {
           "id": "sp",
@@ -352,6 +377,11 @@
             }
           }
         }
+      ],
+      "keynotes": [
+        "CALL pushes the return address on the stack (SP decreases by 2) and jumps; RET pops it.",
+        "Always initialise SP first (LXI SP,…); PUSH and POP save registers around a call.",
+        "The stack grows downward in memory."
       ]
     }
   ]

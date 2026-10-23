@@ -1,0 +1,42 @@
+{
+  "title": "8085 assembly programming",
+  "subtitle": "Write it, assemble it, single-step it. Every program below runs in the simulator with real opcodes, flags and T-states.",
+  "sections": {
+    "first": {
+      "title": "Your first program: add two numbers",
+      "body": "<p>Memory holds 25H at 2050H and 17H at 2051H. Load HL with the address, fetch the first byte into A, step to the next, add it, step on, and store. Result <b>3CH</b> at 2052H (25H + 17H = 3CH). No carry, so CY = <b>0</b>.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "loop": {
+      "title": "Loops and conditions",
+      "body": "<p>A loop is a counter, a body and a conditional jump back. Sum 5+4+3+2+1: B counts down, A accumulates, <code>JNZ LOOP</code> repeats while the zero flag is clear. Result <b>0FH</b> (15), and on exit Z = <b>1</b>.</p>",
+      "after": "",
+      "steps": "Unroll the loop: A = 0, then add B = 5, 4, 3, 2, 1. 0 + 5 + 4 + 3 + 2 + 1 = 15 = 0FH."
+    },
+    "cmp": {
+      "title": "Comparison and branching",
+      "body": "<p>CMP r compares A with r without changing A: Z = 1 if equal, CY = 1 if A &lt; r. This program stores the larger of two numbers at 2052H: 25H vs 17H → <b>25H</b>. Decision-making is always “set flags, then conditional jump”.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "arr": {
+      "title": "Arrays and table processing",
+      "body": "<p>Sum four bytes at 2050H–2053H: HL points to the array, C counts four, A accumulates. Result <b>0AH</b> at 2060H (1+2+3+4 = 10 = 0AH). This “pointer + counter + loop” pattern handles any block.</p>",
+      "after": "",
+      "steps": ""
+    },
+    "bcd": {
+      "title": "BCD arithmetic and DAA",
+      "body": "<p>In BCD each decimal digit occupies a nibble. Adding 38 and 45 in plain binary gives 7DH, not the BCD 83. <code>DAA</code> (decimal adjust accumulator) fixes it: add 6 to a nibble above 9 or with auxiliary carry. Here 38H + 45H = 7DH → DAA → <b>83H</b> (= 83 decimal).</p>",
+      "after": "",
+      "steps": ""
+    },
+    "sub": {
+      "title": "Subroutines and the stack",
+      "body": "<p>CALL pushes the return address on the stack (SP decreases by 2) and jumps; RET pops it. Always initialise SP first (LXI SP,…). PUSH/POP save registers around a call. The stack grows downward in memory.</p>",
+      "after": "",
+      "steps": ""
+    }
+  }
+}

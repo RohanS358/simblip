@@ -1,0 +1,61 @@
+{
+  "subtitle": "Connecting real chips to the bus so the processor reaches each one at exactly the right address.",
+  "sections": {
+    "decode": {
+      "body": "<p>Imagine a street where every house must answer only its own number. If two houses answered at once, you would hear nonsense. A processor’s bus is that street. Each memory or I/O chip has a chip-select input; <em class='term'>address decoding</em> turns the high address lines into select signals so exactly one chip responds. <em class='term'>Full (unique) decoding</em> uses all the high lines, so each location has one address. <em class='term'>Partial (non-unique) decoding</em> ignores some, so the chip appears at several addresses, with simpler hardware. Decoders (74LS138 3-to-8) or NAND gates generate the selects.</p><p>Work one out. An 8 KB RAM (2000H–3FFFH) on an 8085: 8 KB = 2¹³, so A0–A12 go to the chip. The range 2000H–3FFFH has A15A14A13 = 001, so those three lines drive the decoder. Why must decoding ensure only one chip responds? Otherwise two chips would drive the bus at once and corrupt the data.</p>",
+      "keynotes": [
+        "Address decoding turns the high address lines into chip-select signals so exactly one chip responds.",
+        "Full decoding uses all the high lines (one address per location); partial decoding ignores some, so the chip appears at several addresses.",
+        "An 8 KB RAM at 2000H–3FFFH uses A0–A12 on the chip and A15A14A13 = 001 for the select."
+      ]
+    },
+    "map": {
+      "body": "<p>Where do you put a keyboard or a display in the address map? There are two answers. In <em class='term'>memory-mapped</em> I/O a device lives in the memory address space, so ordinary instructions (MOV, LDA, STA) access it, at the cost of memory addresses. In <em class='term'>I/O-mapped</em> (isolated) I/O a separate 256-port space is reached by IN and OUT with the IO/M̅ line high, and the memory map stays free. On the 8085, an I/O-mapped device is accessed with IN and OUT.</p>",
+      "keynotes": [
+        "In memory-mapped I/O a device lives in the memory address space and ordinary instructions (MOV, LDA, STA) access it, at the cost of memory addresses.",
+        "In I/O-mapped I/O a separate 256-port space is reached by IN and OUT with the IO/M̅ line high, and the memory map stays free.",
+        "On the 8085 an I/O-mapped device is accessed with IN and OUT."
+      ]
+    },
+    "ppi": {
+      "body": "<p>For a beginner’s first real project, the chip you will meet is the 8255 PPI, which gives you three 8-bit ports (A, B, C) programmed through a control word. Mode 0: simple input/output. Mode 1: strobed I/O with handshake. Mode 2: bidirectional. Handshaking means the device signals “data ready”, the processor reads and acknowledges, which is needed when the two run at different speeds.</p><p>Build the control word for: port A output, port B input, port C output, Mode 0. D7 = 1 (mode set), D6–D5 = 00, D4 = 0 (A out), D3 = 0 (C upper out), D2 = 0, D1 = 1 (B in), D0 = 0 (C lower out), so 10000010₂ = 82H. Why use handshaking? So no data is lost when the sender and receiver run at different speeds.</p>",
+      "keynotes": [
+        "The 8255 gives three 8-bit ports (A, B, C) programmed through a control word: Mode 0 simple I/O, Mode 1 strobed I/O with handshake, Mode 2 bidirectional.",
+        "Handshaking is needed when the device and processor run at different speeds.",
+        "The control word for port A output, port B input, port C output in Mode 0 is 10000010₂ = 82H."
+      ]
+    },
+    "serial": {
+      "body": "<p>Sometimes you only have one wire to spare. Serial transmission sends bits one after another. <em class='term'>Asynchronous</em>: each character is framed by a start bit (0) and stop bit(s) (1) so the receiver re-synchronises every byte. <em class='term'>Synchronous</em>: a continuous block with a shared clock or sync characters, which is more efficient. RS-232 defines voltage levels and a 9/25-pin connector; USB is the modern serial bus; the 8251 USART does the conversion.</p><p>Do the arithmetic. A link at 9600 baud sends 8 data bits, no parity, 1 stop bit (8N1). Bits per character = 1 start + 8 data + 1 stop = 10, so characters per second = 9600/10 = 960. Efficiency = 8/10 = 80%. The start bit exists so the receiver can find the beginning of each character and synchronise its clock.</p>",
+      "keynotes": [
+        "Asynchronous serial frames each character with a start bit (0) and stop bit(s) (1); synchronous sends a continuous block with a shared clock or sync characters.",
+        "RS-232 defines voltage levels and a 9/25-pin connector; the 8251 USART does the conversion.",
+        "At 9600 baud with 8N1 (10 bits per character) the link moves 960 characters/s, an efficiency of 80%."
+      ]
+    },
+    "int": {
+      "body": "<p>You can wait for a letter by staring at the letterbox (polling), or the postman can ring your bell (an <em class='term'>interrupt</em>). The second leaves the CPU free to do useful work. The 8085 has five hardware interrupts in priority order: TRAP (non-maskable), RST7.5, RST6.5, RST5.5 and INTR. Each RST has a fixed vector (RST7.5 → 003CH, 6.5 → 0034H, 5.5 → 002CH, TRAP → 0024H).</p><p>EI/DI enable and disable maskable interrupts; SIM/RIM set and read the masks. The processing steps: finish the instruction, push PC, jump to the vector, run the service routine, RET/EI. The interrupted program continues unaware. The interrupt that cannot be masked is TRAP.</p>",
+      "keynotes": [
+        "An interrupt lets the device ask for attention so the CPU does useful work meanwhile, unlike polling.",
+        "The 8085 has five hardware interrupts in priority order: TRAP (non-maskable), RST7.5, RST6.5, RST5.5 and INTR, with vectors RST7.5 → 003CH, 6.5 → 0034H, 5.5 → 002CH and TRAP → 0024H.",
+        "Processing: finish the instruction, push PC, jump to the vector, run the service routine, RET/EI; SIM/RIM set and read the masks."
+      ]
+    },
+    "8086": {
+      "body": "<p>The 8086 gives you a whole phone directory of interrupts. It supports 256 interrupt types. Type <i>n</i> has a 4-byte entry (IP then CS) at address 4n in the <em class='term'>interrupt vector table</em>, occupying 0000H–03FFH. The sources are hardware (NMI type 2, INTR with type from the PIC), software (<code>INT n</code>) and exceptions (divide error type 0, single-step type 1, breakpoint type 3, overflow type 4). The 8259 PIC prioritises up to 8 (cascaded, 64) devices.</p><p>Where is the vector for interrupt type 21H? Address = 4 × 21H = 84H; the four bytes at 0084H–0087H hold IP then CS of the handler. One 8086 interrupt vector occupies four bytes.</p>",
+      "keynotes": [
+        "The 8086 supports 256 interrupt types; type n has a 4-byte entry (IP then CS) at address 4n in the interrupt vector table at 0000H–03FFH.",
+        "Sources are hardware (NMI type 2, INTR), software (INT n) and exceptions (divide error 0, single-step 1, breakpoint 3, overflow 4).",
+        "The vector for type 21H is at 4 × 21H = 84H, with bytes at 0084H–0087H."
+      ]
+    },
+    "adv": {
+      "body": "<p>Finally, you can look up from the 8085 and 8086 to see where the field is going. Accumulator-based machines (8085) route every result through A; register-based machines (8086 and later) use many registers. Hardwired control is fast; microprogrammed control is flexible. RISC (few simple instructions, pipelined) versus CISC (many complex ones). Multitasking needs protection and memory management support.</p><p>And a digital signal processor adds hardware multiply–accumulate and Harvard buses for real-time filtering. So the operation DSPs optimise above all is multiply–accumulate.</p>",
+      "keynotes": [
+        "Accumulator-based machines (8085) route every result through A; register-based machines (8086 and later) use many registers.",
+        "Hardwired control is fast and microprogrammed control is flexible; RISC has few simple pipelined instructions and CISC many complex ones.",
+        "A digital signal processor adds hardware multiply–accumulate and Harvard buses for real-time filtering."
+      ]
+    }
+  }
+}
