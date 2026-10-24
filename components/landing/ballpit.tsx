@@ -726,6 +726,10 @@ const Ballpit = ({ className = '', followCursor = false, ...props }) => {
     let disposed = false;
     const raf = requestAnimationFrame(() => {
       if (disposed) return;
+      // Probe on a throwaway canvas: three.js console.error()s on failure
+      // (tripping the Next dev overlay) before it throws, so bail out first.
+      const probe = document.createElement('canvas');
+      if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) return;
       try {
         spheresInstanceRef.current = createBallpit(canvas, { followCursor , ...props });
       } catch (err) {
