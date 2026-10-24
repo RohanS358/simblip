@@ -60,15 +60,32 @@ function Anchor({ rect, children, className }: { rect: Rect | null; children: Re
   return <div style={style} className={cn('pointer-events-auto fixed z-[105] flex -translate-x-1/2 flex-col gap-2.5', className)}>{children}</div>
 }
 
-/** The caption writes itself out as the voice speaks. The unspoken part keeps its space (so the
- *  box does not jump) but is invisible; a caret marks the pen. */
+/** The caption comes in word by word as the voice reaches each one (BlurText-style: blur + lift
+ *  settle with a spring). Unspoken words keep their space so the box does not jump. */
 function Typed({ text, spoken }: { text: string; spoken: number }) {
-  const n = Math.max(0, Math.min(text.length, spoken))
+  let at = 0
+  const parts = text.split(/(\s+)/).map((w, i) => {
+    const start = at
+    at += w.length
+    return { w, i, on: start < spoken }
+  })
   return (
     <p className="text-ui-lg font-medium leading-relaxed text-foreground">
-      <span>{text.slice(0, n)}</span>
-      {n < text.length && <span className="ml-px inline-block h-[1.05em] w-[2px] translate-y-[0.15em] animate-pulse bg-[var(--accent-blue)]" aria-hidden />}
-      <span className="opacity-0" aria-hidden>{text.slice(n)}</span>
+      <span aria-hidden>{parts.map(({ w, i, on }) =>
+        /^\s+$/.test(w) ? w : (
+          <motion.span
+            key={i}
+            className="inline-block"
+            initial={false}
+            animate={on ? { opacity: 1, filter: 'blur(0px)', y: 0 } : { opacity: 0, filter: 'blur(6px)', y: -8 }}
+            transition={on
+              ? { opacity: { duration: 0.3, ease: [0.33, 1, 0.68, 1] }, filter: { duration: 0.3 }, y: { type: 'spring', visualDuration: 0.3, bounce: 0.3 } }
+              : { duration: 0 }}
+          >
+            {w}
+          </motion.span>
+        ),
+      )}</span>
       <span className="sr-only">{text}</span>
     </p>
   )
