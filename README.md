@@ -8,6 +8,14 @@ Designed and developed by **Rohan Singh**.
 
 🌐 **Website:** [simblip.rohan-singh.com.np](https://simblip.rohan-singh.com.np) · 📖 [Documentation](https://simblip.rohan-singh.com.np/docs)
 
+## Demo
+
+<video src="https://github.com/RohanS358/simblip/raw/master/docs/media/simblip-promo.mp4" poster="https://github.com/RohanS358/simblip/raw/master/docs/media/simblip-promo-poster.jpg" controls muted width="100%"></video>
+
+[![SIMBLIP — watch the 2½-minute demo](docs/media/simblip-promo-poster.jpg)](docs/media/simblip-promo.mp4)
+
+*Video not playing? Click the image to open it. Demo film by Rohan Singh.*
+
 ---
 
 ## What it does
