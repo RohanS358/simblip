@@ -138,7 +138,9 @@ function ModelRow({ tier, recommended }: { tier: Tier; recommended: boolean }) {
 
 const INVITE_KEY = 'simblip-ai-device-invite-dismissed'
 
-export function AiEngineStrip() {
+/** `chip`: only the quiet where-it-runs button (it lives under the composer); otherwise only the banners above it
+ *  (downloading, error, invitations), which need room and attention. */
+export function AiEngineStrip({ chip = false }: { chip?: boolean }) {
   const caps = useProbe()
   const { state, tier, progress, tps, accel, error, prefill } = useEngine()
   const backend = useEnginePrefs((s) => s.backend)
@@ -157,7 +159,7 @@ export function AiEngineStrip() {
   const rec = caps.recommended
   const busy = state === 'downloading' || state === 'loading'
 
-  if (busy && tier) {
+  if (!chip && busy && tier) {
     const m = MODELS[tier]
     return (
       <div className="mb-1.5 rounded-lg border border-border/60 bg-card/50 p-2">
@@ -182,7 +184,7 @@ export function AiEngineStrip() {
     )
   }
 
-  if (state === 'error' && error) {
+  if (!chip && state === 'error' && error) {
     return (
       <div className="mb-1.5 rounded-lg border border-[var(--accent-rose)]/40 bg-[var(--accent-rose)]/5 p-2 text-ui-xs">
         <p className="text-[var(--accent-rose)]">{error}</p>
@@ -194,7 +196,7 @@ export function AiEngineStrip() {
   }
 
   // No model on this device yet, and this device can run one: offer it.
-  if (route.where !== 'device' && rec && backend !== 'server' && !dismissed && cached.length === 0) {
+  if (!chip && route.where !== 'device' && rec && backend !== 'server' && !dismissed && cached.length === 0) {
     const m = MODELS[rec]
     return (
       <div className="relative mb-1.5 rounded-lg border border-border/60 bg-[color-mix(in_oklch,var(--accent-violet)_6%,var(--card))] p-2.5">
@@ -224,7 +226,7 @@ export function AiEngineStrip() {
 
   // Standard on a plain CPU reads a prompt at a crawl. Say so, and offer the fix,
   // instead of leaving the user to wonder whether it hung.
-  if (tier === 'standard' && accel === 'cpu' && (state === 'ready' || state === 'generating') && cached.includes('standard')) {
+  if (!chip && tier === 'standard' && accel === 'cpu' && (state === 'ready' || state === 'generating') && cached.includes('standard')) {
     return (
       <div className="mb-1.5 rounded-lg border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/5 p-2 text-ui-xs">
         <p className="font-medium">Standard is running on the CPU here</p>
@@ -243,24 +245,24 @@ export function AiEngineStrip() {
     )
   }
 
-  // Steady state: a quiet status pill that opens the model manager.
+  // Steady state: a quiet status button that opens the model manager.
+  if (!chip) return null
   const device = route.where === 'device'
+  const statusLine = device
+    ? `On this device · ${MODELS[route.tier].label}${accel ? ` · ${accel === 'webgpu' ? 'GPU' : 'CPU'}` : ''}${prefill !== null ? ` · reading ${Math.round(prefill * 100)}%` : state === 'generating' && tps ? ` · ${tps.toFixed(0)} tok/s` : state === 'unloaded' ? ' · asleep' : ''}`
+    : route.where === 'blocked'
+      ? 'On-device model not downloaded'
+      : 'Server'
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="mb-1.5 flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-ui-2xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-          title="Where the assistant runs"
+          aria-label="Where the assistant runs"
+          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+          title={`Where the assistant runs: ${statusLine}`}
         >
-          {device ? <Zap className="h-3 w-3 shrink-0 text-[var(--accent-mint)]" /> : <Server className="h-3 w-3 shrink-0" />}
-          <span className="truncate">
-            {device
-              ? `On this device · ${MODELS[route.tier].label}${accel ? ` · ${accel === 'webgpu' ? 'GPU' : 'CPU'}` : ''}${prefill !== null ? ` · reading ${Math.round(prefill * 100)}%` : state === 'generating' && tps ? ` · ${tps.toFixed(0)} tok/s` : state === 'unloaded' ? ' · asleep' : ''}`
-              : route.where === 'blocked'
-                ? 'On-device model not downloaded'
-                : 'Server'}
-          </span>
+          {device ? <Zap className="h-3.5 w-3.5 text-[var(--accent-mint)]" /> : <Server className="h-3.5 w-3.5" />}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-3">

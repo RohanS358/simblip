@@ -49,6 +49,7 @@ import { readFile } from '@/lib/storage/opfs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PanelHeader } from './panel-header'
+import { RecallCard } from './recall-card'
 import {
   eventColor,
   NOTE_COLORS,
@@ -616,6 +617,7 @@ export function NotesGallery() {
             }}
             className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 outline-none"
           >
+            <RecallCard />
             {notes.length === 0 ? (
               <p className="px-1 py-6 text-center text-ui-xs leading-relaxed text-muted-foreground">
                 Press <Plus className="inline h-3 w-3 align-[-2px]" /> for a sticky note, or click

@@ -34,8 +34,7 @@ import { createDeck } from '@/lib/ai/make-deck'
 import { streamAi, useServerOnce } from '@/lib/ai/transport'
 import { getTool } from '@/lib/tools/registry'
 import { AiEngineStrip, useRoute } from './ai-engine'
-import { RecallStrip } from './recall-strip'
-import { ComposerPlus, ContextMeter, ModeMenu } from './ai-composer-bar'
+import { ComposerPlus, ContextMeter, LearnMenu, ModeMenu } from './ai-composer-bar'
 import { useEngine } from '@/lib/ai/engine/store'
 import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
@@ -140,6 +139,13 @@ const QUICK_ACTIONS = [
   { label: 'Plot a quantity', prompt: 'Plot a useful quantity from this simulation over time.' },
 ]
 
+const TEACHER_HINTS = [
+  'Ask the teacher about this page…',
+  'Why does this happen?',
+  'Explain the formula on this page',
+  'Walk me through this step by step',
+]
+
 /** "today" / "3d" / "2w" — enough to find a thread, short enough for a row. */
 function relativeDay(ts: number): string {
   const days = Math.floor((Date.now() - ts) / 86_400_000)
@@ -199,6 +205,16 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   useEffect(() => {
     try { setTeacher(localStorage.getItem('simblip.assistant.teacher') === '1') } catch { /* private mode */ }
   }, [])
+  // The suggestions that used to sit under the box rotate through the placeholder instead, while it is empty.
+  const [hintAt, setHintAt] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setHintAt((i) => i + 1), 4200)
+    return () => clearInterval(id)
+  }, [])
+  const hint = teacher ? undefined : QUICK_ACTIONS[hintAt % QUICK_ACTIONS.length]
+  const placeholder = teacher
+    ? TEACHER_HINTS[hintAt % TEACHER_HINTS.length]
+    : `Try “${hint!.label.toLowerCase()}” — Tab to use`
   const toggleTeacher = useCallback(() => {
     setTeacher((v) => {
       try { localStorage.setItem('simblip.assistant.teacher', v ? '0' : '1') } catch { /* private mode */ }
@@ -729,7 +745,6 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             toggle ran off the right edge. The Select takes the full row and
             the toggle drops beneath it instead. */}
         <AiEngineStrip />
-        <RecallStrip />
         <PromptInput
           value={input}
           onValueChange={setInput}
@@ -738,7 +753,11 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           className="border-border/60 bg-card/60"
         >
           <PromptInputTextarea
-            placeholder={teacher ? 'Ask the teacher about this page…' : auto ? 'Describe it — I’ll build it straight away' : 'Describe a simulation…'}
+            placeholder={placeholder}
+            onKeyDown={(e) => {
+              // Tab takes the suggestion on show, so the examples are still one keystroke away.
+              if (e.key === 'Tab' && !e.shiftKey && !input && hint) { e.preventDefault(); setInput(hint.prompt) }
+            }}
             className="text-ui-sm"
           />
           <PromptInputActions className="justify-between gap-1.5 pt-1.5">
@@ -809,8 +828,12 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         </PromptInput>
         {/* Under the box, like the Claude app: the mode on the left, the model and the context ring on the right. */}
         <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
-          <ModeMenu auto={auto} onChange={setAuto} />
+          <div className="flex min-w-0 items-center">
+            <ModeMenu auto={auto} onChange={setAuto} />
+            <LearnMenu />
+          </div>
           <div className="flex min-w-0 items-center gap-0.5">
+            <AiEngineStrip chip />
           {route.where === 'server' && models.models.length > 0 && (
             // The app's own Select, not a native <select>: a native one paints
             // the OS menu, which looks nothing like every other dropdown in
@@ -853,28 +876,6 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
               attachments={attachments}
             />
           </div>
-        </div>
-        {/* Quick actions sit UNDER the composer and stay put mid-conversation —
-            SUGGESTIONS above only ever show on an empty thread. Clicking one
-            fills the box rather than sending, so the prompt can be edited
-            first; that's the difference between a shortcut and a trapdoor. */}
-        {/* One scrolling line, not a wrapping block: four labels wrapped to two
-            rows and cost the conversation twice the vertical space these
-            shortcuts are worth. Borderless too — four outlined pills under an
-            outlined composer read as another control surface rather than as
-            the quiet suggestions they are. */}
-        <div className="no-scrollbar -mx-0.5 mt-1.5 flex items-center gap-1 overflow-x-auto px-0.5">
-          {QUICK_ACTIONS.map((a) => (
-            <button
-              key={a.label}
-              type="button"
-              disabled={busy}
-              onClick={() => setInput(a.prompt)}
-              className="shrink-0 whitespace-nowrap rounded-full px-2 py-[3px] text-ui-2xs text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent/60 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40"
-            >
-              {a.label}
-            </button>
-          ))}
         </div>
       </div>
     </div>

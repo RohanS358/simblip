@@ -4,11 +4,12 @@
 // a mode menu, and a context ring that opens a panel showing exactly what the next message will carry.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, FileText, GraduationCap, Paperclip, Plus, Sparkle, Zap } from 'lucide-react'
+import { Check, ChevronDown, FileText, GraduationCap, Lightbulb, MessageSquareText, Paperclip, Plus, Sparkle, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { buildPanelContext } from '@/lib/ai/panel-context'
+import { useLearner } from '@/lib/learning/store'
 import { useAiChat, type ChatAttachment } from '@/lib/store/ai-chat'
 import { useDocStore } from '@/lib/store/document'
 import type { PageKind } from '@/lib/scene/types'
@@ -197,5 +198,39 @@ export function ContextMeter({ pageId, pageKind, useContext, onUseContext, teach
         )}
       </PopoverContent>
     </Popover>
+  )
+}
+
+/** Learn / Answer: whether the assistant gives hints first or the answer straight away. Explicit, never inferred. */
+export function LearnMenu() {
+  const mode = useLearner((s) => s.prefs.mode)
+  const setPrefs = useLearner((s) => s.setPrefs)
+  const rows = [
+    { v: 'learn', label: 'Learn', hint: 'Hints first, never the bare answer', Icon: Lightbulb },
+    { v: 'answer', label: 'Answer', hint: 'Direct answers, for quick checks', Icon: MessageSquareText },
+  ] as const
+  const cur = rows.find((r) => r.v === mode) ?? rows[0]
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-ui-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+          <cur.Icon className="h-3 w-3" />
+          {cur.label}
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="top" className="w-64">
+        {rows.map(({ v, label, hint, Icon }) => (
+          <DropdownMenuItem key={v} onSelect={() => setPrefs({ mode: v })} className="items-start">
+            <Icon className="mt-0.5" />
+            <span className="flex-1">
+              {label}
+              <span className="block text-ui-2xs text-muted-foreground">{hint}</span>
+            </span>
+            {mode === v && <Check className="mt-0.5" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
