@@ -58,7 +58,7 @@ import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnosti
 import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat'
 import { useAiReference } from '@/lib/store/ai-reference'
 import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
-import { buildPanelContext, buildPageContext } from '@/lib/ai/panel-context'
+import { buildPanelContext, buildPageContext, loadBriefItems, READ_KINDS } from '@/lib/ai/panel-context'
 import { verifyScene } from '@/lib/scene/verify-scene'
 import type { PageDoc } from '@/lib/scene/types'
 import { applyPlan } from '@/lib/ai/apply-ops'
@@ -427,7 +427,10 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         // The page the user is looking at, digested. Sent only when the
         // context chip is on — the toggle is what makes this visible rather
         // than the assistant silently reading their work.
-        const ctx = useContext ? buildPanelContext(pageId, pageKind) : null
+        // A document, deck or PDF is read into passages first, so the brief can pick the ones this question needs.
+        const items = useContext && READ_KINDS.has(pageKind) ? await loadBriefItems().catch(() => undefined) : undefined
+        const { stats: _stats, ...ctx } = (useContext ? buildPanelContext(pageId, pageKind, prompt, items) : null) ?? ({} as Record<string, never>)
+        void _stats
         // The panel does not care WHERE the model runs — on this device or on
         // the server — only that events arrive in the same shape.
         let lane: string = 'simulate'
@@ -439,7 +442,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           prompt: withAttachments(prompt, sent),
           ...(model ? { model } : {}),
           ...(teacher ? { teacher: true } : {}),
-          ...(ctx ?? {}),
+          ...ctx,
           // What was said before, so "add a graph to that" resolves. Read at
           // send time rather than from the render closure: the turn we just
           // added is already in the store, and a stale closure would silently

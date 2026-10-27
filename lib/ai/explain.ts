@@ -14,6 +14,7 @@
 // Output lands in the notebook as text/note/formula objects, so an answer is
 // an ordinary editable page — not a chat bubble that vanishes.
 
+import { tidyReply } from '@/lib/ai/brief/reply'
 import { EXPLAIN_TOKENS, type SimScriptGenerator } from './generate'
 import { checkArithmetic, type ArithmeticFix } from './arithmetic'
 
@@ -286,6 +287,8 @@ export async function explain(
     generator: SimScriptGenerator
     onToken?: (chunk: string) => void
     systemPrompt?: string
+    /** id → name of what is on the page, so ids the model quotes become words. */
+    names?: Record<string, string>
   }
 ): Promise<ExplainResult> {
   const raw = await opts.generator.generate(
@@ -301,7 +304,7 @@ export async function explain(
   // digits — so recompute every completed substitution and correct the ones
   // that are provably wrong. See lib/ai/arithmetic.ts for why this is a
   // calculator rather than a better prompt.
-  const { markdown, fixes } = checkArithmetic(cleanAnswer(raw))
+  const { markdown, fixes } = checkArithmetic(cleanAnswer(tidyReply(raw, opts.names)))
   return {
     markdown,
     blocks: toAnswerBlocks(markdown),

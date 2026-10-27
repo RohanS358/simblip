@@ -17,6 +17,8 @@ export interface OpenPage {
   reading: PageReading
   /** The sheet a lesson about it is drawn beside. */
   lessonPage: string
+  /** Sheets or slides, in order — to say "slide 3" rather than an id. */
+  sheetIds: string[]
 }
 
 /** Read the open page. A string is the reason it cannot be read. */
@@ -39,5 +41,5 @@ export async function readOpenPage(): Promise<OpenPage | string> {
     reading = readPage({ title: node.name, kind, sheets, flow: useDocStore.getState().pages[nodeId]?.flow, flowPageId: sheetIds[0] ?? nodeId })
   }
   const lessonPage = kind === 'board' || kind === 'pdf' ? nodeId : (ws.activeSheetId ?? sheetIds[0] ?? nodeId)
-  return { nodeId, name: node.name, kind, reading, lessonPage }
+  return { nodeId, name: node.name, kind, reading, lessonPage, sheetIds }
 }

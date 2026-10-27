@@ -7,15 +7,13 @@
 import { z } from 'zod'
 import { teachMaterial } from '@/lib/lesson/generate'
 import { readOpenPage } from '@/lib/lesson/open-page'
+import { briefPage } from '@/lib/ai/brief/page-brief'
+import { READ_KINDS } from '@/lib/ai/panel-context'
+import { useDocStore } from '@/lib/store/document'
+import type { PageKind } from '@/lib/scene/types'
 import { wantsBrief } from '@/lib/lesson/solve'
 import { defineTool, ok } from './types'
 import { registerTool } from './registry'
-
-/** The page as plain lines for the model, most useful first, capped well under the planner's input budget. */
-function pageText(name: string, items: { kind: string; text: string }[]): string {
-  const lines = items.map((it) => `[${it.kind}] ${it.text}`.replace(/\s+/g, ' ').trim())
-  return `Page: ${name}\n${lines.join('\n')}`.slice(0, 7500)
-}
 
 export const teachAsk = registerTool(
   defineTool({
@@ -27,7 +25,18 @@ export const teachAsk = registerTool(
     input: z.object({ question: z.string().min(2).max(600) }),
     async run({ question }) {
       const page = await readOpenPage()
-      const text = typeof page === 'string' || !page.reading.items.length ? '' : pageText(page.name, page.reading.items)
+      // The page, told in words and cut to what THIS question needs (lib/ai/brief/page-brief.ts) — not the first 7,500 characters.
+      const text =
+        typeof page === 'string' || !page.reading.items.length
+          ? ''
+          : briefPage({
+              title: page.name,
+              kind: page.kind,
+              doc: useDocStore.getState().pages[page.lessonPage],
+              items: READ_KINDS.has(page.kind as PageKind) ? page.reading.items.map((it) => ({ kind: it.kind, text: it.text, ids: it.ids, live: it.live, locator: it.pdfPage ? `p. ${it.pdfPage}` : undefined })) : undefined,
+              question,
+              budget: 7_500,
+            }).text
       const brief = wantsBrief(question)
       void teachMaterial({ text: text || `The student has no readable page open. Answer from general knowledge: ${question}`, request: question, mode: 'ask', brief })
       return ok(text ? 'Looking at your page and working out how to explain it — it starts in a moment.' : 'Working out how to explain that — it starts in a moment.', { pageRead: Boolean(text) })

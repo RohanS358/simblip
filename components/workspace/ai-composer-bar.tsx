@@ -8,7 +8,8 @@ import { Check, ChevronDown, FileText, GraduationCap, Lightbulb, MessageSquareTe
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { buildPanelContext } from '@/lib/ai/panel-context'
+import { buildPanelContext, loadBriefItems, READ_KINDS } from '@/lib/ai/panel-context'
+import type { BriefItem } from '@/lib/ai/brief/page-brief'
 import { useLearner } from '@/lib/learning/store'
 import { useAiChat, type ChatAttachment } from '@/lib/store/ai-chat'
 import { useDocStore } from '@/lib/store/document'
@@ -111,27 +112,34 @@ export function ContextMeter({ pageId, pageKind, useContext, onUseContext, teach
     const id = setInterval(() => setTick((t) => t + 1), 1200)
     return () => clearInterval(id)
   }, [open])
+  // A document, deck or PDF is read (asynchronously) while the panel is open; a board is read straight from the page.
+  const [items, setItems] = useState<BriefItem[] | undefined>()
+  useEffect(() => {
+    if (!open || !useContext || !READ_KINDS.has(pageKind)) return
+    let live = true
+    void loadBriefItems().then((r) => { if (live) setItems(r) }).catch(() => {})
+    return () => { live = false }
+  }, [open, useContext, pageKind, pageId, tick])
   const turns = useAiChat((s) => s.turns)
   const selection = useDocStore((s) => s.selection)
 
   const report = useMemo(() => {
     void tick
     void selection
-    const ctx = useContext ? buildPanelContext(pageId, pageKind) : null
+    const ctx = useContext ? buildPanelContext(pageId, pageKind, draft, items) : null
     const history = turns.filter((t) => t.status === 'ok')
     const rows: { label: string; detail: string; chars: number }[] = []
     if (ctx) {
-      rows.push({ label: ctx.hasSelection ? 'Selected objects' : 'Page contents', detail: ctx.pageLabel, chars: ctx.pageDigest.length })
-      if (ctx.pageSurface) rows.push({ label: 'Space to work in', detail: 'viewport and free area', chars: ctx.pageSurface.length })
-      const ids = Object.keys(ctx.pageObjects).length
-      rows.push({ label: 'Objects', detail: `${ids} object${ids === 1 ? '' : 's'} (kinds and parameter names only)`, chars: JSON.stringify(ctx.pageObjects).length })
+      const st = ctx.stats
+      rows.push({ label: ctx.hasSelection ? 'Selection and page' : 'Page summary', detail: st.items > st.shown ? `${st.shown} of ${st.items} parts, best matches for your question in full` : `${st.items} part${st.items === 1 ? '' : 's'}`, chars: ctx.pageDigest.length })
+      if (ctx.pageSurface) rows.push({ label: 'Space to build in', detail: 'sent with the system prompt', chars: ctx.pageSurface.length })
     }
     if (history.length) rows.push({ label: 'Earlier messages', detail: `${history.length} turn${history.length === 1 ? '' : 's'}`, chars: history.slice(-3).reduce((n, t) => n + t.prompt.length + (t.answer?.length ?? 0), 0) })
     if (attachments.length) rows.push({ label: 'Attachments', detail: attachments.map((a) => a.name).join(', '), chars: attachments.reduce((n, a) => n + a.text.length, 0) })
     if (draft.trim()) rows.push({ label: 'Your message', detail: 'being typed', chars: draft.length })
     const total = rows.reduce((n, r) => n + r.chars, 0)
     return { ctx, rows, total }
-  }, [tick, selection, useContext, pageId, pageKind, turns, attachments, draft])
+  }, [tick, selection, useContext, pageId, pageKind, turns, attachments, draft, items])
 
   const BUDGET = 12_000 // characters: the page digest alone is capped at 8000, the rest is history and files
   const frac = Math.min(1, report.total / BUDGET)
@@ -191,7 +199,7 @@ export function ContextMeter({ pageId, pageKind, useContext, onUseContext, teach
             </button>
             {showText && (
               <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words border-t bg-muted/40 px-3 py-2 font-mono text-[11px] leading-relaxed">
-                {[report.ctx.pageSurface && `# Space\n${report.ctx.pageSurface}`, report.ctx.pageDigest && `# ${report.ctx.pageLabel}\n${report.ctx.pageDigest}`].filter(Boolean).join('\n\n')}
+                {[report.ctx.pageDigest && `# ${report.ctx.pageLabel}\n${report.ctx.pageDigest}`, report.ctx.pageSurface && `# Space (system prompt)\n${report.ctx.pageSurface}`].filter(Boolean).join('\n\n')}
               </pre>
             )}
           </div>
