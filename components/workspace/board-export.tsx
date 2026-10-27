@@ -85,6 +85,29 @@ function Seg<T extends string | number>({
   )
 }
 
+/** foreignObject rasterizing can't reach blob:/opfs-backed <img>s (they come
+ *  out blank), so swap each for an inline data URL before the capture. */
+async function inlineImages(root: HTMLElement): Promise<void> {
+  await Promise.all(
+    [...root.querySelectorAll('img')].map(async (img) => {
+      if (!img.src || img.src.startsWith('data:')) return
+      try {
+        const blob = await (await fetch(img.src)).blob()
+        const data = await new Promise<string>((res, rej) => {
+          const r = new FileReader()
+          r.onload = () => res(r.result as string)
+          r.onerror = () => rej(r.error)
+          r.readAsDataURL(blob)
+        })
+        img.src = data
+        await img.decode().catch(() => {})
+      } catch {
+        // unreachable image: leave it, the rest of the board still exports
+      }
+    })
+  )
+}
+
 export function BoardExportPanel({ pageId }: { pageId: string }) {
   const pageName = useWorkspaceStore((s) => s.nodes[pageId]?.name) ?? 'whiteboard'
   const gridPref = usePrefs((s) => s.notebook.grid)
@@ -117,6 +140,7 @@ export function BoardExportPanel({ pageId }: { pageId: string }) {
       await new Promise((r) => setTimeout(r, 700))
       const el = document.getElementById('board-export-stage')
       if (!el) throw new Error('Export failed to start')
+      await inlineImages(el)
       const { default: html2canvas } = await import('html2canvas-pro')
       const canvas = await html2canvas(el, {
         scale: Math.min(scale, MAX_SIDE / Math.max(box.w, box.h)),
