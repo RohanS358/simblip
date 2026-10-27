@@ -523,7 +523,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
               // makes one — build it now. Gated on wantsSlides so an ordinary
               // derivation still just answers; the manual "Make slides" action
               // stays for turning any answer into a deck.
-              if (data.blocks?.length && wantsSlides(prompt)) {
+              if (data.blocks?.length && wantsSlides(forced ? forced.prompt : prompt)) {
                 makeSlides({ id: turnId, prompt, blocks: data.blocks })
               }
             } else {
@@ -1098,7 +1098,7 @@ function Turn({
                 </span>
               </div>
             ))}
-            {turn.toolSteps.some((st) => st.ok && getTool(st.name)?.effect === 'write') && (
+            {turn.toolSteps.some((st) => st.ok && getTool(st.name)?.effect === 'write' && !st.name.startsWith('life.') && !st.name.startsWith('learn.')) && (
               <button
                 type="button"
                 onClick={onUndo}

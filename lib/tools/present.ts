@@ -15,6 +15,11 @@ const LABELS: Record<string, string> = {
   'page.list': 'Listing your pages',
   'page.open': 'Opening a page',
   'page.create': 'Creating a page',
+  'life.note': 'Pinning a note',
+  'life.todo': 'Adding a to-do',
+  'life.event': 'Adding an event',
+  'life.remind': 'Setting a reminder',
+  'learn.cards.create': 'Making a flash card',
   'learn.cards.next': 'Finding your next card',
 }
 

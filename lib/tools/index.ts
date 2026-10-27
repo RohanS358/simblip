@@ -13,6 +13,7 @@ import './teach-page'
 import './teach-material'
 import './teach-ask'
 import './teach-course'
+import './life'
 
 export { listTools, getTool, runTool, toolSpecs, toolSchema, setToolGenerator } from './registry'
 export { activeContext } from './context'

@@ -31,7 +31,7 @@ const LEVEL: Record<Level, string> = {
   exam: 'The student is revising for an exam: be precise, name the formula and say what marks are given for.',
 }
 
-const SCENES = `"scene": ONE sentence that draws the situation with the question's REAL numbers, for any step where a picture helps. The simulator can draw electric circuits (battery, resistor, capacitor, inductor, diode, op-amp, logic gates), mechanics (masses, springs, pendulums, inclines, projectiles, collisions), optics, waves, and CASH-FLOW DIAGRAMS for engineering economics (e.g. "cash flow diagram: pay 10000 at year 0, receive 3000 each year for years 1 to 5, interest 8%"). Omit it when no picture would help.`
+const SCENES = `"scene": ONE sentence that draws the situation with the question's REAL numbers, for any step where a picture helps. The simulator can draw electric circuits (battery, resistor, capacitor, inductor, diode, op-amp, logic gates), mechanics (masses, springs, pendulums, inclines, projectiles, collisions), optics, waves, and CASH-FLOW DIAGRAMS for engineering economics — but ONLY when the question itself is about money, interest or investment, and then with ITS numbers, never invented ones. A mechanics question gets a mechanics scene (e.g. "a 2 kg block on a frictionless incline of 30 degrees"). Omit it when no picture would help.`
 
 export const solveSystem = (level: Level, brief: boolean) => `You are a teacher solving a problem on a board for a student, step by step. Reply with JSON only: {"title":"…","steps":[{"heading":"…","say":["…"],"scene":"…","equation":"…"}]}
 

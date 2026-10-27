@@ -20,13 +20,21 @@ export interface Command {
   /** One line, shown in the menu. */
   summary: string
   /** A group in the menu. */
-  group: 'Teach' | 'Ask' | 'Build' | 'Run' | 'Notebook' | 'Help'
+  group: 'Teach' | 'Ask' | 'Make' | 'Build' | 'Run' | 'Notebook' | 'Help'
   /** Takes text after it (required unless `optionalArg`). */
   arg?: 'required' | 'optional'
+  /** Returns a plain-language problem with the text after the command, if any. */
+  check?: (arg: string) => string | undefined
   plan: (arg: string) => CommandPlan
 }
 
 const tool = (t: string, args: Record<string, unknown> = {}): CommandPlan => ({ kind: 'tool', tool: t, args })
+
+/** "front | back" → a card. Without a "|" there is no answer to store, so the tool asks for one. */
+const recall = (a: string): CommandPlan => {
+  const [front, ...rest] = a.split('|')
+  return tool('learn.cards.create', { conceptId: 'chat', front: front.trim(), back: rest.join('|').trim() })
+}
 
 export const COMMANDS: Command[] = [
   { name: 'teach', usage: '/teach <topic>', summary: 'A narrated, animated lesson on any topic', group: 'Teach', arg: 'required', plan: (a) => tool('teach.lesson', { topic: a }) },
@@ -37,6 +45,12 @@ export const COMMANDS: Command[] = [
   { name: 'explain', usage: '/explain <question>', summary: 'A written explanation, no simulation', group: 'Ask', arg: 'required', plan: (a) => ({ kind: 'lane', intent: 'explain', prompt: a }) },
   { name: 'build', usage: '/build <description>', summary: 'Build a simulation on the page', group: 'Build', arg: 'required', plan: (a) => ({ kind: 'lane', intent: 'simulate', prompt: a }) },
   { name: 'edit', usage: '/edit <change>', summary: 'Change what is already on the page', group: 'Build', arg: 'required', plan: (a) => ({ kind: 'lane', intent: 'edit', prompt: a }) },
+  { name: 'slides', usage: '/slides <topic>', summary: 'Write a slide deck on a topic', group: 'Make', arg: 'required', plan: (a) => ({ kind: 'lane', intent: 'explain', prompt: `Make slides on ${a}` }) },
+  { name: 'notes', usage: '/notes <text>', summary: 'Pin a sticky note in your Note Gallery', group: 'Make', arg: 'required', plan: (a) => tool('life.note', { text: a }) },
+  { name: 'todo', usage: '/todo <task>', summary: 'Add a to-do', group: 'Make', arg: 'required', plan: (a) => tool('life.todo', { text: a }) },
+  { name: 'remind', usage: '/remind <what> <when>', summary: 'Set a reminder, e.g. call mom tomorrow 5pm', group: 'Make', arg: 'required', plan: (a) => tool('life.remind', { text: a }) },
+  { name: 'event', usage: '/event <title> <when>', summary: 'Add a calendar event, e.g. exam friday 10am', group: 'Make', arg: 'required', plan: (a) => tool('life.event', { text: a }) },
+  { name: 'recall', usage: '/recall <question> | <answer>', summary: 'Make a flash card to revise later', group: 'Make', arg: 'required', check: (a) => (/\S\s*\|\s*\S/.test(a) ? undefined : 'A flash card needs a question and an answer split by “|”, like /recall What is Ohm’s law? | V = IR.'), plan: (a) => recall(a) },
   { name: 'run', usage: '/run', summary: 'Run the simulation', group: 'Run', plan: () => tool('scene.run') },
   { name: 'pause', usage: '/pause', summary: 'Pause the simulation', group: 'Run', plan: () => tool('scene.pause') },
   { name: 'reset', usage: '/reset', summary: 'Put the simulation back as drawn', group: 'Run', plan: () => tool('scene.reset') },
@@ -68,6 +82,8 @@ export function parseCommand(text: string): Parsed | null {
     return { ok: false, error: `I don't have a /${name} command.${near.length ? ` Did you mean ${near.join(' or ')}?` : ''} Type /help to see them all.` }
   }
   if (command.arg === 'required' && !arg) return { ok: false, error: `/${command.name} needs something after it, like ${command.usage.replace(/<([^>]+)>/, '“$1”')}.` }
+  const problem = command.check?.(arg)
+  if (problem) return { ok: false, error: problem }
   return { ok: true, command, arg, plan: command.plan(arg) }
 }
 

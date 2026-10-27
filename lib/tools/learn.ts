@@ -73,7 +73,7 @@ export const learnCardsCreate = registerTool(
     run({ pageId, lessonId, ...c }, ctx) {
       const link = pageId || lessonId || ctx.pageId ? { pageId: pageId ?? ctx.pageId ?? undefined, lessonId } : undefined
       const r = useLearner.getState().addCard({ ...c, type: c.type ?? 'basic', link })
-      return r.ok ? ok(`Saved card "${r.card.front.slice(0, 60)}". First review is due now.`, { id: r.card.id }) : fail(`Card rejected: ${r.problems.join('; ')}`)
+      return r.ok ? ok(`Made a flash card: “${r.card.front.slice(0, 60)}”. Type /quiz to review it.`, { id: r.card.id }) : fail(`Card rejected: ${r.problems.join('; ')}`)
     },
   })
 )

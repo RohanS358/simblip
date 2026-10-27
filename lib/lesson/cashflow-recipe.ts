@@ -8,6 +8,7 @@ const n = String.raw`(\d[\d,]*(?:\.\d+)?)`
 
 export function cashflowRecipe(request: string): string | null {
   const t = request.replace(/\bRs\.?|₹|\$|£|€|USD|INR/gi, ' ')
+  if (/\b(kg|g|m\/s|newtons?|degrees?|ohms?|volts?|metres?|meters?|incline|ramp|friction)\b|°/i.test(t)) return null // physics, not money
   if (!/\b(cash ?flow|npv|present worth|net present|annual worth|annuity|payback|interest|salvage|invest(?:ment)?|marr)\b/i.test(t)) return null
   const cost = new RegExp(String.raw`\b(?:pay|pays|paid|cost|costs|invest(?:s|ment)?(?: of)?|spend|buy|purchase|initial(?: cost)?)\b[^\d]{0,25}${n}`, 'i').exec(t)
   const each = new RegExp(String.raw`\b(?:receive|receives|return|returns|earn|earns|income|inflow|save|saves|savings|revenue|benefit)\b[^\d]{0,25}${n}[^.;]{0,20}\b(?:each|every|per|a|/)\s*(?:year|yr|annum)`, 'i').exec(t)

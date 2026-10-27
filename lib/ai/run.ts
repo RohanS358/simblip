@@ -131,8 +131,19 @@ const HISTORY_CHARS = 600
 /** Fold recent turns into the prompt, labelled as context rather than
  *  instruction — without that framing a model re-answers the previous
  *  question or blends it with the new one. */
+const FOLLOW_UP_RE = /\b(it|its|that|this|those|these|them|they|same|again|more|also|then|previous|last|above|too|else|another|instead|add|make|change|now)\b/i
+const words = (s: string) => new Set(s.toLowerCase().match(/[a-z]{4,}/g) ?? [])
+
+/** A new question that shares no words with the thread and points back at nothing is a fresh topic: the thread is dropped,
+ *  or a small model answers last turn's question again ("what is X" → the previous lesson, word for word). */
+function isFollowUp(prompt: string, history: NonNullable<AiRequest['history']>): boolean {
+  if (FOLLOW_UP_RE.test(prompt)) return true
+  const mine = words(prompt)
+  return history.slice(-HISTORY_TURNS).some((h) => [...words(`${h.prompt} ${h.answer ?? ''}`)].some((w) => mine.has(w)))
+}
+
 export function withHistory(prompt: string, history?: AiRequest['history']): string {
-  if (!history || history.length === 0) return prompt
+  if (!history || history.length === 0 || !isFollowUp(prompt, history)) return prompt
   const lines = history.slice(-HISTORY_TURNS).map((h) => {
     const out: string[] = [`User: ${h.prompt}`]
     const said = (h.answer ? tidyReply(h.answer) : (h.script ?? '')).trim()
