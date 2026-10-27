@@ -45,7 +45,7 @@ export const teachPage = registerTool(
           if (!ac.signal.aborted) cancelPreparing()
         }
       })()
-      return ok(`Reading "${node.name}" — ${reading.items.length} thing${reading.items.length === 1 ? '' : 's'} to go through. It starts in a moment.`, { items: reading.items.length })
+      return ok(`I'm reading “${node.name}”. There ${reading.items.length === 1 ? 'is 1 thing' : `are ${reading.items.length} things`} on it to go through, and the lesson starts in a moment.`, { items: reading.items.length })
     },
   })
 )

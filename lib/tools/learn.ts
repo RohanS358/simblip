@@ -87,9 +87,9 @@ export const learnCardsNext = registerTool(
     input: z.object({}),
     run() {
       const due = useLearner.getState().due()
-      if (!due.length) return ok('No cards are due. Nothing to review right now.', { card: null, remaining: 0 })
+      if (!due.length) return ok('You have no cards due. Nothing to review right now.', { card: null, remaining: 0 })
       const c = due[0]
-      return ok(`Q: ${c.front}`, { card: { id: c.id, type: c.type, front: c.front, hint: c.hint, link: c.link }, remaining: due.length })
+      return ok(`Your next card (${due.length} due): ${c.front}`, { card: { id: c.id, type: c.type, front: c.front, hint: c.hint, link: c.link }, remaining: due.length })
     },
   })
 )

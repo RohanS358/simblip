@@ -28,7 +28,7 @@ export const teachLesson = registerTool(
       const lesson = await findLesson(topic)
       if (!lesson) {
         void generateAndPlay(topic) // builds in the background; the overlay shows progress and a Cancel
-        return ok(`Building a lesson on "${topic}" — about a minute the first time. You can keep working; it starts when ready.`, { generated: true })
+        return ok(`I'm putting together a lesson on “${topic}”. It takes about a minute the first time, and you can keep working: it starts on its own when it's ready.`, { generated: true })
       }
       const sb = storyboardFromCourse(lesson.doc, lesson.id)
       const issues = lintStoryboard(sb)
@@ -37,7 +37,7 @@ export const teachLesson = registerTool(
       if (!pageId) return fail('Open a notebook page first.')
       void startLesson(sb, pageId) // plays in the background; the overlay owns it from here
       const predictions = sb.beats.filter((b) => b.t === 'predict').length
-      return ok(`Playing "${lesson.title}" — about ${Math.max(1, Math.round(durationOf(sb) / 60))} min, with ${predictions} prediction${predictions === 1 ? '' : 's'} for you to answer.`, { lessonId: lesson.id, pageId })
+      return ok(`Here's the lesson “${lesson.title}”: about ${Math.max(1, Math.round(durationOf(sb) / 60))} minutes, with ${predictions} question${predictions === 1 ? '' : 's'} for you to predict along the way. It's starting now.`, { lessonId: lesson.id, pageId })
     },
   })
 )

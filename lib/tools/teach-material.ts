@@ -24,7 +24,7 @@ export const teachMaterialTool = registerTool(
       const how = mode ?? (asked ? 'solve' : lecture ? 'teach' : isQuestion(text) ? 'solve' : 'teach')
       const brief = wantsBrief(request)
       void teachMaterial({ text, request, mode: how, brief })
-      return ok(`${how === 'solve' ? 'Working through this question' : 'Preparing a lesson from your material'}${brief ? ' (short version)' : ' in full detail'} — it starts in a moment.`, { mode: how })
+      return ok(`${how === 'solve' ? "I'm working through this question step by step" : "I'm preparing a lesson from your material"}${brief ? ' (short version)' : ''}. It starts in a moment.`, { mode: how })
     },
   })
 )

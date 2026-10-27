@@ -65,3 +65,55 @@ export async function findLesson(topic: string): Promise<{ id: string; title: st
   const d = docs.get(best.doc.id)
   return d ? { id: best.doc.id, ...d } : null
 }
+
+// ── whole courses, for /teach-course ────────────────────────────────────────
+
+export interface CourseSummary { title: string; lessons: { id: string; title: string }[] }
+let courseList: CourseSummary[] | null = null
+
+const flatten = (n: TreeNode, out: { id: string; title: string }[]) => {
+  for (const l of n.lessons) out.push({ id: l.id, title: l.title })
+  for (const c of n.children) flatten(c, out)
+}
+
+/** Every course the student may read, each with its lessons in order. */
+export async function listCourses(): Promise<CourseSummary[]> {
+  if (courseList) return courseList
+  const res = await fetch('/api/courses', { headers: headers() })
+  if (!res.ok) return []
+  const { courses } = (await res.json()) as { courses: { title: string; tree: TreeNode[] }[] }
+  courseList = courses.map((c) => {
+    const lessons: { id: string; title: string }[] = []
+    for (const n of c.tree) flatten(n, lessons)
+    return { title: c.title, lessons }
+  }).filter((c) => c.lessons.length > 0)
+  return courseList
+}
+
+/** The course the student named: by title (or a code like "ENCT 351"), tolerant of case and punctuation. */
+export async function findCourse(query: string): Promise<{ course?: CourseSummary; all: CourseSummary[] }> {
+  const all = await listCourses()
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const q = norm(query)
+  const words = q.split(' ').filter(Boolean)
+  const scored = all
+    .map((c) => {
+      const t = norm(c.title)
+      const score = t === q ? 100 : t.includes(q) ? 60 : words.length ? (words.filter((w) => t.includes(w)).length / words.length) * 40 : 0
+      return { c, score }
+    })
+    .sort((a, b) => b.score - a.score)
+  return { course: scored[0] && scored[0].score >= 20 ? scored[0].c : undefined, all }
+}
+
+/** One lesson, whole. */
+export async function loadLesson(id: string): Promise<{ title: string; doc: CourseDoc } | null> {
+  const hit = docs.get(id)
+  if (hit) return hit
+  const r = await fetch(`/api/courses?lesson=${encodeURIComponent(id)}`, { headers: headers() })
+  if (!r.ok) return null
+  const d = (await r.json()) as { lesson: { title?: string; doc: CourseDoc } }
+  const entry = { title: d.lesson.title ?? d.lesson.doc.title, doc: d.lesson.doc }
+  docs.set(id, entry)
+  return entry
+}

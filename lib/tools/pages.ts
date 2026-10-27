@@ -28,7 +28,7 @@ export const pageList = registerTool(
         .slice(0, 60)
         .map((n) => ({ id: n.id, name: n.name, kind: (n as { pageKind?: string }).pageKind ?? 'board' }))
       return ok(
-        pages.map((p) => `${p.name} [${p.kind}] id=${p.id}${p.id === s.activePageId ? ' (open)' : ''}`).join('\n') || 'No pages.',
+        pages.length ? `You have ${pages.length} page${pages.length === 1 ? '' : 's'}:\n${pages.map((p) => `• ${p.name} [${p.kind}]${p.id === s.activePageId ? ' (open now)' : ''}`).join('\n')}\nType /open and a name to go to one.` : 'You have no pages yet.',
         { pages }
       )
     },
@@ -41,9 +41,16 @@ export const pageOpen = registerTool(
     summary: 'Open a page by id',
     effect: 'run',
     keywords: ['open', 'go to', 'switch to', 'show page'],
-    input: z.object({ id: z.string() }),
-    run({ id }) {
+    input: z.object({ id: z.string().optional(), name: z.string().optional() }).refine((v) => v.id || v.name, 'Give a page id or name'),
+    run({ id, name }) {
       const s = useWorkspaceStore.getState()
+      if (!id && name) {
+        const q = name.trim().toLowerCase()
+        const pages = Object.values(s.nodes).filter((n) => n.kind === 'page')
+        id = (pages.find((n) => n.name.toLowerCase() === q) ?? pages.find((n) => n.name.toLowerCase().includes(q)))?.id
+        if (!id) return fail(`I couldn't find a page called “${name}”. Type /pages to see what you have.`)
+      }
+      if (!id) return fail('Say which page to open.')
       const n = s.nodes[id]
       if (!n || n.kind !== 'page') return fail(`No page with id "${id}". Use page.list.`)
       s.setActivePage(id)

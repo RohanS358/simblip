@@ -56,6 +56,15 @@ export function planFor(req: Pick<AiRequest, 'prompt' | 'pageDigest' | 'teacher'
 /** Direct requests ("teach me Ohm's law") need no model, so they run in the browser
  *  whichever backend would have answered. True when handled (a `done` was emitted). */
 export async function tryDirect(req: AiRequest, ctx: ToolContext, emit: (e: AiEvent) => void): Promise<boolean> {
+  if (req.tool) {
+    // The user named the tool, so a failure is shown as the answer (in words), never swallowed into a guess.
+    const res = await runTool(req.tool.name, req.tool.args, ctx)
+    const step: ToolStep = { name: req.tool.name, args: req.tool.args, ok: res.ok, summary: res.summary }
+    emit({ event: 'intent', data: 'act' })
+    emit({ event: 'tool', data: step })
+    emit({ event: 'done', data: { message: res.summary, toolSteps: [step] } })
+    return true
+  }
   const plan = planFor(req)
   if (plan?.kind !== 'direct') return false
   const res = await runTool(plan.tool, plan.args, ctx)

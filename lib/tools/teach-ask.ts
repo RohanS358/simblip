@@ -45,7 +45,7 @@ export const teachAsk = registerTool(
             }).text
       const brief = wantsBrief(question)
       void teachMaterial({ text: text || `The student has no readable page open. Answer from general knowledge: ${question}`, request: question, mode: 'ask', brief })
-      return ok(text ? 'Looking at your page and working out how to explain it — it starts in a moment.' : 'Working out how to explain that — it starts in a moment.', { pageRead: Boolean(text) })
+      return ok(text ? "I'm looking at your page and working out how best to explain that. The lesson starts in a moment." : "I'm working out how best to explain that. The lesson starts in a moment.", { pageRead: Boolean(text) })
     },
   })
 )

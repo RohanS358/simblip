@@ -32,6 +32,8 @@ import { useKatexReady } from '@/lib/text/use-katex-ready'
 import { answerColumnSize, blocksToSimScript } from '@/lib/ai/explain'
 import { createDeck } from '@/lib/ai/make-deck'
 import { streamAi, useServerOnce } from '@/lib/ai/transport'
+import { toolLabel, repeatsSteps } from '@/lib/tools/present'
+import { matchCommands, parseCommand, helpText, type Command } from '@/lib/ai/commands'
 import { getTool } from '@/lib/tools/registry'
 import { AiEngineStrip, useRoute } from './ai-engine'
 import { ComposerPlus, ContextMeter, LearnMenu, ModeMenu } from './ai-composer-bar'
@@ -213,6 +215,10 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
     const id = setInterval(() => setHintAt((i) => i + 1), 4200)
     return () => clearInterval(id)
   }, [])
+  const slash = useMemo(() => matchCommands(input), [input])
+  const [slashAt, setSlashAt] = useState(0)
+  useEffect(() => setSlashAt(0), [input])
+  const pick = (c: Command) => setInput(c.arg ? `/${c.name} ` : `/${c.name}`)
   const hint = teacher ? undefined : QUICK_ACTIONS[hintAt % QUICK_ACTIONS.length]
   const placeholder = teacher
     ? TEACHER_HINTS[hintAt % TEACHER_HINTS.length]
@@ -405,9 +411,17 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
 
   const send = useCallback(
     async (text: string) => {
-      const prompt = text.trim()
+      let prompt = text.trim()
       if (!prompt || busy) return
       setInput('')
+      // A slash command says exactly what to do, so it is not guessed from the wording.
+      const cmd = parseCommand(prompt)
+      if (cmd && (!cmd.ok || (cmd.plan.kind === 'local'))) {
+        addTurn({ prompt, script: '', status: cmd.ok ? 'ok' : 'error', ...(cmd.ok ? { answer: helpText() } : { message: cmd.error }) })
+        return
+      }
+      const direct = cmd?.ok && cmd.plan.kind === 'tool' ? { name: cmd.plan.tool, args: cmd.plan.args } : undefined
+      const forced = cmd?.ok && cmd.plan.kind === 'lane' ? cmd.plan : undefined
       setBusy(true)
 
       // Attachments belong to THIS turn; clear them so the next prompt starts
@@ -443,9 +457,11 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         const request = {
           // The model sees the file contents folded in; the turn keeps the
           // user's own words, so the thread stays readable.
-          prompt: withAttachments(prompt, sent),
+          prompt: withAttachments(forced ? forced.prompt : prompt, sent),
+          ...(direct ? { tool: direct } : {}),
+          ...(forced && forced.intent !== 'edit' ? { intent: forced.intent } : {}),
           ...(model ? { model } : {}),
-          ...(teacher ? { teacher: true } : {}),
+          ...(teacher && !forced ? { teacher: true } : {}),
           ...ctx,
           // What was said before, so "add a graph to that" resolves. Read at
           // send time rather than from the render closure: the turn we just
@@ -484,7 +500,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             } else if (data.toolSteps) {
               // The assistant ACTED (ran, measured, opened). The tool chips are
               // the record; the message is its plain-language reply.
-              patchTurn(turnId, { toolSteps: data.toolSteps, answer: data.message, message: undefined, script: '', status: 'ok' })
+              patchTurn(turnId, { toolSteps: data.toolSteps, answer: repeatsSteps(data.message, data.toolSteps) ? undefined : data.message, message: undefined, script: '', status: 'ok' })
             } else if (data.script || data.answer) {
               patchTurn(turnId, {
                 // Clear the streamed preview when this lane produced no script,
@@ -752,6 +768,24 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             toggle ran off the right edge. The Select takes the full row and
             the toggle drops beneath it instead. */}
         <AiEngineStrip />
+        {slash.length > 0 && (
+          <div role="listbox" aria-label="Commands" className="mb-1 max-h-48 overflow-y-auto rounded-lg border border-border/60 bg-popover p-1 shadow-sm">
+            {slash.map((c, i) => (
+              <button
+                key={c.name}
+                type="button"
+                role="option"
+                aria-selected={i === slashAt}
+                onMouseEnter={() => setSlashAt(i)}
+                onClick={() => pick(c)}
+                className={cn('flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left text-ui-xs', i === slashAt ? 'bg-accent text-foreground' : 'text-muted-foreground')}
+              >
+                <span className="shrink-0 font-medium text-foreground">{c.usage}</span>
+                <span className="min-w-0 truncate">{c.summary}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <PromptInput
           value={input}
           onValueChange={setInput}
@@ -762,6 +796,11 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           <PromptInputTextarea
             placeholder={placeholder}
             onKeyDown={(e) => {
+              if (slash.length > 0) {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setSlashAt((i) => (i + (e.key === 'ArrowDown' ? 1 : slash.length - 1)) % slash.length); return }
+                // Enter completes the name; once it is complete (or has text after it) Enter sends as usual.
+                if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && input.trim() !== `/${slash[slashAt].name}`)) { e.preventDefault(); pick(slash[slashAt]); return }
+              }
               // Tab takes the suggestion on show, so the examples are still one keystroke away.
               if (e.key === 'Tab' && !e.shiftKey && !input && hint) { e.preventDefault(); setInput(hint.prompt) }
             }}
@@ -1054,7 +1093,7 @@ function Turn({
                   <X className="mt-px h-3 w-3 shrink-0 text-[var(--accent-rose)]" />
                 )}
                 <span className="min-w-0 flex-1">
-                  <code className="font-mono text-ui-2xs text-muted-foreground">{st.name}</code>
+                  <span className="text-ui-2xs font-medium text-muted-foreground">{toolLabel(st.name)}</span>
                   <span className="block break-words text-foreground/90">{st.summary}</span>
                 </span>
               </div>

@@ -35,6 +35,8 @@ export const aiRequestSchema = z.object({
   rawSystem: z.string().max(8000).optional(),
   /** JSON Schema for a rawSystem completion (constrained decoding where the backend supports it). */
   rawFormat: z.record(z.string(), z.unknown()).optional(),
+  /** A slash command the user typed (/teach, /open …): run exactly this tool, no routing, no model. */
+  tool: z.object({ name: z.string().max(60), args: z.record(z.string(), z.unknown()) }).optional(),
   /** Bypass the generation cache. Development only. */
   nocache: z.boolean().optional(),
   pageContext: z
