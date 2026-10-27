@@ -85,6 +85,25 @@ export function mergeById<T extends { id: string }>(
   return out
 }
 
+/** Two copies of one page that both moved: keep EVERYTHING from this device
+ *  and add what only the other has. Objects and variables merge by id (local
+ *  wins collisions — it's the copy on screen); prose can't be merged, so the
+ *  local body wins unless it is empty. Additive, so a conflict never drops
+ *  what the user just wrote. */
+export function mergePageContent<T extends { objects?: Keyed<unknown>; variables?: { id: string }[]; flow?: string }>(
+  local: T,
+  remote: T
+): T {
+  const vars = new Map([...(remote.variables ?? []), ...(local.variables ?? [])].map((v) => [v.id, v]))
+  return {
+    ...remote,
+    ...local,
+    objects: { ...(remote.objects ?? {}), ...(local.objects ?? {}) },
+    variables: [...vars.values()],
+    flow: local.flow || remote.flow,
+  }
+}
+
 /** Stable content fingerprint (FNV-1a over the canonical JSON text) — lets
  *  the pusher skip a page whose content hasn't changed since its last
  *  successful push, independent of key order. */

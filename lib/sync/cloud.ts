@@ -44,7 +44,7 @@ import { cloudConfigured } from '@/lib/data/db'
 import { onReconnect } from '@/lib/sync/connectivity'
 import { contentIdsOf, stampSyncedContent, syncedContentIds } from '@/lib/sync/page-sync'
 import { splitPulledTree } from '@/lib/sync/tree-visibility'
-import { canonicalJSON, fingerprint, mergeById, threeWayMerge } from '@/lib/sync/merge'
+import { canonicalJSON, fingerprint, mergeById, mergePageContent, threeWayMerge } from '@/lib/sync/merge'
 import { PROJECT_QUOTA_BYTES, jsonBytes } from '@/lib/storage/quota'
 
 const MAX_REQUEST_BYTES = 3.5 * 1024 * 1024
@@ -336,6 +336,27 @@ function adoptIncoming(contentId: string, content: unknown, rev: number): void {
   ledger.dirty = ledger.dirty.filter((id) => id !== contentId)
 }
 
+/** Both devices edited the page: keep local work, add what only the server
+ *  has, and leave the page dirty so the merge is pushed back on the server's
+ *  rev. Never overwrites unpushed typing the way adoptIncoming does. */
+function adoptMerged(contentId: string, local: unknown, remote: unknown, rev: number): void {
+  const merged = mergePageContent(local as never, remote as never)
+  if (canonicalJSON(merged) === canonicalJSON(remote)) return adoptIncoming(contentId, remote, rev)
+  archive.writePage(contentId, merged as never)
+  if (useDocStore.getState().pages[contentId]) {
+    applyingRemote = true
+    try {
+      useDocStore.setState((st) => ({ pages: { ...st.pages, [contentId]: merged as never } }))
+      useDocStore.getState().ensurePage(contentId)
+    } finally {
+      applyingRemote = false
+    }
+  }
+  ledger.revs[contentId] = rev
+  delete ledger.prints[contentId]
+  if (!ledger.dirty.includes(contentId)) ledger.dirty.push(contentId)
+}
+
 /** Adopt a tree: merged three-way against the last agreed copy, then split
  *  into shown/hidden for this device. Returns true if local had changes the
  *  remote lacks (so the merged tree must be pushed back). */
@@ -583,7 +604,11 @@ export function startSync() {
         for (const c of res.conflicts) {
           // Incoming wins, unless it is an empty shell over real local work.
           if (isBlankContent(c.content)) ledger.revs[c.id] = c.rev
-          else adoptIncoming(c.id, c.content, c.rev)
+          else {
+            const mine = useDocStore.getState().pages[c.id] ?? archive.readPage(c.id)
+            if (mine && !isBlankContent(mine)) adoptMerged(c.id, mine, c.content, c.rev)
+            else adoptIncoming(c.id, c.content, c.rev)
+          }
         }
         // Tree result
         if (res.workspace && 'conflict' in res.workspace) {
@@ -661,8 +686,8 @@ export function startSync() {
             ledger.revs[row.id] = row.rev
             dirty.add(row.id)
           } else {
-            adoptIncoming(row.id, row.content, row.rev)
-            dirty.delete(row.id)
+            adoptMerged(row.id, local, row.content, row.rev)
+            dirty.add(row.id)
           }
           continue
         }
