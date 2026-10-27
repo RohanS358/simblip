@@ -59,6 +59,8 @@ import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat
 import { useAiReference } from '@/lib/store/ai-reference'
 import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
 import { buildPanelContext, buildPageContext, loadBriefItems, READ_KINDS } from '@/lib/ai/panel-context'
+import { ensureSummary } from '@/lib/ai/brief/summary'
+import { makeLlm } from '@/lib/lesson/llm'
 import { verifyScene } from '@/lib/scene/verify-scene'
 import type { PageDoc } from '@/lib/scene/types'
 import { applyPlan } from '@/lib/ai/apply-ops'
@@ -429,6 +431,8 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         // than the assistant silently reading their work.
         // A document, deck or PDF is read into passages first, so the brief can pick the ones this question needs.
         const items = useContext && READ_KINDS.has(pageKind) ? await loadBriefItems().catch(() => undefined) : undefined
+        // A very long one also gets a model-written map, made once in the background; this question is answered without waiting for it.
+        if (items) ensureSummary(items, makeLlm)
         const { stats: _stats, ...ctx } = (useContext ? buildPanelContext(pageId, pageKind, prompt, items) : null) ?? ({} as Record<string, never>)
         void _stats
         // The panel does not care WHERE the model runs — on this device or on

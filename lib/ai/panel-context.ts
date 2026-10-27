@@ -13,6 +13,7 @@ import { viewportBounds } from '@/lib/scene/insertables'
 import { systemVariablesOf } from '@/lib/formula/system-scope'
 import { describeSurface } from '@/lib/ai/page-context'
 import { briefPage, type BriefItem } from '@/lib/ai/brief/page-brief'
+import { summaryFor } from '@/lib/ai/brief/summary'
 import { readOpenPage } from '@/lib/lesson/open-page'
 import type { PageKind } from '@/lib/scene/types'
 
@@ -60,6 +61,7 @@ export function buildPanelContext(pageId: string | null | undefined, pageKind: P
     selection: sel,
     question,
     budget: READ_KINDS.has(pageKind) ? 7_500 : undefined,
+    summary: items ? summaryFor(items) : undefined,
   })
   if (!brief.text && !surface) return null
   return {

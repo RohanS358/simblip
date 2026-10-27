@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { buildPanelContext, loadBriefItems, READ_KINDS } from '@/lib/ai/panel-context'
 import type { BriefItem } from '@/lib/ai/brief/page-brief'
+import { summaryFor, useSummaryJob } from '@/lib/ai/brief/summary'
 import { useLearner } from '@/lib/learning/store'
 import { useAiChat, type ChatAttachment } from '@/lib/store/ai-chat'
 import { useDocStore } from '@/lib/store/document'
@@ -120,6 +121,7 @@ export function ContextMeter({ pageId, pageKind, useContext, onUseContext, teach
     void loadBriefItems().then((r) => { if (live) setItems(r) }).catch(() => {})
     return () => { live = false }
   }, [open, useContext, pageKind, pageId, tick])
+  const job = useSummaryJob((s) => s.job)
   const turns = useAiChat((s) => s.turns)
   const selection = useDocStore((s) => s.selection)
 
@@ -189,6 +191,10 @@ export function ContextMeter({ pageId, pageKind, useContext, onUseContext, teach
               <span className="shrink-0 tabular-nums text-muted-foreground">{fmt(tokens(r.chars))}</span>
             </div>
           ))}
+          {items && job && job.state === 'running' && (
+            <p className="text-ui-2xs text-muted-foreground">Long document: writing a summary map for later questions… {job.done} of {job.total} sections. This question is answered from the best matching passages meanwhile.</p>
+          )}
+          {items && !job?.state?.startsWith('run') && summaryFor(items) && <p className="text-ui-2xs text-muted-foreground">Long document: a saved summary map is included.</p>}
           {teacher && <p className="text-ui-2xs text-muted-foreground">Teacher is on: the open page is read again in full (up to about 7,500 characters) when the lesson is planned.</p>}
         </div>
         {report.ctx && (

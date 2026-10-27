@@ -13,6 +13,7 @@
 import type { PageDoc, SceneObject } from '@/lib/scene/types'
 import { readSheet } from '@/lib/lesson/page-read'
 import { bm25, clip, passages, sentenceList } from './lexical'
+import type { DocSummary } from './summary'
 
 export interface BriefItem {
   kind: 'text' | 'formula' | 'table' | 'graph' | 'figure' | 'lab'
@@ -33,6 +34,8 @@ export interface BriefInput {
   question?: string
   /** Characters the whole brief may take. */
   budget?: number
+  /** A model-written map of a very long document (lib/ai/brief/summary.ts), when one has been made. */
+  summary?: DocSummary
 }
 
 export interface Brief {
@@ -276,7 +279,7 @@ function spend(entries: Entry[], budget: number, question: string): { chosen: Ma
     if (spent + len <= wholeBudget && (!anyScore || e.score > 0 || entries.length <= 12)) { if (take(e, 'full')) spent += len }
   }
   for (const e of ranked) {
-    if (chosen.has(e.key)) continue
+    if (chosen.has(e.key) || !e.short) continue
     if (!take(e, 'short')) break
   }
   return { chosen, hidden: entries.filter((e) => !chosen.has(e.key)).length }
@@ -313,8 +316,28 @@ export function briefPage(input: BriefInput): Brief {
     if (sel.length) head.push(`The student has selected: ${sel.join('; ')}. A request about “it” or “this” means this.`)
   }
 
+  // A long document's map stands in for the one-line outline: it says what each stretch is about, not just how it opens.
+  const map: string[] = []
+  const sum = input.items ? input.summary : undefined
+  if (sum) {
+    if (sum.overview) head.push(`Overview: ${sum.overview}`)
+    const room = Math.min(1_800, Math.floor(budget * 0.25))
+    let used = 0
+    const step = Math.max(1, Math.ceil((sum.groups.reduce((n, g) => n + g.gist.length + 14, 0)) / room))
+    sum.groups.forEach((g, i) => {
+      if (i % step !== 0 || used > room) return
+      const a = items[g.from]?.locator, b = items[g.to]?.locator
+      const where = a && b && a !== b ? `${a}–${b}` : (a ?? `part ${i + 1}`)
+      const line = `- ${where}: ${g.gist}`
+      used += line.length + 1
+      map.push(line)
+    })
+    for (const e of entries) e.short = ''
+  }
+
   const headText = head.join('\n')
-  const { chosen, hidden } = spend(entries, Math.max(400, budget - headText.length - 200), question)
+  const mapText = map.length ? `Section map:\n${map.join('\n')}` : ''
+  const { chosen, hidden } = spend(entries, Math.max(400, budget - headText.length - mapText.length - 200), question)
 
   const bySection = new Map<string, Entry[]>()
   for (const e of entries.filter((e) => chosen.has(e.key)).sort((a, b) => a.order - b.order)) {
@@ -322,7 +345,7 @@ export function briefPage(input: BriefInput): Brief {
     list.push(e)
     bySection.set(e.section, list)
   }
-  const body: string[] = []
+  const body: string[] = mapText ? [mapText] : []
   for (const sec of SECTIONS) {
     const list = bySection.get(sec)
     if (!list?.length) continue

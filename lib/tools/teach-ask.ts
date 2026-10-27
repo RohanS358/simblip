@@ -7,7 +7,8 @@
 import { z } from 'zod'
 import { teachMaterial } from '@/lib/lesson/generate'
 import { readOpenPage } from '@/lib/lesson/open-page'
-import { briefPage } from '@/lib/ai/brief/page-brief'
+import { briefPage, type BriefItem } from '@/lib/ai/brief/page-brief'
+import { summaryFor } from '@/lib/ai/brief/summary'
 import { READ_KINDS } from '@/lib/ai/panel-context'
 import { useDocStore } from '@/lib/store/document'
 import type { PageKind } from '@/lib/scene/types'
@@ -26,6 +27,10 @@ export const teachAsk = registerTool(
     async run({ question }) {
       const page = await readOpenPage()
       // The page, told in words and cut to what THIS question needs (lib/ai/brief/page-brief.ts) — not the first 7,500 characters.
+      const items: BriefItem[] | undefined =
+        typeof page !== 'string' && READ_KINDS.has(page.kind as PageKind)
+          ? page.reading.items.map((it) => ({ kind: it.kind, text: it.text, ids: it.ids, live: it.live, locator: it.pdfPage ? `p. ${it.pdfPage}` : undefined }))
+          : undefined
       const text =
         typeof page === 'string' || !page.reading.items.length
           ? ''
@@ -33,9 +38,10 @@ export const teachAsk = registerTool(
               title: page.name,
               kind: page.kind,
               doc: useDocStore.getState().pages[page.lessonPage],
-              items: READ_KINDS.has(page.kind as PageKind) ? page.reading.items.map((it) => ({ kind: it.kind, text: it.text, ids: it.ids, live: it.live, locator: it.pdfPage ? `p. ${it.pdfPage}` : undefined })) : undefined,
+              items,
               question,
               budget: 7_500,
+              summary: items ? summaryFor(items) : undefined,
             }).text
       const brief = wantsBrief(question)
       void teachMaterial({ text: text || `The student has no readable page open. Answer from general knowledge: ${question}`, request: question, mode: 'ask', brief })
