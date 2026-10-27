@@ -35,12 +35,13 @@ import { streamAi, useServerOnce } from '@/lib/ai/transport'
 import { getTool } from '@/lib/tools/registry'
 import { AiEngineStrip, useRoute } from './ai-engine'
 import { RecallStrip } from './recall-strip'
+import { ComposerPlus, ContextMeter, ModeMenu } from './ai-composer-bar'
 import { useEngine } from '@/lib/ai/engine/store'
 import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
 import { viewportBounds } from '@/lib/scene/insertables'
 import {
-  ArrowUp, AtSign, BrainCircuit, Check, Copy, GraduationCap, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
+  ArrowUp, BrainCircuit, Check, Copy, GraduationCap, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Square, SquarePen, Trash2, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChatContainerContent, ChatContainerRoot } from '@/components/ui/chat-container'
@@ -58,7 +59,7 @@ import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnosti
 import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat'
 import { useAiReference } from '@/lib/store/ai-reference'
 import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
-import { buildDigest, describeSurface } from '@/lib/ai/page-context'
+import { buildPanelContext, buildPageContext } from '@/lib/ai/panel-context'
 import { verifyScene } from '@/lib/scene/verify-scene'
 import type { PageDoc } from '@/lib/scene/types'
 import { applyPlan } from '@/lib/ai/apply-ops'
@@ -67,7 +68,7 @@ import {
   deleteSession, listSessions, loadSession, type AiSessionMeta,
 } from '@/lib/store/ai-sessions'
 import { cn } from '@/lib/utils'
-import { PanelHeader, segmentedTab, segmentedTrack } from './panel-header'
+import { PanelHeader } from './panel-header'
 import { systemVariablesOf } from '@/lib/formula/system-scope'
 
 /** Same palette the Code IDE uses (components/objects/code.tsx), so a script
@@ -108,31 +109,6 @@ function ScriptBlock({ source, streaming }: { source: string; streaming?: boolea
         {streaming && <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-[var(--accent-blue)] align-middle" />}
       </code>
     </pre>
-  )
-}
-
-/** Two states, one control. Wears the shared segmented-control recipe (see
- *  segmentedTrack/segmentedTab in panel-header.tsx) so it matches the Uploads
- *  filter rather than being a second, slightly-different toggle. */
-function ModeToggle({ auto, onChange }: { auto: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className={cn(segmentedTrack(2), 'w-fit')}>
-      {([false, true] as const).map((v) => (
-        <button
-          key={String(v)}
-          type="button"
-          aria-pressed={auto === v}
-          title={v
-            ? 'Auto — verified scripts are added to the canvas immediately'
-            : 'Manual — review each script, then add it yourself'}
-          onClick={() => onChange(v)}
-          className={segmentedTab(auto === v)}
-        >
-          {v ? <Zap className="h-3 w-3" /> : <Sparkle className="h-3 w-3" />}
-          {v ? 'Auto' : 'Manual'}
-        </button>
-      ))}
-    </div>
   )
 }
 
@@ -229,7 +205,6 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       return !v
     })
   }, [])
-  const selection = useDocStore((s) => s.selection)
 
   /** A passage the reader selected in a course lesson and sent here with
    *  "Ask about this". It arrives as an ordinary attachment, so the composer,
@@ -249,19 +224,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   const pageKind = useWorkspaceStore(
     (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
-  const pageObjectCount = useDocStore((s) =>
-    pageId ? Object.keys(s.pages[pageId]?.objects ?? {}).length : 0
-  )
 
-  /** What the chip says, and what gets sent. A selection is more specific
-   *  than the page, so it wins when there is one. */
-  const contextLabel = useMemo(() => {
-    if (!pageId || pageObjectCount === 0) return null
-    if (selection.length > 0) {
-      return `${selection.length} selected`
-    }
-    return `this page · ${pageObjectCount} object${pageObjectCount === 1 ? '' : 's'}`
-  }, [pageId, pageObjectCount, selection.length])
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -448,33 +411,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         // The page the user is looking at, digested. Sent only when the
         // context chip is on — the toggle is what makes this visible rather
         // than the assistant silently reading their work.
-        const ctx = (() => {
-          if (!useContext || !page || !pageId) return null
-          const sel = useDocStore.getState().selection
-          const digest = buildDigest(page, sel)
-          // The space to work in, even when the page is empty — an empty
-          // board still has a viewport, and that is exactly when knowing it
-          // matters most.
-          const surface = describeSurface(
-            { kind: pageKind, bounds: viewportBounds(pageId) },
-            page
-          )
-          if (!digest.text && !surface) return null
-          return {
-            pageDigest: digest.text,
-            pageSurface: surface,
-            hasSelection: sel.length > 0,
-            pageLabel: sel.length > 0 ? `${sel.length} selected object(s)` : 'the page you are on',
-            // Ids and parameter NAMES only — enough to verify an edit plan
-            // server-side, without shipping the document itself.
-            pageObjects: Object.fromEntries(
-              Object.values(page.objects).map((o) => [
-                o.id,
-                { kind: o.geometry.kind, params: Object.keys(o.parameters) },
-              ])
-            ),
-          }
-        })()
+        const ctx = useContext ? buildPanelContext(pageId, pageKind) : null
         // The panel does not care WHERE the model runs — on this device or on
         // the server — only that events arrive in the same shape.
         let lane: string = 'simulate'
@@ -497,13 +434,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             .getState()
             .turns.filter((t) => t.id !== turnId && t.status === 'ok')
             .map((t) => ({ prompt: t.prompt, answer: t.answer, script: t.script })),
-          pageContext: page
-            ? {
-                variables: page.variables.map((v) => ({ name: v.name, expr: v.expr })),
-                systemVariables: systemVariablesOf(page.objects),
-                objectCount: Object.keys(page.objects).length,
-              }
-            : undefined,
+          pageContext: buildPageContext(pageId),
         }
         await streamAi(request, controller.signal, (ev) => {
           if (ev.event === 'intent') {
@@ -799,46 +730,6 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             the toggle drops beneath it instead. */}
         <AiEngineStrip />
         <RecallStrip />
-        <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-          {route.where === 'server' && models.models.length > 0 && (
-            // The app's own Select, not a native <select>: a native one paints
-            // the OS menu, which looks nothing like every other dropdown in
-            // this workspace. Radix gives the same popover, ticks and hover
-            // states as the account menu and Settings.
-            // Radix reserves value="" for "cleared", so the store's own empty
-            // string (meaning "whatever the backend defaults to") rides a
-            // sentinel through the control and is mapped back on the way out.
-            <Select
-              value={model || DEFAULT_MODEL}
-              onValueChange={(v) => setModel(v === DEFAULT_MODEL ? '' : v)}
-            >
-              <SelectTrigger
-                size="sm"
-                aria-label="Model"
-                title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
-                className="min-w-0 max-w-[11rem] flex-1 text-ui-xs font-medium"
-              >
-                <SelectValue placeholder={models.default} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={DEFAULT_MODEL} className="text-ui-xs">
-                  {models.default}
-                </SelectItem>
-                {models.models.map((m) => (
-                  <SelectItem key={m} value={m} className="text-ui-xs">
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <div className="shrink-0">
-            <ModeToggle auto={auto} onChange={setAuto} />
-          </div>
-          {/* Kept visible, not just a tooltip on the toggle: this is the one
-              piece of state that decides whether a send mutates the canvas. */}
-          
-        </div>
         <PromptInput
           value={input}
           onValueChange={setInput}
@@ -851,63 +742,26 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             className="text-ui-sm"
           />
           <PromptInputActions className="justify-between gap-1.5 pt-1.5">
-            {/* What the assistant can see: auto-attached from the page or
-                selection and revocable — the toggle is why this is transparent
-                rather than the assistant silently reading your work.
-
-                Attach button and what IS attached read as one unit, on one
-                line. These chips used to stack ABOVE the composer, pushing the
-                text area down a row for every context or file, and putting the
-                evidence a long way from the control that produced it. */}
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <PromptInputAction
-                tooltip={teacher
-                  ? 'Teacher is on: ask anything and it is explained as a lesson about this page. Click to turn off'
-                  : 'Teacher: answer questions as a narrated lesson about the open page'}
-              >
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-pressed={teacher}
-                  aria-label="Teacher"
+              <ComposerPlus
+                onAttach={() => fileRef.current?.click()}
+                teacher={teacher}
+                onTeacher={toggleTeacher}
+                useContext={useContext}
+                onUseContext={() => setUseContext((v) => !v)}
+                hasPage={Boolean(pageId)}
+              />
+              {teacher && (
+                <button
+                  type="button"
                   onClick={toggleTeacher}
-                  className={`shrink-0 rounded-full transition-[transform,background-color,color] duration-150 ease-strong active:scale-90 ${
-                    teacher
-                      ? 'bg-[color-mix(in_oklch,var(--accent-violet)_18%,transparent)] text-[var(--accent-violet)]'
-                      : 'text-muted-foreground'
-                  }`}
+                  title="Teacher is on — click to turn off"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[color-mix(in_oklch,var(--accent-violet)_14%,transparent)] px-2 py-0.5 text-ui-2xs font-medium text-[var(--accent-violet)] transition-transform active:scale-95"
                 >
-                  <GraduationCap className="h-3.5 w-3.5" />
-                </Button>
-              </PromptInputAction>
-              <PromptInputAction tooltip="Attach a PDF, slide deck, document, sheet or image">
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className="shrink-0 rounded-full transition-transform duration-150 ease-strong active:scale-90"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                </Button>
-              </PromptInputAction>
-              {/* Scrolls rather than wraps: a wrapping row would grow the
-                  composer's height again, which is what this move fixed. */}
+                  <GraduationCap className="h-3 w-3" /> Teacher <X className="h-2.5 w-2.5" />
+                </button>
+              )}
               <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-        {contextLabel && (
-                  <button
-                    type="button"
-                    onClick={() => setUseContext((v) => !v)}
-                    title={useContext ? 'Attached — click to detach' : 'Detached — click to attach'}
-                    className={`inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-ui-2xs transition-colors ${
-                      useContext
-                        ? 'bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
-                        : 'text-muted-foreground line-through'
-                    }`}
-                  >
-                    <AtSign className="h-2.5 w-2.5 shrink-0" />
-                    <span className="truncate">{contextLabel}</span>
-                  </button>
-                )}
         {(attachments.length > 0 || reading) && (
                   <div className="flex min-w-0 items-center gap-1">
                     {attachments.map((a, i) => (
@@ -953,6 +807,53 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             </PromptInputAction>
           </PromptInputActions>
         </PromptInput>
+        {/* Under the box, like the Claude app: the mode on the left, the model and the context ring on the right. */}
+        <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+          <ModeMenu auto={auto} onChange={setAuto} />
+          <div className="flex min-w-0 items-center gap-0.5">
+          {route.where === 'server' && models.models.length > 0 && (
+            // The app's own Select, not a native <select>: a native one paints
+            // the OS menu, which looks nothing like every other dropdown in
+            // this workspace. Radix gives the same popover, ticks and hover
+            // states as the account menu and Settings.
+            // Radix reserves value="" for "cleared", so the store's own empty
+            // string (meaning "whatever the backend defaults to") rides a
+            // sentinel through the control and is mapped back on the way out.
+            <Select
+              value={model || DEFAULT_MODEL}
+              onValueChange={(v) => setModel(v === DEFAULT_MODEL ? '' : v)}
+            >
+              <SelectTrigger
+                size="sm"
+                aria-label="Model"
+                title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
+                className="h-6 min-w-0 max-w-[10rem] gap-1 border-0 bg-transparent px-1.5 text-ui-xs font-medium text-muted-foreground shadow-none hover:bg-accent/60 hover:text-foreground"
+              >
+                <SelectValue placeholder={models.default} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={DEFAULT_MODEL} className="text-ui-xs">
+                  {models.default}
+                </SelectItem>
+                {models.models.map((m) => (
+                  <SelectItem key={m} value={m} className="text-ui-xs">
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+            <ContextMeter
+              pageId={pageId}
+              pageKind={pageKind}
+              useContext={useContext}
+              onUseContext={() => setUseContext((v) => !v)}
+              teacher={teacher}
+              draft={input}
+              attachments={attachments}
+            />
+          </div>
+        </div>
         {/* Quick actions sit UNDER the composer and stay put mid-conversation —
             SUGGESTIONS above only ever show on an empty thread. Clicking one
             fills the box rather than sending, so the prompt can be edited
