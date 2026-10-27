@@ -40,7 +40,7 @@ import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
 import { viewportBounds } from '@/lib/scene/insertables'
 import {
-  ArrowUp, AtSign, BrainCircuit, Check, Copy, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
+  ArrowUp, AtSign, BrainCircuit, Check, Copy, GraduationCap, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChatContainerContent, ChatContainerRoot } from '@/components/ui/chat-container'
@@ -217,6 +217,18 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
    *  being aware of what you are looking at is the point — but revocable, so
    *  it is never secretly reading the page. */
   const [useContext, setUseContext] = useState(true)
+  /** Teacher mode: every question is answered as a short drawn, narrated lesson about the page that is open — on any
+   *  page. Remembered across visits, since it is a way of working rather than a one-off. */
+  const [teacher, setTeacher] = useState(false)
+  useEffect(() => {
+    try { setTeacher(localStorage.getItem('simblip.assistant.teacher') === '1') } catch { /* private mode */ }
+  }, [])
+  const toggleTeacher = useCallback(() => {
+    setTeacher((v) => {
+      try { localStorage.setItem('simblip.assistant.teacher', v ? '0' : '1') } catch { /* private mode */ }
+      return !v
+    })
+  }, [])
   const selection = useDocStore((s) => s.selection)
 
   /** A passage the reader selected in a course lesson and sent here with
@@ -473,6 +485,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           // user's own words, so the thread stays readable.
           prompt: withAttachments(prompt, sent),
           ...(model ? { model } : {}),
+          ...(teacher ? { teacher: true } : {}),
           ...(ctx ?? {}),
           // What was said before, so "add a graph to that" resolves. Read at
           // send time rather than from the render closure: the turn we just
@@ -562,7 +575,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         setBusy(false)
       }
     },
-    [busy, addTurn, patchTurn, pageId, auto, model, runScript, attachments, useContext]
+    [busy, addTurn, patchTurn, pageId, auto, model, runScript, attachments, useContext, teacher]
   )
 
   const empty = turns.length === 0
@@ -822,6 +835,22 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           <div className="shrink-0">
             <ModeToggle auto={auto} onChange={setAuto} />
           </div>
+          <button
+            type="button"
+            aria-pressed={teacher}
+            onClick={toggleTeacher}
+            title={teacher
+              ? 'Teacher is on — ask anything and she explains it with the open page as context. Click to turn off'
+              : 'Turn the teacher on — questions are answered as a narrated lesson about the page you have open'}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-ui-xs font-medium transition-colors ${
+              teacher
+                ? 'border-[color-mix(in_oklch,var(--accent-violet)_45%,transparent)] bg-[color-mix(in_oklch,var(--accent-violet)_14%,transparent)] text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <GraduationCap className="h-3 w-3" />
+            Teacher
+          </button>
           {/* Kept visible, not just a tooltip on the toggle: this is the one
               piece of state that decides whether a send mutates the canvas. */}
           
@@ -834,7 +863,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           className="border-border/60 bg-card/60"
         >
           <PromptInputTextarea
-            placeholder={auto ? 'Describe it — I’ll build it straight away' : 'Describe a simulation…'}
+            placeholder={teacher ? 'Ask the teacher about this page…' : auto ? 'Describe it — I’ll build it straight away' : 'Describe a simulation…'}
             className="text-ui-sm"
           />
           <PromptInputActions className="justify-between gap-1.5 pt-1.5">

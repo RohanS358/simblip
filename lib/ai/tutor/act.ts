@@ -10,7 +10,7 @@ import type { AiEvent, AiRequest, ToolStep } from '@/lib/ai/run'
 import type { ChatMessage, ChatReply, ChatRequest, ToolDef } from '@/lib/ai/engine/local'
 import { getTool, runTool, toolSchema } from '@/lib/tools/registry'
 import type { ToolContext } from '@/lib/tools/types'
-import { routeAct } from './router'
+import { routeAct, type ActPlan } from './router'
 
 /** The slice of the engine this lane needs — so tests drive it with a script. */
 export interface Chatter {
@@ -45,10 +45,18 @@ export interface ActDeps {
   signal?: AbortSignal
 }
 
+/** With the teacher switched on every question becomes a lesson about the open page, unless it already names a lesson
+ *  ("teach me …") or is a one-word command ("run it"). */
+export function planFor(req: Pick<AiRequest, 'prompt' | 'pageDigest' | 'teacher'>): ActPlan | null {
+  const routed = routeAct(req.prompt, Boolean(req.pageDigest))
+  if (routed?.kind === 'direct' || routed?.kind === 'quick' || !req.teacher || !req.prompt.trim()) return routed
+  return { kind: 'direct', tool: 'teach.ask', args: { question: req.prompt.trim().slice(0, 600) } }
+}
+
 /** Direct requests ("teach me Ohm's law") need no model, so they run in the browser
  *  whichever backend would have answered. True when handled (a `done` was emitted). */
 export async function tryDirect(req: AiRequest, ctx: ToolContext, emit: (e: AiEvent) => void): Promise<boolean> {
-  const plan = routeAct(req.prompt, Boolean(req.pageDigest))
+  const plan = planFor(req)
   if (plan?.kind !== 'direct') return false
   const res = await runTool(plan.tool, plan.args, ctx)
   if (!res.ok) return false

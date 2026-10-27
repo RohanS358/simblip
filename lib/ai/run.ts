@@ -57,6 +57,8 @@ export const aiRequestSchema = z.object({
   pageObjects: z
     .record(z.string(), z.object({ kind: z.string(), params: z.array(z.string()) }))
     .optional(),
+  /** The teacher is switched on: answer as a lesson, with the open page as context. */
+  teacher: z.boolean().optional(),
   /** Earlier turns, oldest first. Only the tail is used — see HISTORY_TURNS. */
   history: z
     .array(

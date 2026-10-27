@@ -11,6 +11,7 @@ import './teacher'
 import './lesson'
 import './teach-page'
 import './teach-material'
+import './teach-ask'
 
 export { listTools, getTool, runTool, toolSpecs, toolSchema, setToolGenerator } from './registry'
 export { activeContext } from './context'

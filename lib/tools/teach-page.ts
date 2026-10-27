@@ -4,18 +4,13 @@
 // Boards, documents and slide decks. The explanation is grounded in what is on the page (lib/lesson/page-lesson.ts).
 
 import { z } from 'zod'
-import { useDocStore } from '@/lib/store/document'
-import { useWorkspaceStore } from '@/lib/store/workspace'
 import { startTour } from '@/lib/lesson/controller'
 import { cancelPreparing, directorParts, progressPreparing, startPreparing } from '@/lib/lesson/generate'
 import { explainItems, illustrate, pageStoryboard } from '@/lib/lesson/page-lesson'
-import { readPage, type PageReading } from '@/lib/lesson/page-read'
-import { readPdf } from '@/lib/lesson/pdf-read'
+import { readOpenPage } from '@/lib/lesson/open-page'
 import { useLesson } from '@/lib/lesson/store'
 import { defineTool, fail, ok } from './types'
 import { registerTool } from './registry'
-
-const READABLE = new Set(['board', 'doc', 'pptx', 'pdf'])
 
 export const teachPage = registerTool(
   defineTool({
@@ -26,26 +21,12 @@ export const teachPage = registerTool(
     keywords: ['teach me this page', 'explain this page', 'whatever is in this page', 'walk me through this page'],
     input: z.object({ brief: z.boolean().optional() }),
     async run({ brief = false }) {
-      const ws = useWorkspaceStore.getState()
-      const nodeId = ws.activePageId
-      const node = nodeId ? ws.nodes[nodeId] : undefined
-      if (!nodeId || !node) return fail('Open a page first.')
-      const kind = (node as { pageKind?: string }).pageKind ?? 'board'
-      if (!READABLE.has(kind)) return fail(`I can read boards, documents and slide decks so far — this is a ${kind} page.`)
-
-      let reading: PageReading
-      const sheetIds = kind === 'board' ? [nodeId] : ((node as { docPages?: string[] }).docPages ?? [])
-      if (kind === 'pdf') {
-        reading = { title: node.name, kind, items: await readPdf(nodeId) }
-      } else {
-        const docs = useDocStore.getState()
-        for (const id of [nodeId, ...sheetIds]) docs.loadPage(id) // sheets that were never opened are not in memory yet
-        const sheets = sheetIds.flatMap((id) => (useDocStore.getState().pages[id] ? [{ pageId: id, doc: useDocStore.getState().pages[id] }] : []))
-        reading = readPage({ title: node.name, kind, sheets, flow: useDocStore.getState().pages[nodeId]?.flow, flowPageId: sheetIds[0] ?? nodeId })
-      }
+      const page = await readOpenPage()
+      if (typeof page === 'string') return fail(page)
+      const { reading, lessonPage } = page
+      const node = { name: page.name }
       if (!reading.items.length) return fail('This page is empty — there is nothing to teach yet.')
 
-      const lessonPage = kind === 'board' || kind === 'pdf' ? nodeId : (ws.activeSheetId ?? sheetIds[0] ?? nodeId)
       // Phrasing the explanations takes a model call or two: build in the background, with progress and a Cancel.
       void (async () => {
         const ac = startPreparing(node.name, `Reading ${reading.items.length} things on the page…`)

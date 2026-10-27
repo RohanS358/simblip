@@ -59,6 +59,17 @@ ${LEVEL[level]}
 - "experiment": for a step with a scene, one sentence saying what to change so the student can predict the effect.
 - If the material is unreadable or too short to teach, set "unsure" to one question and leave steps empty.`
 
+export const askSystem = (level: Level, brief: boolean) => `You are a teacher. The student is looking at a page and asks you a question about it (or about its subject). Answer it as a short lesson at the board. Reply with JSON only: {"title":"…","steps":[{"heading":"…","say":["…"],"scene":"…","equation":"…","experiment":"…"}]}
+
+${LEVEL[level]}
+
+- Answer THE QUESTION. The page contents are given so you can refer to what the student sees ("the second formula on your page") and use its numbers; teach only what the question needs from them, do not recite the whole page.
+- Start with a direct one or two sentence answer, then build the understanding: why it is so, an everyday example, and a worked example with the page's numbers if it has any.
+- ${brief ? '3 or 4 steps, 1 or 2 sentences each.' : '4 to 7 steps, 2 to 4 sentences each, at most 28 words per sentence (they are read aloud).'}
+- ${SCENES}
+- "equation": the formula the step uses in LaTeX, only when there is one. "experiment": for a step with a scene, one sentence saying what to change so the student can predict the effect.
+- If the question cannot be answered from the page or general knowledge, set "unsure" to one question asking what they meant, and leave steps empty.`
+
 /** Ask for a plan, repairing once or twice with the validator's own message (the same loop planTopic uses). */
 export async function planFromText(llm: Llm, system: string, user: string, topic: string, caps: PlanCaps, signal?: AbortSignal): Promise<Plan> {
   let note = ''
