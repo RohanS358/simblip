@@ -835,22 +835,6 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           <div className="shrink-0">
             <ModeToggle auto={auto} onChange={setAuto} />
           </div>
-          <button
-            type="button"
-            aria-pressed={teacher}
-            onClick={toggleTeacher}
-            title={teacher
-              ? 'Teacher is on — ask anything and she explains it with the open page as context. Click to turn off'
-              : 'Turn the teacher on — questions are answered as a narrated lesson about the page you have open'}
-            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-ui-xs font-medium transition-colors ${
-              teacher
-                ? 'border-[color-mix(in_oklch,var(--accent-violet)_45%,transparent)] bg-[color-mix(in_oklch,var(--accent-violet)_14%,transparent)] text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <GraduationCap className="h-3 w-3" />
-            Teacher
-          </button>
           {/* Kept visible, not just a tooltip on the toggle: this is the one
               piece of state that decides whether a send mutates the canvas. */}
           
@@ -876,6 +860,26 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                 text area down a row for every context or file, and putting the
                 evidence a long way from the control that produced it. */}
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <PromptInputAction
+                tooltip={teacher
+                  ? 'Teacher is on: ask anything and it is explained as a lesson about this page. Click to turn off'
+                  : 'Teacher: answer questions as a narrated lesson about the open page'}
+              >
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-pressed={teacher}
+                  aria-label="Teacher"
+                  onClick={toggleTeacher}
+                  className={`shrink-0 rounded-full transition-[transform,background-color,color] duration-150 ease-strong active:scale-90 ${
+                    teacher
+                      ? 'bg-[color-mix(in_oklch,var(--accent-violet)_18%,transparent)] text-[var(--accent-violet)]'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <GraduationCap className="h-3.5 w-3.5" />
+                </Button>
+              </PromptInputAction>
               <PromptInputAction tooltip="Attach a PDF, slide deck, document, sheet or image">
                 <Button
                   size="icon-sm"
